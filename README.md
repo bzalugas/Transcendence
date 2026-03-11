@@ -1,5 +1,5 @@
 This project has been created as part of the 42 curriculum
-by ade-sarr, albestae, bazaluga, iris, licohen
+by ade-sarr, albestae, bazaluga, ilavillu, licohen
 
 # Description
 

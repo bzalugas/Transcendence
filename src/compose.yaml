@@ -1,0 +1,12 @@
+services:
+  api:
+    container_name: transcendence_backend
+    build: backend/transcendence_api/
+    environment:
+      env_file: ".env"
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./backend/transcendence_api:/api
+      - /api/node_modules
+    

@@ -5,7 +5,7 @@ all: up
 build:
 	docker compose -f $(COMPOSE_FILE) build
 
-up: build
+up:
 	docker compose -f $(COMPOSE_FILE) up -d
 
 down:
@@ -22,5 +22,7 @@ restart:
 
 clean: down
 	docker system prune -f -a --volumes
+
+re: down build up
 
 .PHONY: build up down stop start restart

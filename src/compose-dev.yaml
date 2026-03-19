@@ -1,0 +1,19 @@
+services:
+  api:
+    image: transcendence_api
+    container_name: transcendence_api
+    build: backend/transcendence_api/
+    environment:
+      env_file: ".env-dev"
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./backend/transcendence_api:/api
+      - /api/node_modules
+    networks:
+      - backend
+
+networks:
+  backend:
+    name: transcendence_backend
+    driver: bridge

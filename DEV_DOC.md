@@ -6,12 +6,18 @@
 
 # Run the development infrastructure
 
-For the moment, you just need to run `make` in the root directory in order to run all services and start develop, debug, etc. The sources are bind mounted, so that means you can edit files locally and the modifications will instantly take effect in the container. If you want to be able to develop wihtout installing locally the dependencies, see the **next section**.
+For the moment, you just need to run `make` in the root directory in order to run all services and start develop, debug, etc.
+
+The sources are bind mounted, so that means you can **edit files locally** and the modifications will instantly take effect in the container.
+
+**Be carefull**: it's possible that you develop some code based on the languages versions you have locally. If that's the case, always update the corresponding versions in the docker container (via Dockerfile).
+
+If you want to be able to develop wihtout installing locally the dependencies, see the **next section**.
 
 # How to work with IDE
 
 Since the aim of this infrastructure is to harmonize all the dependencies between all the group members, you don't *need* to install locally the different libraries, programing languages, etc.
-**Be carefull**: it's possible that you develop some code based on the versions you have locally. If that's the case, always update the corresponding versions in the docker container (via Dockerfile).
+
 
 To avoid mistakes, it would be better to develop directly with the versions inside the container. In order to do this, depending on your IDE, it is possible to start a new dev envrionment directly connected to a container.
 

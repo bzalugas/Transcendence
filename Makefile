@@ -1,28 +1,37 @@
-COMPOSE_FILE	:= src/compose.yaml
+COMPOSE_FILE	:= src/compose-prod.yaml
+COMPOSE_DEV		:= src/compose-dev.yaml
 
-all: up
+all: up # change after to run the production version
 
 build:
+	docker compose -f $(COMPOSE_DEV) build
+
+build-prod:
 	docker compose -f $(COMPOSE_FILE) build
 
-up:
+dev: build
+	docker compose -f $(COMPOSE_DEV) up -d
+
+prod: build-prod
 	docker compose -f $(COMPOSE_FILE) up -d
 
+up:
+	docker compose -f $(COMPOSE_DEV) up -d
+
 down:
-	docker compose -f $(COMPOSE_FILE) down
+	docker compose -f $(COMPOSE_DEV) down
 
 stop:
-	docker compose -f $(COMPOSE_FILE) stop
+	docker compose -f $(COMPOSE_DEV) stop
 
 start:
-	docker compose -f $(COMPOSE_FILE) start
+	docker compose -f $(COMPOSE_DEV) start
 
 restart:
-	docker compose -f $(COMPOSE_FILE) restart
+	docker compose -f $(COMPOSE_DEV) restart
 
 clean: down
-	docker system prune -f -a --volumes
 
 re: down build up
 
-.PHONY: build up down stop start restart
+.PHONY: all build build-prod dev prod up down stop start restart

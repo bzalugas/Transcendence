@@ -9,8 +9,8 @@ build:
 build-prod:
 	docker compose -f $(COMPOSE_FILE) build
 
-dev: build
-	docker compose -f $(COMPOSE_DEV) up -d
+dev:
+	docker compose -f $(COMPOSE_DEV) up --build -d
 
 prod: build-prod
 	docker compose -f $(COMPOSE_FILE) up -d
@@ -24,15 +24,19 @@ down:
 stop:
 	docker compose -f $(COMPOSE_DEV) stop
 
+rmi:
+	docker rmi -f $$(docker compose -f $(COMPOSE_DEV) config --images) 2>/dev/null
+
 start:
 	docker compose -f $(COMPOSE_DEV) start
 
 restart:
 	docker compose -f $(COMPOSE_DEV) restart
 
-clean: down
+clean: down rmi
 	docker volume prune -f
+
 
 re: down build up
 
-.PHONY: all build build-prod dev prod up down stop start restart
+.PHONY: all build build-prod dev prod up down stop rmi start restart

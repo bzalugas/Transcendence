@@ -2,18 +2,31 @@ services:
   api:
     image: transcendence_api
     container_name: transcendence_api
-    build: backend/transcendence_api/
-    environment:
-      env_file: ".env-dev"
+    build: backend/api/
+    env_file: .env-dev
     ports:
       - "3000:3000"
     volumes:
-      - ./backend/transcendence_api:/api
+      - ./backend/api:/api
       - /api/node_modules
     networks:
       - backend
+
+  db:
+    image: transcendence_db
+    container_name: transcendence_db
+    build: backend/db/
+    env_file: .env-dev
+    ports:
+      - "5433:5432"
+    volumes:
+      - db-data:/var/lib/postgresql
 
 networks:
   backend:
     name: transcendence_backend
     driver: bridge
+
+volumes:
+  db-data:
+    name: db-data

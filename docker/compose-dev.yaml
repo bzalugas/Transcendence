@@ -2,12 +2,12 @@ services:
   api:
     image: transcendence_api
     container_name: transcendence_api
-    build: backend/api/
+    build: ../src/backend/api/
     env_file: .env-dev
     ports:
       - "3000:3000"
     volumes:
-      - ./backend/api:/api
+      - ../src/backend/api:/api
       - /api/node_modules
     networks:
       - backend
@@ -15,7 +15,7 @@ services:
   db:
     image: transcendence_db
     container_name: transcendence_db
-    build: backend/db/
+    build: ../src/backend/db/
     env_file: .env-dev
     ports:
       - "5433:5432"

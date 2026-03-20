@@ -31,6 +31,12 @@ services:
     container_name: transcendence_db
     build: ../src/backend/db/
     env_file: .env-dev
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     ports:
       - "5433:5432"
     volumes:

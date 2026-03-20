@@ -5,7 +5,9 @@
 - docker compose
 - Make
 
-# Run the development infrastructure
+# Work with the development infrastructure
+
+## Run the dev mode
 
 For the moment, you just need to run `make` in the root directory in order to run all services and start develop, debug, etc.
 
@@ -17,14 +19,18 @@ If you want to be able to develop wihtout installing locally the dependencies, s
 
 *Note on dev mode*: In dev mode, the ports of the api and db containers are exposed to the host in order to access them to debug. That will not be the case with the production mode.
 
+## Stop the containers
+
+Use `make down` to stop and delete the containers. Use `make clean` to delete the anonymous volumes created by the bind mounts.
+
 ## Handling Dockerfiles changes
 
 When updating a Dockerfile, run `make re` or `make build` then `make up` in order to build again the corresponding images before running containers.
 
+
 # How to work with IDE
 
 Since the aim of this infrastructure is to harmonize all the dependencies between all the group members, you don't *need* to install locally the different libraries, programing languages, etc.
-
 
 To avoid mistakes, it would be better to develop directly with the versions inside the container. In order to do this, depending on your IDE, it is possible to start a new dev envrionment directly connected to a container.
 

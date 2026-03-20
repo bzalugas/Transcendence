@@ -1,4 +1,18 @@
 services:
+  front:
+    image: transcendence_front
+    container_name: transcendence_front
+    build: ../src/frontend/
+    env_file: .env-dev
+    ports:
+      - "8080:8080"
+    volumes:
+      - ../src/frontend/:/app
+      - /app/node_modules
+      - /app/.next
+    networks:
+      - transcendence-net
+  
   api:
     image: transcendence_api
     container_name: transcendence_api
@@ -10,7 +24,7 @@ services:
       - ../src/backend/api:/api
       - /api/node_modules
     networks:
-      - backend
+      - transcendence-net
 
   db:
     image: transcendence_db
@@ -21,10 +35,12 @@ services:
       - "5433:5432"
     volumes:
       - db-data:/var/lib/postgresql
+    networks:
+      - transcendence-net
 
 networks:
-  backend:
-    name: transcendence_backend
+  transcendence-net:
+    name: transcendence-net
     driver: bridge
 
 volumes:

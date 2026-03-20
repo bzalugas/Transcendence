@@ -1,5 +1,5 @@
-COMPOSE_FILE	:= src/compose-prod.yaml
-COMPOSE_DEV		:= src/compose-dev.yaml
+COMPOSE_FILE	:= docker/compose-prod.yaml
+COMPOSE_DEV		:= docker/compose-dev.yaml
 
 all: up # change after to run the production version
 

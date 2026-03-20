@@ -2,6 +2,7 @@
 # Prerequisites
 
 - docker (server & client)
+- docker compose
 - Make
 
 # Run the development infrastructure
@@ -13,6 +14,12 @@ The sources are bind mounted, so that means you can **edit files locally** and t
 **Be carefull**: it's possible that you develop some code based on the languages versions you have locally. If that's the case, always update the corresponding versions in the docker container (via Dockerfile).
 
 If you want to be able to develop wihtout installing locally the dependencies, see the **next section**.
+
+*Note on dev mode*: In dev mode, the ports of the api and db containers are exposed to the host in order to access them to debug. That will not be the case with the production mode.
+
+## Handling Dockerfiles changes
+
+When updating a Dockerfile, run `make re` or `make build` then `make up` in order to build again the corresponding images before running containers.
 
 # How to work with IDE
 

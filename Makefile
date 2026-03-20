@@ -31,6 +31,7 @@ restart:
 	docker compose -f $(COMPOSE_DEV) restart
 
 clean: down
+	docker volume prune -f
 
 re: down build up
 

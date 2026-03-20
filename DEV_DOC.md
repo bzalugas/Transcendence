@@ -9,7 +9,9 @@
 
 ## Run the dev mode
 
-For the moment, you just need to run `make` in the root directory in order to run all services and start develop, debug, etc.
+First of all, you need to create or copy src/.env-dev file with the needed env variables (**listed in src/.env_template**).
+
+Then, just run `make` in the root directory in order to run all services and start develop, debug, etc.
 
 The sources are bind mounted, so that means you can **edit files locally** and the modifications will instantly take effect in the container.
 
@@ -28,11 +30,13 @@ Use `make down` to stop and delete the containers. Use `make clean` to delete th
 When updating a Dockerfile, run `make re` or `make build` then `make up` in order to build again the corresponding images before running containers.
 
 
-# How to work with IDE
+# How to work with an IDE
 
 Since the aim of this infrastructure is to harmonize all the dependencies between all the group members, you don't *need* to install locally the different libraries, programing languages, etc.
 
 To avoid mistakes, it would be better to develop directly with the versions inside the container. In order to do this, depending on your IDE, it is possible to start a new dev envrionment directly connected to a container.
+
+Of course, you can also synchronize your local versions with the container's ones and develop locally, but be careful!
 
 ## For VS Code
 
@@ -41,3 +45,7 @@ To avoid mistakes, it would be better to develop directly with the versions insi
 3. Select the container you want to develop in.
 
 **That's it!** You can then build and run the containers with the extensions but the best solution is to use the Makefile.
+
+# Develop the database
+
+In the `src/backend/db` folder, you can update the `seed.sql` and `seed_values.sql` in order to create the database and insert values into it at the container runtime.

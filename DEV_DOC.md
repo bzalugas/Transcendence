@@ -21,6 +21,15 @@ If you want to be able to develop wihtout installing locally the dependencies, s
 
 *Note on dev mode*: In dev mode, the ports of the api and db containers are exposed to the host in order to access them to debug. That will not be the case with the production mode.
 
+### API container
+API container is available on the port 3000. (Will not be avaiblable after).
+
+### DB container
+Postgres listen on port **5433** on host and **5432** on container;
+
+### Front container
+Front container is available on port 8080.
+
 ## Stop the containers
 
 Use `make down` to stop and delete the containers. Use `make clean` to delete the anonymous volumes created by the bind mounts.

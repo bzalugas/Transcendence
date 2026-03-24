@@ -58,3 +58,5 @@ Of course, you can also synchronize your local versions with the container's one
 # Develop the database
 
 In the `src/backend/db` folder, you can update the `init.d/01_schema.sql` and `init.d/02_data.sql` in order to create the database and insert values into it at the container runtime.
+
+The service `adminer` is available on localhost at port `8081`. You can connect to the database from there or from terminal connecting to the port `5433` with `psql` on host.

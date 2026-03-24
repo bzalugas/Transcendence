@@ -41,6 +41,6 @@ clean: down-v rmi
 	docker volume prune -f
 
 
-re: down clean build up
+re: clean build up
 
 .PHONY: all build build-prod dev prod up down down-v stop rmi start restartp

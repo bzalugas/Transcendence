@@ -3,6 +3,7 @@ services:
     image: transcendence_front
     container_name: transcendence_front
     build: ../src/frontend/
+    restart: always
     env_file: .env-dev
     ports:
       - "8080:8080"
@@ -17,6 +18,7 @@ services:
     image: transcendence_api
     container_name: transcendence_api
     build: ../src/backend/api/
+    restart: always
     env_file: .env-dev
     ports:
       - "3000:3000"
@@ -33,7 +35,7 @@ services:
     env_file: .env-dev
     restart: always
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready"]
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -41,6 +43,15 @@ services:
       - "5433:5432"
     volumes:
       - db-data:/var/lib/postgresql
+    networks:
+      - transcendence-net
+
+  adminer:
+    image: adminer:5.4.2
+    container_name: transcendence_adminer
+    env_file: .env-dev
+    ports:
+      - "8081:8080"
     networks:
       - transcendence-net
 

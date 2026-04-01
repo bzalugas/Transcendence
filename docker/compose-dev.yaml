@@ -20,11 +20,16 @@ services:
     build: ../src/backend/api/
     restart: always
     env_file: .env-dev
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}?schema=public
     ports:
       - "3000:3000"
     volumes:
       - ../src/backend/api:/api
       - /api/node_modules
+    depends_on:
+      db:
+        condition: service_healthy
     networks:
       - transcendence-net
 

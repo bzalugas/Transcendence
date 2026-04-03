@@ -7,9 +7,264 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Data Models
+
 model User {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique
-  name      String?
-  createdAt DateTime @default(now())
+  id             Int          @id @default(autoincrement())
+  email          String       @unique
+  login          String       @unique
+  password       String
+  role           UserRole     @default(USER)
+  profile        Profile?         /// regroupe les attributs facultatifs
+  channels       User_Channel[]   // explicit N-N relation via User_Channel
+  chats          Chat[]           // implicit N-N relation: a User_Chat model/table will be inferred/generated
+  notifs         Notification[]
+  posts          Post[]
+  messages       Message[]
+  reactions      Reaction[]       /// reactions to posts
+  interests      User_Interest[]
+  friendsReqSent FriendRequest[]  @relation(name: "sent")
+  friendsReqRecv FriendRequest[]  @relation(name: "received")
+  players        Player[]
+}
+
+/* Attributs additionnels facultatifs pour un User (relation 1-1)
+*/
+model Profile {
+  id            Int        @id @default(autoincrement())
+  firstname     String?
+  lastname      String?
+  pseudo        String?
+  birthdate     DateTime?
+  avatarUri     String?
+  bio           String?
+  userId        Int        @unique
+  user          User       @relation(fields: [userId], references: [id])
+}
+
+model FriendRequest {
+  id            Int        @id @default(autoincrement())
+  senderId      Int
+  receiverId    Int
+  sender        User       @relation(name:"sent", fields: [senderId], references: [id])
+  receiver      User       @relation(name: "received", fields: [receiverId], references: [id])
+  status        FriendRequestStatus
+  CreatedAt     DateTime   @default(now())
+  UpdatedAt     DateTime   @updatedAt
+}
+
+/// Structure hierachique des centres d'interets
+model Interest {
+  id                 Int              @id @default(autoincrement())
+  name               String           @unique
+  color              String?          // couleur d'affichage d'un interet et de ses enfants 
+  imageUri           String?
+  parentId           Int?             @default(0) /// catégorie parente (interet de niveau supérieur)
+  parent             Interest?        @relation(name: "tree", fields: [parentId], references: [id])
+  children           Interest[]       @relation(name: "tree")
+  channel            Channel?         @relation(name: "mainInterest")
+  //relatedChannels    Channel[]        /// "tagged" channels  // supprimé
+  interestedUsers    User_Interest[]
+  relatedPosts       Post[]           // tagged posts (pour utilisation future) (n-n implicit relation)
+}
+
+/* Table de jointure explicite qui permet de définir l'ensemble des interets de
+ chaque utiliseur ; chaque ligne relie un User avec un Interest.
+ - Schema: User (1)----(n) User_Interest (n)----(1) Interest
+ - Attributs/champs additionnels: InterestLevel et SkillLevel
+*/
+model User_Interest {
+  userId        Int
+  interestId    Int
+  user          User           @relation(fields: [userId], references: [id])
+  interest      Interest       @relation(fields: [interestId], references: [id])
+  interestLvl   InterestLevel  @default(High)
+  //skillLvl      SkillLevel     @default(Confirmed)   //supprimé
+  @@id([userId, interestId])
+}
+
+/* Un channel est lié à UN interet (relation 1-1, clé etrangère interestId et champ interest)
+*/
+model Channel {
+  id          Int         @id @default(autoincrement())
+  interestId  Int         @unique
+  interest    Interest    @relation(name: "mainInterest", fields: [interestId], references: [id])
+  posts       Post[]
+  users       User_Channel[]
+  //imageUri    String?               // déplacé dans Interest
+  //title       String      @unique   // supprimé  (redondant avec Interest.name)
+  //tags        Interest[]            // supprimé
+}
+
+model User_Channel {
+  userId         Int
+  channelId      Int
+  user           User         @relation(fields: [userId], references: [id])
+  channel        Channel      @relation(fields: [channelId], references: [id])
+  joinedAt       DateTime     @default(now())
+  isFavorite     Boolean
+  @@id([userId, channelId])
+}
+
+model Post {
+  id           Int          @id @default(autoincrement())
+  createdAt    DateTime     @default(now())
+  content      String
+  type         PostType     @default(Normal)
+  parentId     Int?         // fait reference à un autre post (réponse ou commentaire de)
+  parent       Post?        @relation(name: "tree", fields: [parentId], references: [id])
+  children     Post[]       @relation(name: "tree")
+  authorId     Int
+  channelId    Int
+  author       User         @relation(fields: [authorId], references: [id])
+  channel      Channel      @relation(fields: [channelId], references: [id])
+  reactions    Reaction[]
+  attachments  Attachment[]
+  tags         Interest[]   // Pour utilisation future (n-n implicit relation)
+  notifs       Notification[]
+}
+
+model Reaction {
+  id           Int        @id @default(autoincrement())
+  emoji        String
+  userId       Int
+  postId       Int
+  user         User       @relation(fields: [userId], references: [id])
+  post         Post       @relation(fields: [postId], references: [id])
+}
+
+model Attachment {
+  id           Int        @id @default(autoincrement())
+  uri          String
+  type         AttachmentType
+  postId       Int
+  post         Post       @relation(fields: [postId], references: [id])
+}
+
+
+model Chat {
+  id           Int        @id @default(autoincrement())
+  name         String
+  type         ChatType
+  messages     Message[]
+  users        User[]
+}
+
+model Message {
+  id           Int          @id @default(autoincrement())
+  createdAt    DateTime     @default(now())
+  content      String
+  type         MessageType  @default(Normal)
+  senderId     Int
+  chatId       Int
+  sender       User         @relation(fields: [senderId], references: [id])
+  chat         Chat         @relation(fields: [chatId], references: [id])
+  notifs       Notification[]
+}
+
+
+model Notification {
+  id           Int          @id @default(autoincrement())
+  type         NotifType    // chat message / post / response
+  userId       Int
+  postId       Int?
+  messageId    Int?
+  user         User         @relation(fields: [userId], references: [id])
+  post         Post?        @relation(fields: [postId], references: [id])
+  message      Message?     @relation(fields: [messageId], references: [id])
+}
+
+
+// Jeux
+
+model Game {
+  id           Int          @id @default(autoincrement())
+  name         String
+  imageUri     String
+  realtime     Boolean
+  maxPlayers   Int
+  sessions     GameSession[]
+}
+
+model GameSession {
+  id           Int           @id @default(autoincrement())
+  gameId       Int
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  game         Game          @relation(fields: [gameId], references: [id])
+  state        GameState
+  players      Player[]
+}
+
+model Player {
+  id           Int          @id @default(autoincrement())
+  userId       Int
+  sessionId    Int
+  user         User         @relation(fields: [userId], references: [id])
+  session      GameSession  @relation(fields: [sessionId], references: [id])
+  score        Int
+}
+
+
+// Enums
+
+enum UserRole {
+  USER
+  MODERATOR
+  ADMIN
+}
+
+enum FriendRequestStatus {
+  Pending
+  Accepted
+  Rejected
+}
+
+enum InterestLevel {
+  Moderate
+  High
+  VeryHigh
+}
+
+/*enum SkillLevel {
+  Beginner
+  Confirmed
+  Expert
+}*/
+
+enum AttachmentType {
+  image
+  pdf
+  text_document
+  archive
+  word_document
+  open_document
+}
+
+enum ChatType {
+  Interest
+  Group
+  Private
+}
+
+enum MessageType {
+  Normal
+  Auto
+}
+
+enum PostType {
+  Normal
+  Auto
+}
+
+enum GameState {
+  Created
+  Playing
+  Ended
+}
+
+enum NotifType {
+  ChannelPost
+  PostResponse
+  ChatMessage
 }

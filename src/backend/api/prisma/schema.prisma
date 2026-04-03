@@ -102,6 +102,7 @@ model User_Channel {
   user           User         @relation(fields: [userId], references: [id])
   channel        Channel      @relation(fields: [channelId], references: [id])
   joinedAt       DateTime     @default(now())
+  isFavorite     Boolean
   @@id([userId, channelId])
 }
 

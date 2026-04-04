@@ -1,5 +1,10 @@
-import Link from "next/link";
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Logo42 from "@/components/Logo42";
+import TermsAcceptanceModal from "@/components/TermsAcceptanceModal";
+import Link from "next/link";
 
 const features = [
   {
@@ -21,6 +26,28 @@ const features = [
 ];
 
 export default function LoginPage() {
+  const router = useRouter();
+  const [showTerms, setShowTerms] = useState(false);
+
+  const handleSignIn = () => {
+    const accepted = localStorage.getItem("terms_accepted");
+    if (accepted === "true") {
+      router.push("/");
+    } else {
+      setShowTerms(true);
+    }
+  };
+
+  const handleAccept = () => {
+    localStorage.setItem("terms_accepted", "true");
+    setShowTerms(false);
+    router.push("/");
+  };
+
+  const handleDecline = () => {
+    setShowTerms(false);
+  };
+
   return (
     <div className="flex h-full items-center justify-center p-7">
       <div className="w-[560px] rounded-xl border border-border-strong bg-bg-secondary p-[26px] shadow-[inset_0_1px_0_var(--color-border-subtle)]">
@@ -52,18 +79,33 @@ export default function LoginPage() {
           ))}
         </div>
 
-        <Link
-          href="/"
+        <button
+          onClick={handleSignIn}
           className="flex w-full items-center justify-center gap-2.5 rounded-[14px] bg-btn-primary-bg px-[18px] py-4 text-base font-semibold text-btn-primary-text transition-opacity hover:opacity-88"
         >
           <Logo42 className="h-[22px] w-auto" />
           <span>Sign in with 42</span>
-        </Link>
+        </button>
 
         <p className="mt-[18px] text-center text-[11.5px] leading-snug text-text-tertiary">
           Independent project, not affiliated with the 42 school.
         </p>
+        <div className="mt-3 flex justify-center gap-3 text-[11px] text-text-muted">
+          <Link href="/privacy" className="hover:text-text-secondary">
+            Privacy Policy
+          </Link>
+          <span>|</span>
+          <Link href="/terms" className="hover:text-text-secondary">
+            Terms of Service
+          </Link>
+        </div>
       </div>
+
+      <TermsAcceptanceModal
+        open={showTerms}
+        onAccept={handleAccept}
+        onDecline={handleDecline}
+      />
     </div>
   );
 }

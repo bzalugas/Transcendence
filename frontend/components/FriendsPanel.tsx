@@ -1,4 +1,5 @@
 import Avatar from "@/components/Avatar";
+import Link from "next/link";
 import { friends, cohortStats } from "@/lib/mocks/friends";
 
 export default function FriendsPanel() {
@@ -39,6 +40,17 @@ export default function FriendsPanel() {
               <span className="font-medium text-text-primary">{s.value}</span>
             </div>
           ))}
+        </div>
+
+        {/* Legal links */}
+        <div className="mt-4 flex justify-center gap-3 border-t border-border-default pt-3 text-[10.5px] text-text-dimmed">
+          <Link href="/privacy" className="transition-colors hover:text-text-secondary">
+            Privacy
+          </Link>
+          <span>·</span>
+          <Link href="/terms" className="transition-colors hover:text-text-secondary">
+            Terms
+          </Link>
         </div>
       </div>
     </aside>

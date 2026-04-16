@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import Logo42 from "@/components/Logo42";
 import TermsAcceptanceModal from "@/components/TermsAcceptanceModal";
-import Link from "next/link";
 
 const features = [
   {
@@ -86,6 +86,23 @@ export default function LoginPage() {
           <Logo42 className="h-[22px] w-auto" />
           <span>Sign in with 42</span>
         </button>
+
+        <div className="my-[14px] flex items-center gap-3">
+          <div className="h-px flex-1 bg-border-default" />
+          <span className="text-[11.5px] text-text-dimmed">or</span>
+          <div className="h-px flex-1 bg-border-default" />
+        </div>
+
+        <Link
+          href="/login/guest"
+          className="flex w-full items-center justify-center gap-2.5 rounded-[14px] border border-border-strong bg-transparent px-[18px] py-4 text-[15px] font-medium text-text-primary transition-colors hover:bg-bg-hover"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+            <circle cx="12" cy="7" r="4" />
+          </svg>
+          <span>Continue as Guest</span>
+        </Link>
 
         <p className="mt-[18px] text-center text-[11.5px] leading-snug text-text-tertiary">
           Independent project, not affiliated with the 42 school.

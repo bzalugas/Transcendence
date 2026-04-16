@@ -26,8 +26,16 @@ export default function RootLayout({
   return (
     <html
       lang="fr"
+      suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem("theme");if(t==="light")document.documentElement.classList.add("light")}catch(e){}})();`,
+          }}
+        />
+      </head>
       <body className="h-full">
         <ThemeProvider>{children}</ThemeProvider>
       </body>

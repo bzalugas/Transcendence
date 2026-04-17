@@ -6,9 +6,10 @@ export default function LoginLayout({ children }: { children: React.ReactNode })
       <div className="absolute inset-0 z-0">
         <FallingPattern
           color="var(--primary)"
-          duration={120}
-          blurIntensity="0.6rem"
+          duration={150}
+          blurIntensity="1rem"
           density={1.5}
+
         />
       </div>
       <div className="relative z-10 h-full overflow-y-auto">

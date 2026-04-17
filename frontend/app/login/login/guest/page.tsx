@@ -42,7 +42,7 @@ export default function GuestLoginPage() {
 
   return (
     <div className="flex h-full items-center justify-center p-7">
-      <div className="w-[420px] rounded-xl border border-border-strong bg-bg-secondary p-[26px] shadow-[inset_0_1px_0_var(--color-border-subtle)]">
+      <div className="w-[420px] rounded-2xl border border-white/10 bg-white/5 p-[26px] shadow-2xl backdrop-blur-xl">
         {/* Header */}
         <Link
           href="/login"

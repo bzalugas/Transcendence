@@ -5,7 +5,7 @@ WORKDIR /api
 RUN apk add --no-cache netcat-openbsd openssl
 
 COPY ./package*.json .
-RUN npm install
+RUN npm install better-auth
 # RUN npm ci # instead of npm install, better for production
 
 COPY prisma ./prisma/

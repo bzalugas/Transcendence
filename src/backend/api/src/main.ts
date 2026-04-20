@@ -1,8 +1,36 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
+import { toNodeHandler } from 'better-auth/node';
+import { auth } from '../lib/auth';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  
+  app.enableCors({
+    origin: process.env.NEXT_PUBLIC_FRONTEND_URL,
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  });
+
+  const httpAdapter = app.getHttpAdapter();
+  const instance = httpAdapter.getInstance();
+//   httpAdapter.use('/api/auth', toNodeHandler(auth));
+
+  instance.use("/api/auth", (req: any, res: any, next: any) => {
+    res.setHeader("Access-Control-Allow-Origin", "http://localhost:8080");
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+
+    if (req.method === "OPTIONS") {
+      return res.sendStatus(204);
+    }
+
+    return toNodeHandler(auth)(req, res);
+  });
+
+
   await app.listen(process.env.PORT ?? 3000);
 }
 bootstrap();

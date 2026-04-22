@@ -1,51 +1,72 @@
-COMPOSE_FILE	:= docker/compose-prod.yaml
+COMPOSE			:= docker compose
+COMPOSE_FILE	:= docker/compose.yaml
 COMPOSE_DEV		:= docker/compose-dev.yaml
-COMPOSE_DEV_OPT	:= --env-file docker/.env-dev
+ENV_FILE		:= docker/.env
 
-all: up-d # change after to run the production version
+all: up
 
-build:
-	docker compose -f $(COMPOSE_DEV) $(COMPOSE_DEV_OPT) build
-
-build-prod:
-	docker compose -f $(COMPOSE_FILE) build
-
-dev:
-	docker compose -f $(COMPOSE_DEV) $(COMPOSE_DEV_OPT) up --build -d
-
-prod: build-prod
-	docker compose -f $(COMPOSE_FILE) up -d
-
+# --- DEV PART ---
 up:
-	docker compose -f $(COMPOSE_DEV) $(COMPOSE_DEV_OPT) up
+	$(COMPOSE) -f $(COMPOSE_FILE) -f $(COMPOSE_DEV) --env-file $(ENV_FILE) up --build
 
 up-d:
-	docker compose -f $(COMPOSE_DEV) $(COMPOSE_DEV_OPT) up -d
+	$(COMPOSE) -f $(COMPOSE_FILE) -f $(COMPOSE_DEV) --env-file $(ENV_FILE) up -d --build
+
+build:
+	$(COMPOSE) -f $(COMPOSE_FILE) -f $(COMPOSE_DEV) --env-file $(ENV_FILE) build
 
 logs:
-	docker compose -f $(COMPOSE_DEV) $(COMPOSE_DEV_OPT) logs
+	$(COMPOSE) -f $(COMPOSE_FILE) -f $(COMPOSE_DEV) --env-file $(ENV_FILE) logs
 
 down:
-	docker compose -f $(COMPOSE_DEV) $(COMPOSE_DEV_OPT) down
+	$(COMPOSE) -f $(COMPOSE_FILE) -f $(COMPOSE_DEV) --env-file $(ENV_FILE) down
 
 down-v:
-	docker compose -f $(COMPOSE_DEV) $(COMPOSE_DEV_OPT) down -v
+	$(COMPOSE) -f $(COMPOSE_FILE) -f $(COMPOSE_DEV) --env-file $(ENV_FILE) down -v
 
 stop:
-	docker compose -f $(COMPOSE_DEV) $(COMPOSE_DEV_OPT) stop
+	$(COMPOSE) -f $(COMPOSE_FILE) -f $(COMPOSE_DEV) --env-file $(ENV_FILE) stop
 
 rmi:
-	docker rmi -f $$(docker compose -f $(COMPOSE_DEV) $(COMPOSE_DEV_OPT) config --images) 2>/dev/null
+	docker rmi -f $$($(COMPOSE) -f $(COMPOSE_FILE) -f $(COMPOSE_DEV)  config --images) 2>/dev/null
 
 start:
-	docker compose -f $(COMPOSE_DEV) $(COMPOSE_DEV_OPT) start
+	$(COMPOSE) -f $(COMPOSE_FILE) -f $(COMPOSE_DEV) start
 
 restart:
-	docker compose -f $(COMPOSE_DEV) $(COMPOSE_DEV_OPT) restart
-
-clean: down-v rmi
-	docker volume prune -f
+	$(COMPOSE) -f $(COMPOSE_FILE) -f $(COMPOSE_DEV) restart
 
 re: clean build up
 
-.PHONY: all build build-prod dev prod up up-d logs down down-v stop rmi start restart
+
+# --- PROD part ---
+
+prod-up:
+	$(COMPOSE) -f $(COMPOSE_FILE) up -d --build
+
+prod-build:
+	$(COMPOSE) -f $(COMPOSE_FILE)build
+
+prod-logs:
+	$(COMPOSE) -f $(COMPOSE_FILE) logs
+
+prod-down:
+	$(COMPOSE) -f $(COMPOSE_FILE) down
+
+prod-stop:
+	$(COMPOSE) -f $(COMPOSE_FILE) stop
+
+prod-rmi:
+	docker rmi -f $$($(COMPOSE) -f $(COMPOSE_FILE) config --images) 2>/dev/null
+
+prod-start:
+	$(COMPOSE) -f $(COMPOSE_FILE) -f $(COMPOSE_DEV) start
+
+prod-restart:
+	$(COMPOSE) -f $(COMPOSE_FILE) -f $(COMPOSE_DEV) restart
+
+#--- UTILS ---
+clean: down-v rmi
+	docker volume prune -f
+
+.PHONY: all build build-prod dev prod up up-d logs down down-v stop rmi start restart re

@@ -1,0 +1,40 @@
+services:
+  front:
+    image: transcendence_front
+    container_name: transcendence_front
+    build:
+      context: ../frontend/
+      target: prod
+    restart: always
+    env_file: .env
+    ports:
+      - "8080:8080"
+  
+  api:
+    image: transcendence_api
+    container_name: transcendence_api
+    build:
+      context: ../backend/api/
+      target: prod
+    restart: always
+    env_file: .env
+    depends_on:
+      - db
+      
+  db:
+    image: transcendence_db
+    container_name: transcendence_db
+    build: ../backend/db/
+    env_file: .env
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - db-data:/var/lib/postgresql
+
+volumes:
+  db-data:
+    name: db-data

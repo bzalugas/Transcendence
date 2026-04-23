@@ -14,13 +14,3 @@ export class JaccardController {
   }
 }
 
-/*@Controller('suggestions') — déclare que toutes les routes de ce controller commencent par /suggestions.
-
-constructor(private readonly jaccardService: JaccardService) — c'est l'injection de dépendances dont on parlait. NestJS injecte automatiquement le service ici.
-
-@Get(':userId') — écoute les requêtes GET /suggestions/:userId. Le :userId est un paramètre dynamique.
-
-@Param('userId', ParseIntPipe) — récupère le :userId dans l'URL et le convertit automatiquement en number (par défaut tout arrive en string depuis l'URL).
-
-@Query('limit') — récupère le paramètre optionnel ?limit=20 dans l'URL */
-

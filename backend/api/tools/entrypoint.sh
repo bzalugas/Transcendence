@@ -11,7 +11,7 @@ done
 echo "✅ PostgreSQL is ready"
 echo "DATABASE_URL=${DATABASE_URL}"   # debug line, remove in prod
 
-npx prisma migrate deploy
+bunx prisma migrate deploy
 
 # Exécuter la commande passée en argument (CMD du Dockerfile)
 exec "$@"

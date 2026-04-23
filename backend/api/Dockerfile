@@ -8,15 +8,18 @@ RUN bun install
 FROM base AS dev
 COPY . .
 # CMD ["bun", "run", "start:dev"]
+RUN bunx prisma generate
 
 # -- BUILD --
 FROM base AS build
 COPY . .
 RUN bun run build
 
+RUN bunx prisma generate
+
 RUN if [ -z "$(ls -A prisma/migrations 2>/dev/null)" ]; then \
       mkdir -p prisma/migrations/0_init && \
-      npx prisma migrate diff \
+      bunx prisma migrate diff \
         --from-empty \
         --to-schema-datamodel prisma/schema.prisma \
         --script > prisma/migrations/0_init/migration.sql; \
@@ -24,8 +27,6 @@ RUN if [ -z "$(ls -A prisma/migrations 2>/dev/null)" ]; then \
     else \
       echo "✅ Migrations already exist, skipping generation"; \
     fi
-
-RUN bunx prisma generate
 
 # -- PROD --
 FROM oven/bun:1 AS prod

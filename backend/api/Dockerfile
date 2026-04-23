@@ -13,6 +13,7 @@ COPY . .
 FROM base AS build
 COPY . .
 RUN bun run build
+
 RUN if [ -z "$(ls -A prisma/migrations 2>/dev/null)" ]; then \
       mkdir -p prisma/migrations/0_init && \
       npx prisma migrate diff \

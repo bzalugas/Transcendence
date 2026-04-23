@@ -16,6 +16,21 @@ export const auth = betterAuth({
     enabled: true,
   },
 
+  user: {
+    additionalFields: {
+      name: {
+        type: "string",
+        required: false, // Matches your schema (String?)
+        // Optionally, you can add a default value if name is missing
+        // defaultValue: () => "Anonymous", 
+      },
+    },
+    // Map the incoming 'name' from signUp payload to the DB field
+    changeEmail: {
+      enabled: true, 
+    },
+  },
+
   plugins: [
 	genericOAuth({
 		config: [

@@ -31,13 +31,13 @@ export default function SignupPage() {
       return;
     }
 
-    router.push("/dashboard");
+    router.push("/"); //where to redirect after login
   };
 
   const handle42Login = async () => {
     await authClient.signIn.social({
       provider: "42school",
-      callbackURL: "/dashboard", // where to redirect after 42 login
+      callbackURL: "/", // where to redirect after 42 login
     });
   };
 

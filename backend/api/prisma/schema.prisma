@@ -226,12 +226,6 @@ enum InterestLevel {
   VeryHigh
 }
 
-/*enum SkillLevel {
-  Beginner
-  Confirmed
-  Expert
-}*/
-
 enum AttachmentType {
   image
   pdf

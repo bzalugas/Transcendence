@@ -1,60 +1,44 @@
 services:
   front:
-    image: transcendence_front
-    container_name: transcendence_front
-    build: ../src/frontend/
-    restart: always
-    env_file: .env-dev
+    build:
+      target: dev
     ports:
       - "8080:8080"
     volumes:
-      - ../src/frontend/:/app
+      - ../frontend/:/app
       - /app/node_modules
-      - /app/.next
     networks:
       - transcendence-net
+    command: bun run dev
   
   api:
-    image: transcendence_api
-    container_name: transcendence_api
-    build: ../src/backend/api/
-    restart: always
-    env_file: .env-dev
+    build:
+      target: dev
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}?schema=public
+      CHOKIDAR_USEPOLLING: "true" # To avoid hot reload problem
     ports:
       - "3000:3000"
     volumes:
-      - ../src/backend/api:/api
+      - ../backend/api:/api
       - /api/node_modules
     depends_on:
       db:
         condition: service_healthy
     networks:
       - transcendence-net
+    command: sh -c "bunx prisma db push && bun run start:dev"
 
   db:
-    image: transcendence_db
-    container_name: transcendence_db
-    build: ../src/backend/db/
-    env_file: .env-dev
-    restart: always
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
     ports:
       - "5433:5432"
-    volumes:
-      - db-data:/var/lib/postgresql
     networks:
       - transcendence-net
 
   adminer:
     image: adminer:5.4.2
     container_name: transcendence_adminer
-    env_file: .env-dev
+    env_file: .env
     ports:
       - "8081:8080"
     networks:
@@ -64,7 +48,3 @@ networks:
   transcendence-net:
     name: transcendence-net
     driver: bridge
-
-volumes:
-  db-data:
-    name: db-data

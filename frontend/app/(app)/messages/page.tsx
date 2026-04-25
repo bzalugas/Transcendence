@@ -2,10 +2,20 @@
 
 import { useState } from "react";
 import Avatar from "@/components/Avatar";
-import { conversations, roomConversations, chatMessages } from "@/lib/mocks/messages";
+import {
+  getFriendConversations,
+  getChannelConversations,
+  getConversationById,
+  getChatMessages,
+} from "@/lib/data/messages";
+import type { Conversation } from "@/lib/types";
 
 export default function MessagesPage() {
-  const [activeConv, setActiveConv] = useState("svidal");
+  const friendConvs = getFriendConversations();
+  const channelConvs = getChannelConversations();
+  const [activeId, setActiveId] = useState<string>(friendConvs[0]?.id ?? "");
+  const activeConv = getConversationById(activeId);
+  const messages = getChatMessages(activeId);
 
   return (
     <>
@@ -26,67 +36,25 @@ export default function MessagesPage() {
           <div className="px-4 pb-1.5 pt-3.5 text-[10.5px] font-semibold uppercase tracking-wider text-text-muted">
             Friends
           </div>
-          {conversations.map((c) => (
-            <button
-              key={c.name}
-              type="button"
-              onClick={() => setActiveConv(c.name)}
-              className={`flex w-full items-center gap-2.5 px-4 py-2.5 text-left transition-colors hover:bg-bg-hover ${
-                activeConv === c.name ? "bg-bg-hover" : ""
-              }`}
-            >
-              <div className="relative">
-                <Avatar initials={c.initials!} size="lg" />
-                {c.online && (
-                  <div className="absolute bottom-0 right-0 h-2 w-2 rounded-full border-2 border-bg-secondary bg-accent-green" />
-                )}
-                {c.away && (
-                  <div className="absolute bottom-0 right-0 h-2 w-2 rounded-full border-2 border-bg-hover bg-away" />
-                )}
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-[13px] font-medium">{c.name}</div>
-                <div className="mt-0.5 truncate text-[12px] text-text-muted">{c.preview}</div>
-              </div>
-              <div className="flex flex-col items-end gap-1">
-                <span className="text-[11px] text-text-dimmed">{c.time}</span>
-                {c.unread && (
-                  <span className="flex h-[17px] w-[17px] items-center justify-center rounded-full bg-text-primary text-[10px] font-semibold text-bg-tertiary">
-                    {c.unread}
-                  </span>
-                )}
-              </div>
-            </button>
+          {friendConvs.map((c) => (
+            <ConversationRow
+              key={c.id}
+              conv={c}
+              active={activeId === c.id}
+              onClick={() => setActiveId(c.id)}
+            />
           ))}
 
           <div className="px-4 pb-1.5 pt-3.5 text-[10.5px] font-semibold uppercase tracking-wider text-text-muted">
-            Rooms
+            Channels
           </div>
-          {roomConversations.map((c) => (
-            <button
-              key={c.name}
-              type="button"
-              onClick={() => setActiveConv(c.name)}
-              className={`flex w-full items-center gap-2.5 px-4 py-2.5 text-left transition-colors hover:bg-bg-hover ${
-                activeConv === c.name ? "bg-bg-hover" : ""
-              }`}
-            >
-              <div className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[9px] border border-border-default bg-bg-hover text-[17px]">
-                <RoomIcon icon={c.icon} />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-[13px] font-medium">{c.name}</div>
-                <div className="mt-0.5 truncate text-[12px] text-text-muted">{c.preview}</div>
-              </div>
-              <div className="flex flex-col items-end gap-1">
-                <span className="text-[11px] text-text-dimmed">{c.time}</span>
-                {c.unread && (
-                  <span className="flex h-[17px] w-[17px] items-center justify-center rounded-full bg-text-primary text-[10px] font-semibold text-bg-tertiary">
-                    {c.unread}
-                  </span>
-                )}
-              </div>
-            </button>
+          {channelConvs.map((c) => (
+            <ConversationRow
+              key={c.id}
+              conv={c}
+              active={activeId === c.id}
+              onClick={() => setActiveId(c.id)}
+            />
           ))}
         </div>
       </div>
@@ -94,28 +62,7 @@ export default function MessagesPage() {
       {/* Chat area */}
       <div className="flex flex-1 flex-col bg-bg-tertiary">
         {/* Chat header */}
-        <div className="flex items-center gap-3 border-b border-border-default bg-bg-secondary px-[22px] py-3.5">
-          <div className="relative">
-            <Avatar initials="sv" size="lg" />
-            <div className="absolute bottom-[1px] right-[1px] h-[9px] w-[9px] rounded-full border-2 border-bg-secondary bg-accent-green" />
-          </div>
-          <div>
-            <div className="text-[14px] font-medium">svidal</div>
-            <div className="mt-0.5 text-[12px] text-text-muted">Online - Level 11</div>
-          </div>
-          <div className="ml-auto flex gap-1.5">
-            <button className="flex h-8 w-8 items-center justify-center rounded-[7px] text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
-              </svg>
-            </button>
-            <button className="flex h-8 w-8 items-center justify-center rounded-[7px] text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /><circle cx="5" cy="12" r="1" />
-              </svg>
-            </button>
-          </div>
-        </div>
+        {activeConv && <ChatHeader conv={activeConv} />}
 
         {/* Messages */}
         <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-[22px] py-[22px]">
@@ -126,7 +73,7 @@ export default function MessagesPage() {
             <div className="h-px flex-1 bg-border-default" />
           </div>
 
-          {chatMessages.map((msg, idx) => (
+          {messages.map((msg, idx) => (
             <div key={idx}>
               <div className="mb-[5px] pl-[39px] text-[11px] font-medium text-text-muted">
                 {msg.sender}
@@ -175,7 +122,102 @@ export default function MessagesPage() {
   );
 }
 
-function RoomIcon({ icon }: { icon?: string }) {
+function ConversationRow({
+  conv,
+  active,
+  onClick,
+}: {
+  conv: Conversation;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex w-full items-center gap-2.5 px-4 py-2.5 text-left transition-colors hover:bg-bg-hover ${
+        active ? "bg-bg-hover" : ""
+      }`}
+    >
+      {conv.type === "friend" ? (
+        <div className="relative">
+          <Avatar initials={conv.initials!} avatarUrl={conv.avatarUrl} size="lg" />
+          {conv.online && (
+            <div className="absolute bottom-0 right-0 h-2 w-2 rounded-full border-2 border-bg-secondary bg-accent-green" />
+          )}
+          {conv.away && (
+            <div className="absolute bottom-0 right-0 h-2 w-2 rounded-full border-2 border-bg-hover bg-away" />
+          )}
+        </div>
+      ) : (
+        <div className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[9px] border border-border-default bg-bg-hover text-[17px]">
+          <ChannelIcon icon={conv.icon} />
+        </div>
+      )}
+      <div className="min-w-0 flex-1">
+        <div className="truncate text-[13px] font-medium">{conv.name}</div>
+        <div className="mt-0.5 truncate text-[12px] text-text-muted">{conv.preview}</div>
+      </div>
+      <div className="flex flex-col items-end gap-1">
+        <span className="text-[11px] text-text-dimmed">{conv.time}</span>
+        {conv.unread && (
+          <span className="flex h-[17px] w-[17px] items-center justify-center rounded-full bg-text-primary text-[10px] font-semibold text-bg-tertiary">
+            {conv.unread}
+          </span>
+        )}
+      </div>
+    </button>
+  );
+}
+
+function ChatHeader({ conv }: { conv: Conversation }) {
+  return (
+    <div className="flex items-center gap-3 border-b border-border-default bg-bg-secondary px-[22px] py-3.5">
+      {conv.type === "friend" ? (
+        <div className="relative">
+          <Avatar initials={conv.initials!} avatarUrl={conv.avatarUrl} size="lg" />
+          {conv.online && (
+            <div className="absolute bottom-[1px] right-[1px] h-[9px] w-[9px] rounded-full border-2 border-bg-secondary bg-accent-green" />
+          )}
+          {conv.away && (
+            <div className="absolute bottom-[1px] right-[1px] h-[9px] w-[9px] rounded-full border-2 border-bg-secondary bg-away" />
+          )}
+        </div>
+      ) : (
+        <div className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[9px] border border-border-default bg-bg-hover text-[17px]">
+          <ChannelIcon icon={conv.icon} />
+        </div>
+      )}
+      <div>
+        <div className="text-[14px] font-medium">{conv.name}</div>
+        <div className="mt-0.5 text-[12px] text-text-muted">
+          {conv.type === "friend" ? (
+            <>
+              {conv.online ? "Online" : conv.away ? "Away" : "Offline"}
+              {conv.level !== undefined && ` · Level ${conv.level}`}
+            </>
+          ) : (
+            <>{conv.memberCount ?? 0} members</>
+          )}
+        </div>
+      </div>
+      <div className="ml-auto flex gap-1.5">
+        <button className="flex h-8 w-8 items-center justify-center rounded-[7px] text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
+          </svg>
+        </button>
+        <button className="flex h-8 w-8 items-center justify-center rounded-[7px] text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /><circle cx="5" cy="12" r="1" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ChannelIcon({ icon }: { icon?: string }) {
   const props = { width: 17, height: 17, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
   switch (icon) {
     case "camera":

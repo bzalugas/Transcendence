@@ -1,6 +1,9 @@
+"use client";
+
+import { useState } from "react";
 import Avatar from "@/components/Avatar";
 import type { Post as PostType } from "@/lib/types";
-import { currentUser } from "@/lib/mocks/users";
+import { getCurrentUser } from "@/lib/data/auth";
 
 type PostProps = Omit<PostType, "id">;
 
@@ -9,13 +12,26 @@ export default function Post({
   avatarUrl,
   author,
   time,
-  room,
+  channelLabel,
   body,
   image,
   imageGrid,
-  reactions,
+  event,
+  likeCount,
+  liked,
   comments,
 }: PostProps) {
+  const currentUser = getCurrentUser();
+  const [isLiked, setIsLiked] = useState(liked ?? false);
+  const [count, setCount] = useState(likeCount);
+
+  function toggleLike() {
+    setIsLiked((prev) => {
+      setCount((c) => c + (prev ? -1 : 1));
+      return !prev;
+    });
+  }
+
   return (
     <div className="rounded-xl border border-border-subtle bg-bg-secondary transition-colors hover:border-border-strong">
       {/* Header */}
@@ -26,7 +42,7 @@ export default function Post({
             {author}
           </div>
           <div className="text-[12px] text-text-muted">
-            {time} · <span className="text-text-tertiary">{room}</span>
+            {time} · <span className="text-text-tertiary">{channelLabel}</span>
           </div>
         </div>
         <button
@@ -66,26 +82,51 @@ export default function Post({
         </div>
       )}
 
-      {/* Reactions */}
-      <div className="flex items-center gap-1.5 px-4 pb-3">
-        {reactions.map((r) => (
-          <div
-            key={r.emoji}
-            className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs ${
-              r.active
-                ? "border-accent-blue/30 bg-accent-blue/10 text-accent-blue"
-                : "border-border-subtle bg-bg-tertiary text-text-muted"
-            }`}
-          >
-            <span>{r.emoji}</span>
-            <span>{r.count}</span>
+      {/* Event card */}
+      {event && (
+        <div className="mx-4 mb-3 rounded-lg border border-border-subtle bg-bg-hover px-4 py-3.5">
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-11 shrink-0 flex-col items-center justify-center rounded-lg border border-border-subtle bg-bg-tertiary">
+              <div className="text-[18px] font-medium leading-none text-text-primary">
+                {event.day}
+              </div>
+              <div className="mt-0.5 text-[10px] uppercase tracking-wider text-text-muted">
+                {event.month}
+              </div>
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-[13.5px] font-medium text-text-primary">
+                {event.title}
+              </div>
+              <div className="text-[12px] text-text-muted">{event.subtitle}</div>
+            </div>
+            <button
+              type="button"
+              className="rounded-full bg-btn-primary-bg px-3.5 py-1.5 text-[12px] font-medium text-btn-primary-text transition-opacity hover:opacity-90"
+            >
+              Join
+            </button>
           </div>
-        ))}
+          <div className="mt-2.5 text-[11.5px] text-text-muted">
+            {event.goingCount} going
+          </div>
+        </div>
+      )}
+
+      {/* Like */}
+      <div className="flex items-center gap-1.5 px-4 pb-3">
         <button
           type="button"
-          className="flex h-[26px] w-[26px] items-center justify-center rounded-full border border-border-subtle bg-bg-tertiary text-xs text-text-dimmed transition-colors hover:text-text-tertiary"
+          onClick={toggleLike}
+          className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-colors ${
+            isLiked
+              ? "border-accent-blue/30 bg-accent-blue/10 text-accent-blue"
+              : "border-border-subtle bg-bg-tertiary text-text-muted hover:text-text-primary"
+          }`}
+          aria-pressed={isLiked}
         >
-          +
+          <span>👍</span>
+          <span>{count}</span>
         </button>
       </div>
 

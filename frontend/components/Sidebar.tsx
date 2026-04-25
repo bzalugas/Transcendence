@@ -14,9 +14,9 @@ import {
   ProfileIcon,
   SettingsIcon,
 } from "@/components/icons/NavIcons";
-import { rooms } from "@/lib/mocks/rooms";
-import { currentUser } from "@/lib/mocks/users";
-import { navBadges } from "@/lib/mocks/nav";
+import { getAllChannels } from "@/lib/data/channels";
+import { getCurrentUser } from "@/lib/data/auth";
+import { getNavBadges } from "@/lib/data/nav";
 
 const navItems = [
   { href: "/", label: "Home", icon: HomeIcon },
@@ -30,6 +30,9 @@ export default function Sidebar() {
   const pathname = usePathname();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const settingsRef = useRef<HTMLButtonElement>(null);
+  const channels = getAllChannels();
+  const currentUser = getCurrentUser();
+  const navBadges = getNavBadges();
 
   return (
     <aside className="flex w-[220px] shrink-0 flex-col gap-0.5 overflow-y-auto border-r border-border-default bg-bg-secondary px-4 py-6">
@@ -72,17 +75,17 @@ export default function Sidebar() {
       {/* Separator */}
       <div className="my-2.5 h-px bg-border-default" />
 
-      {/* Rooms */}
+      {/* Channels */}
       <div className="mb-2 mt-1 px-2.5 text-[10.5px] font-medium uppercase tracking-wider text-text-muted">
         Channels
       </div>
       <nav className="flex flex-col gap-0.5">
-        {rooms.map(({ slug, label, color }) => (
+        {channels.map(({ slug, label, color }) => (
           <Link
             key={slug}
-            href={`/rooms/${slug}`}
+            href={`/channels/${slug}`}
             className={`flex items-center gap-[9px] rounded-[7px] px-2.5 py-2 text-[13px] transition-colors hover:bg-bg-hover hover:text-text-primary ${
-              pathname === `/rooms/${slug}`
+              pathname === `/channels/${slug}`
                 ? "text-text-primary"
                 : "text-text-tertiary"
             }`}

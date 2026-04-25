@@ -7,13 +7,12 @@ export const posts: Post[] = [
     avatarUrl: "https://images.unsplash.com/photo-1474511320723-9a56873571b7?w=150&h=150&fit=crop",
     author: "tmercier",
     time: "1h ago",
-    room: "📷 Photography",
+    channelSlug: "photography",
+    channelLabel: "📷 Photography",
     body: "Early morning shot on campus, low-angle light at 7:30am. Fuji X-T5, 35mm f/1.4 🌫️",
     image: { emoji: "🌅", label: "Photo · 4032 × 3024" },
-    reactions: [
-      { emoji: "👍", count: 34, active: true },
-      { emoji: "❤️", count: 8 },
-    ],
+    likeCount: 34,
+    liked: true,
     comments: [
       {
         initials: "pd",
@@ -35,13 +34,12 @@ export const posts: Post[] = [
     initials: "cl",
     author: "claurent",
     time: "yesterday",
-    room: "📷 Photography",
+    channelSlug: "photography",
+    channelLabel: "📷 Photography",
     body: "Weekend shots from Brittany. The weather was perfect for dramatic skies.",
     imageGrid: ["🌊", "🌧️"],
-    reactions: [
-      { emoji: "❤️", count: 22, active: true },
-      { emoji: "🔥", count: 5 },
-    ],
+    likeCount: 22,
+    liked: true,
     comments: [
       {
         initials: "tm",

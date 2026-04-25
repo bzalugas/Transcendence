@@ -19,4 +19,8 @@ export const suggestions: SuggestionProfile[] = [
 export const friendRequests = [
   { initials: "jb", name: "jbernard", sharedCount: 3 },
   { initials: "sc", name: "schauvet", sharedCount: 2 },
+  { initials: "tm", name: "tmercier", sharedCount: 5 },
+  { initials: "ar", name: "aroussea", sharedCount: 4 },
+  { initials: "nf", name: "nfaure", sharedCount: 6 },
+  { initials: "cl", name: "claurent", sharedCount: 1 },
 ];

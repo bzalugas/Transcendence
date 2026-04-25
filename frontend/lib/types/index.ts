@@ -3,19 +3,47 @@ export interface User {
   username: string;
   initials: string;
   avatarUrl?: string;
+  bio?: string;
   level: number;
 }
 
-export interface Room {
-  slug: string;
+export interface ProfileSocial {
+  platform: string;
   label: string;
+}
+
+export interface ProfileInterest {
+  name: string;
   color: string;
 }
 
-export interface Reaction {
-  emoji: string;
-  count: number;
-  active?: boolean;
+export interface AvailableInterest extends ProfileInterest {
+  desc: string;
+  members: number;
+}
+
+export type PresenceStatus = "online" | "offline" | "away";
+
+export interface Channel {
+  slug: string;
+  label: string;
+  color: string;
+  emoji?: string;
+  description?: string;
+  tagline?: string;
+  memberCount?: number;
+  postCount?: number;
+  createdAt?: string;
+}
+
+export interface ChannelMember {
+  initials: string;
+  avatarUrl?: string;
+  username: string;
+  level: number;
+  status: PresenceStatus;
+  isFriend: boolean;
+  isSelf?: boolean;
 }
 
 export interface Comment {
@@ -26,18 +54,99 @@ export interface Comment {
   time: string;
 }
 
+export interface PostEvent {
+  day: string;
+  month: string;
+  title: string;
+  subtitle: string;
+  goingCount: number;
+}
+
 export interface Post {
   id: string;
   initials: string;
   avatarUrl?: string;
   author: string;
   time: string;
-  room: string;
+  channelSlug: string;
+  channelLabel: string;
   body: string;
   image?: { emoji: string; label: string };
   imageGrid?: string[];
-  reactions: Reaction[];
+  event?: PostEvent;
+  likeCount: number;
+  liked?: boolean;
   comments: Comment[];
+}
+
+export interface ChannelSystemEvent {
+  id: string;
+  channelSlug: string;
+  kind: "join";
+  username: string;
+  time: string;
+}
+
+export type ChannelFeedItem =
+  | { kind: "post"; post: Post }
+  | { kind: "system"; event: ChannelSystemEvent };
+
+export type ActivityKind =
+  | "passed_project"
+  | "passed_exam"
+  | "reached_level"
+  | "joined_channel"
+  | "new_friend";
+
+export interface Activity {
+  id: string;
+  kind: ActivityKind;
+  actor: string;
+  target: string;
+  time: string;
+}
+
+export interface NewChannelAnnouncement {
+  id: string;
+  creatorInitials: string;
+  creatorName: string;
+  channelName: string;
+  channelColor: string;
+  memberCount: number;
+  time: string;
+}
+
+export type HomeFeedItem =
+  | { kind: "post"; post: Post }
+  | { kind: "new-channel"; announcement: NewChannelAnnouncement }
+  | { kind: "activity"; activity: Activity };
+
+export type ConversationType = "friend" | "channel";
+
+export interface Conversation {
+  id: string;
+  type: ConversationType;
+  name: string;
+  preview: string;
+  time: string;
+  unread?: number;
+  // Friend-specific
+  initials?: string;
+  avatarUrl?: string;
+  online?: boolean;
+  away?: boolean;
+  level?: number;
+  // Channel-specific
+  icon?: string;
+  memberCount?: number;
+}
+
+export interface ChatMessage {
+  sender: string;
+  initials: string;
+  text: string;
+  time: string;
+  me?: boolean;
 }
 
 export interface Friend {

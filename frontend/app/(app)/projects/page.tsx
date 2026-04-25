@@ -1,17 +1,22 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import Avatar from "@/components/Avatar";
 import PanelToggleIcon from "@/components/icons/PanelToggleIcon";
-import { lfgPosts, allProjects, trendingProjects } from "@/lib/mocks/projects";
-import { cohortStats } from "@/lib/mocks/friends";
-import { currentUser } from "@/lib/mocks/users";
+import { getLfgPosts, getAllProjects, getTrendingProjects } from "@/lib/data/projects";
+import type { LfgPost } from "@/lib/mocks/projects";
+import { getCohortStats } from "@/lib/data/friends";
+import { getCurrentUser } from "@/lib/data/auth";
 
 export default function ProjectsPage() {
   const [showPanel, setShowPanel] = useState(true);
   const [activeTab, setActiveTab] = useState<"lfg" | "all">("lfg");
   const [projectSearch, setProjectSearch] = useState("");
   const [lfgSearch, setLfgSearch] = useState("");
+  const lfgPosts = getLfgPosts();
+  const allProjects = getAllProjects();
+  const currentUser = getCurrentUser();
 
   const filteredProjects = allProjects.filter((p) => {
     const q = projectSearch.toLowerCase();
@@ -167,7 +172,7 @@ export default function ProjectsPage() {
   );
 }
 
-function LfgCard({ post }: { post: typeof lfgPosts[number] }) {
+function LfgCard({ post }: { post: LfgPost }) {
   const [applied, setApplied] = useState(false);
 
   return (
@@ -184,7 +189,9 @@ function LfgCard({ post }: { post: typeof lfgPosts[number] }) {
           )}
         </div>
         <div>
-          <div className="text-[13.5px] font-medium">{post.name}</div>
+          <Link href="/profile" className="inline-block text-[13.5px] font-medium hover:underline">
+            {post.name}
+          </Link>
           <div className="mt-0.5 text-[12px] text-text-muted">{post.time}</div>
         </div>
         <div className="ml-auto whitespace-nowrap rounded-full border border-border-default bg-bg-hover px-3 py-1 text-[12.5px] text-text-muted">
@@ -255,6 +262,8 @@ function LfgCard({ post }: { post: typeof lfgPosts[number] }) {
 }
 
 function ProjectsPanel() {
+  const trendingProjects = getTrendingProjects();
+  const cohortStats = getCohortStats();
   return (
     <aside className="flex w-full flex-col overflow-y-auto border-l border-border-default bg-bg-secondary px-[18px] py-6">
       <div className="mb-3 text-[10.5px] font-semibold uppercase tracking-wider text-text-muted">

@@ -1,17 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Avatar from "@/components/Avatar";
 import FriendsPanel from "@/components/FriendsPanel";
+import InterestPickerModal from "@/components/InterestPickerModal";
 import PanelToggleIcon from "@/components/icons/PanelToggleIcon";
-import { currentUser } from "@/lib/mocks/users";
-import {
-  profileInterests,
-  profileFriends,
-  profileActivity,
-  profileSocials,
-  currentProjects,
-} from "@/lib/mocks/profile";
+import { getCurrentUser } from "@/lib/data/auth";
+import { getMyProfile } from "@/lib/data/profile";
+import type { ProfileInterest } from "@/lib/types";
 
 const activityIcons: Record<string, string> = {
   camera: "\uD83D\uDCF7",
@@ -21,153 +18,177 @@ const activityIcons: Record<string, string> = {
 };
 
 export default function ProfilePage() {
+  const router = useRouter();
+  const currentUser = getCurrentUser();
+  const {
+    interests: profileInterests,
+    friends: profileFriends,
+    activity: profileActivity,
+    socials: profileSocials,
+  } = getMyProfile();
   const [showPanel, setShowPanel] = useState(true);
+  const [interests, setInterests] = useState<ProfileInterest[]>(profileInterests);
+  const [showPicker, setShowPicker] = useState(false);
+
+  function handleJoinInterest(interest: ProfileInterest) {
+    setInterests((prev) => {
+      if (prev.some((i) => i.name === interest.name)) return prev;
+      return [...prev, interest];
+    });
+  }
 
   return (
     <>
       <div className="flex flex-1 flex-col overflow-y-auto bg-bg-tertiary">
-        {/* Banner */}
-        <div className="relative h-[120px] shrink-0 border-b border-border-default bg-gradient-to-br from-banner-from to-banner-to">
-          <button
-            type="button"
-            onClick={() => setShowPanel(!showPanel)}
-            className={`absolute right-6 top-[18px] flex items-center rounded-[5px] p-1 transition-colors hover:bg-bg-hover hover:text-text-primary ${
-              showPanel ? "text-text-dimmed" : "bg-bg-hover text-text-primary"
-            }`}
-            title="Toggle panel"
-          >
-            <PanelToggleIcon className="h-5 w-5" />
-          </button>
-        </div>
-
         {/* Header */}
-        <div className="relative border-b border-border-default bg-bg-secondary px-8 pb-[22px]">
-          <div className="absolute -top-11 left-8">
-            <div className="flex h-[88px] w-[88px] items-center justify-center rounded-full border-[3px] border-bg-secondary bg-bg-hover text-[26px] font-medium text-text-primary">
-              {currentUser.initials}
+        <div className="border-b border-border-default bg-bg-secondary px-8 pb-[22px] pt-6">
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-4">
+              <div className="shrink-0">
+                {currentUser.avatarUrl ? (
+                  <img src={currentUser.avatarUrl} alt={currentUser.initials} className="h-[88px] w-[88px] rounded-full border-[3px] border-bg-secondary object-cover" />
+                ) : (
+                  <div className="flex h-[88px] w-[88px] items-center justify-center rounded-full border-[3px] border-bg-secondary bg-bg-hover text-[26px] font-medium text-text-primary">
+                    {currentUser.initials}
+                  </div>
+                )}
+              </div>
+              {/* Info */}
+              <div>
+                <div className="text-[19px] font-medium">{currentUser.username}</div>
+                <div className="mt-[3px] text-[13px] text-text-muted">
+                  <span className="font-medium text-text-primary">Level {currentUser.level}</span>
+                </div>
+                <div className="mt-3.5 flex gap-7">
+                  <div>
+                    <div className="text-base font-medium">48</div>
+                    <div className="mt-0.5 text-[11.5px] text-text-muted">Friends</div>
+                  </div>
+                  <div>
+                    <div className="text-base font-medium">5</div>
+                    <div className="mt-0.5 text-[11.5px] text-text-muted">Interests</div>
+                  </div>
+                </div>
+                {/* Socials */}
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {profileSocials.map((s) => (
+                    <div
+                      key={s.platform}
+                      className="group relative flex h-[30px] w-[30px] items-center justify-center rounded-[7px] border border-border-default bg-bg-hover transition-colors hover:border-border-strong hover:bg-social-hover"
+                      title={s.label}
+                    >
+                      <SocialIcon platform={s.platform} />
+                      <span className="pointer-events-none absolute bottom-[calc(100%+6px)] left-1/2 hidden -translate-x-1/2 whitespace-nowrap rounded-md border border-border-default bg-bg-hover px-[9px] py-1 text-[11px] text-text-primary group-hover:block">
+                        {s.label}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="flex flex-col items-end gap-[7px] self-stretch">
+              <button
+                type="button"
+                onClick={() => setShowPanel(!showPanel)}
+                className={`flex items-center rounded-[5px] p-1 transition-colors hover:bg-bg-hover hover:text-text-primary ${
+                  showPanel ? "text-text-dimmed" : "bg-bg-hover text-text-primary"
+                }`}
+                title="Toggle panel"
+              >
+                <PanelToggleIcon className="h-5 w-5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => router.push("/profile/edit")}
+                className="mt-auto rounded-[7px] border border-border-default bg-transparent px-[18px] py-[7px] text-[13px] text-text-primary transition-colors hover:bg-bg-hover"
+              >
+                Edit profile
+              </button>
+
             </div>
           </div>
-          <div className="flex items-end justify-between pt-[52px]">
-            <div>
-              <div className="text-[19px] font-medium">{currentUser.username}</div>
-              <div className="mt-[3px] text-[13px] text-text-muted">
-                <span className="font-medium text-text-primary">Level {currentUser.level}</span>
+        </div>
+
+        {/* Body — two independent columns so cards pack tightly */}
+        <div className="flex items-start gap-3.5 p-5 px-8">
+          {/* Left column */}
+          <div className="flex flex-1 flex-col gap-3.5">
+            {/* Bio */}
+            <Card title="Bio">
+              {currentUser.bio ? (
+                <p className="text-[13.5px] leading-relaxed text-text-secondary">
+                  {currentUser.bio}
+                </p>
+              ) : (
+                <p className="text-[13px] italic text-text-dimmed">
+                  No bio yet.
+                </p>
+              )}
+            </Card>
+
+            {/* Friends */}
+            <Card title="Friends">
+              <div className="flex flex-col gap-1">
+                {profileFriends.map((f) => (
+                  <div key={f.name} className="flex items-center gap-2.5 py-1.5">
+                    <div className="relative">
+                      <Avatar initials={f.initials} size="md" />
+                      {f.online && (
+                        <div className="absolute bottom-0 right-0 h-2 w-2 rounded-full border-2 border-bg-secondary bg-accent-green" />
+                      )}
+                    </div>
+                    <span className="flex-1 text-[13px]">{f.name}</span>
+                    <span className="text-[12px] text-text-muted">Lvl. {f.level}</span>
+                  </div>
+                ))}
+                <button className="py-1.5 text-left text-[12.5px] text-text-muted transition-colors hover:text-text-primary">
+                  See 44 more →
+                </button>
               </div>
-              <div className="mt-3.5 flex gap-7">
-                <div>
-                  <div className="text-base font-medium">48</div>
-                  <div className="mt-0.5 text-[11.5px] text-text-muted">Friends</div>
-                </div>
-                <div>
-                  <div className="text-base font-medium">5</div>
-                  <div className="mt-0.5 text-[11.5px] text-text-muted">Interests</div>
-                </div>
-              </div>
-              {/* Socials */}
-              <div className="mt-3 flex flex-wrap gap-1.5">
-                {profileSocials.map((s) => (
+            </Card>
+          </div>
+
+          {/* Right column */}
+          <div className="flex flex-1 flex-col gap-3.5">
+            {/* Interests */}
+            <Card title="Interests">
+              <div className="flex flex-wrap gap-2">
+                {interests.map((i) => (
                   <div
-                    key={s.platform}
-                    className="group relative flex h-[30px] w-[30px] items-center justify-center rounded-[7px] border border-border-default bg-bg-hover transition-colors hover:border-border-strong hover:bg-social-hover"
-                    title={s.label}
+                    key={i.name}
+                    className="flex items-center gap-[7px] rounded-full border border-border-default bg-bg-hover px-3 py-[7px] text-[13px] text-text-primary transition-colors hover:border-border-strong"
                   >
-                    <SocialIcon platform={s.platform} />
-                    <span className="pointer-events-none absolute bottom-[calc(100%+6px)] left-1/2 hidden -translate-x-1/2 whitespace-nowrap rounded-md border border-border-default bg-bg-hover px-[9px] py-1 text-[11px] text-text-primary group-hover:block">
-                      {s.label}
-                    </span>
+                    <div className="h-[7px] w-[7px] shrink-0 rounded-full" style={{ background: i.color }} />
+                    {i.name}
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setShowPicker(true)}
+                  className="rounded-full border border-dashed border-border-default px-3 py-[7px] text-[13px] text-text-muted transition-colors hover:border-solid hover:text-text-primary"
+                >
+                  + Add
+                </button>
+              </div>
+            </Card>
+
+            {/* Activity */}
+            <Card title="Recent activity">
+              <div className="flex flex-col gap-3">
+                {profileActivity.map((a, idx) => (
+                  <div key={idx} className="flex items-start gap-3">
+                    <div className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-lg bg-bg-hover text-[15px]">
+                      {activityIcons[a.icon] || "?"}
+                    </div>
+                    <div>
+                      <div className="text-[13px] leading-relaxed text-text-secondary">{a.text}</div>
+                      <div className="mt-[3px] text-[11.5px] text-text-dimmed">{a.time}</div>
+                    </div>
                   </div>
                 ))}
               </div>
-            </div>
-            <div className="flex flex-col items-end gap-[7px]">
-              <button className="rounded-[7px] border border-border-default bg-transparent px-[18px] py-[7px] text-[13px] text-text-primary transition-colors hover:bg-bg-hover">
-                Edit profile
-              </button>
-              <button className="rounded-[7px] border border-border-default bg-transparent px-[18px] py-[7px] text-[13px] text-text-primary transition-colors hover:bg-bg-hover">
-                View public profile
-              </button>
-            </div>
+            </Card>
           </div>
-        </div>
-
-        {/* Body grid */}
-        <div className="grid grid-cols-2 gap-3.5 p-5 px-8">
-          {/* Current projects */}
-          <Card title="Current projects">
-            <div className="flex flex-col gap-2">
-              {currentProjects.map((p) => (
-                <div
-                  key={p.name}
-                  className="flex items-center gap-3 rounded-[9px] border border-border-default bg-bg-hover px-3 py-2.5"
-                >
-                  <div className="h-2 w-2 shrink-0 rounded-full" style={{ background: p.color }} />
-                  <div className="flex-1">
-                    <div className="text-[13.5px] font-medium">{p.name}</div>
-                    <div className="mt-0.5 text-[11.5px] text-text-muted">{p.description}</div>
-                  </div>
-                  <span className="rounded-[5px] bg-[rgba(74,158,255,0.12)] px-2.5 py-[3px] text-[11px] font-medium text-accent-blue">
-                    {p.status}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </Card>
-
-          {/* Interests */}
-          <Card title="Interests">
-            <div className="flex flex-wrap gap-2">
-              {profileInterests.map((i) => (
-                <div
-                  key={i.name}
-                  className="flex items-center gap-[7px] rounded-full border border-border-default bg-bg-hover px-3 py-[7px] text-[13px] text-text-primary transition-colors hover:border-border-strong"
-                >
-                  <div className="h-[7px] w-[7px] shrink-0 rounded-full" style={{ background: i.color }} />
-                  {i.name}
-                </div>
-              ))}
-              <button className="rounded-full border border-dashed border-border-default px-3 py-[7px] text-[13px] text-text-muted transition-colors hover:border-solid hover:text-text-primary">
-                + Add
-              </button>
-            </div>
-          </Card>
-
-          {/* Friends */}
-          <Card title="Friends">
-            <div className="flex flex-col gap-1">
-              {profileFriends.map((f) => (
-                <div key={f.name} className="flex items-center gap-2.5 py-1.5">
-                  <div className="relative">
-                    <Avatar initials={f.initials} size="md" />
-                    {f.online && (
-                      <div className="absolute bottom-0 right-0 h-2 w-2 rounded-full border-2 border-bg-secondary bg-accent-green" />
-                    )}
-                  </div>
-                  <span className="flex-1 text-[13px]">{f.name}</span>
-                  <span className="text-[12px] text-text-muted">Lvl. {f.level}</span>
-                </div>
-              ))}
-              <button className="py-1.5 text-left text-[12.5px] text-text-muted transition-colors hover:text-text-primary">
-                See 44 more →
-              </button>
-            </div>
-          </Card>
-
-          {/* Activity */}
-          <Card title="Recent activity">
-            <div className="flex flex-col gap-3">
-              {profileActivity.map((a, idx) => (
-                <div key={idx} className="flex items-start gap-3">
-                  <div className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-lg bg-bg-hover text-[15px]">
-                    {activityIcons[a.icon] || "?"}
-                  </div>
-                  <div>
-                    <div className="text-[13px] leading-relaxed text-text-secondary">{a.text}</div>
-                    <div className="mt-[3px] text-[11.5px] text-text-dimmed">{a.time}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Card>
         </div>
       </div>
 
@@ -175,6 +196,14 @@ export default function ProfilePage() {
         <div className="flex w-[260px] shrink-0">
           <FriendsPanel />
         </div>
+      )}
+
+      {showPicker && (
+        <InterestPickerModal
+          joined={interests}
+          onJoin={handleJoinInterest}
+          onClose={() => setShowPicker(false)}
+        />
       )}
     </>
   );

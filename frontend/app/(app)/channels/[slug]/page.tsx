@@ -1,7 +1,7 @@
 "use client";
 
-import { use, useMemo, useState } from "react";
-import { notFound } from "next/navigation";
+import { use, useEffect, useState } from "react";
+import { notFound, useRouter } from "next/navigation";
 import Post from "@/components/Post";
 import ChannelHeader from "@/components/channel/ChannelHeader";
 import ChannelComposer from "@/components/channel/ChannelComposer";
@@ -12,7 +12,10 @@ import {
   getChannelBySlug,
   getChannelFeed,
   getChannelMembers,
+  createChannelPost,
+  leaveChannel,
 } from "@/lib/data/channels";
+import type { ChannelFeedItem } from "@/lib/types";
 
 interface ChannelPageProps {
   params: Promise<{ slug: string }>;
@@ -20,14 +23,27 @@ interface ChannelPageProps {
 
 export default function ChannelPage({ params }: ChannelPageProps) {
   const { slug } = use(params);
-  const channel = useMemo(() => getChannelBySlug(slug), [slug]);
-  if (!channel) notFound();
+  const router = useRouter();
 
-  const feed = useMemo(() => getChannelFeed(slug), [slug]);
-  const members = useMemo(() => getChannelMembers(slug), [slug]);
-
+  // All hooks before any conditional return
+  const [feed, setFeed] = useState<ChannelFeedItem[]>(() => [...getChannelFeed(slug)]);
   const [panelOpen, setPanelOpen] = useState(true);
   const [inviteOpen, setInviteOpen] = useState(false);
+
+  // Reset feed when navigating to a different channel
+  useEffect(() => {
+    setFeed([...getChannelFeed(slug)]);
+  }, [slug]);
+
+  const channel = getChannelBySlug(slug);
+  const members = getChannelMembers(slug);
+
+  if (!channel) notFound();
+
+  function handlePost(body: string) {
+    createChannelPost(slug, body);
+    setFeed([...getChannelFeed(slug)]);
+  }
 
   return (
     <>
@@ -40,7 +56,7 @@ export default function ChannelPage({ params }: ChannelPageProps) {
         />
 
         <div className="flex flex-col gap-3 px-8 pb-7 pt-2">
-          <ChannelComposer channelLabel={channel.label} />
+          <ChannelComposer channelLabel={channel.label} onPost={handlePost} />
 
           {feed.length === 0 ? (
             <div className="rounded-xl border border-dashed border-border-default bg-bg-secondary px-4 py-12 text-center text-[13px] text-text-muted">
@@ -68,7 +84,8 @@ export default function ChannelPage({ params }: ChannelPageProps) {
             channel={channel}
             members={members}
             onLeave={() => {
-              /* leave channel — to wire up later */
+              leaveChannel(slug);
+              router.push("/");
             }}
           />
         </div>

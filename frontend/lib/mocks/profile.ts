@@ -46,10 +46,10 @@ export const profileFriends = [
 ];
 
 export const profileActivity = [
-  { icon: "camera", text: "Joined the Photography channel", time: "2 hours ago" },
-  { icon: "handshake", text: "New friend: svidal", time: "1 day ago" },
-  { icon: "levelup", text: "Reached level 12", time: "3 days ago" },
-  { icon: "cycling", text: "Joined the Campus cycling event", time: "5 days ago" },
+  { emoji: "📷", text: "Joined the Photography channel", time: "2 hours ago" },
+  { emoji: "🤝", text: "New friend: svidal", time: "1 day ago" },
+  { emoji: "⬆️", text: "Reached level 12", time: "3 days ago" },
+  { emoji: "🚴", text: "Joined the Campus cycling event", time: "5 days ago" },
 ];
 
 export const profileSocials: ProfileSocial[] = [

@@ -1,6 +1,7 @@
 import {
   suggestions,
   friendRequests,
+  suggestionsTotal,
   type SuggestionProfile,
 } from "@/lib/mocks/suggestions";
 
@@ -15,6 +16,16 @@ export function getFriendRequests() {
 }
 
 export function getSuggestionsTotal(): number {
-  // Backend will return the real total. For now, mock count.
-  return suggestions.length * 4;
+  return suggestionsTotal;
+}
+
+// Module-level sent requests — persists across navigations during the session
+const _sentRequests = new Set<string>();
+
+export function sendFriendRequest(name: string): void {
+  _sentRequests.add(name);
+}
+
+export function getSentRequestNames(): string[] {
+  return Array.from(_sentRequests);
 }

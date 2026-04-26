@@ -1,21 +1,79 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Avatar from "@/components/Avatar";
 import {
   getFriendConversations,
   getChannelConversations,
   getConversationById,
   getChatMessages,
+  addChatMessage,
+  getPendingConv,
+  clearPendingConv,
 } from "@/lib/data/messages";
-import type { Conversation } from "@/lib/types";
+import { getCurrentUser } from "@/lib/data/auth";
+import type { ChatMessage, Conversation } from "@/lib/types";
 
 export default function MessagesPage() {
   const friendConvs = getFriendConversations();
   const channelConvs = getChannelConversations();
-  const [activeId, setActiveId] = useState<string>(friendConvs[0]?.id ?? "");
+  const currentUser = getCurrentUser();
+
+  const pending = getPendingConv();
+  const [activeId, setActiveId] = useState<string>(
+    () => pending?.id ?? friendConvs[0]?.id ?? "",
+  );
+  const [messages, setMessages] = useState<ChatMessage[]>(() => [...getChatMessages(pending?.id ?? friendConvs[0]?.id ?? "")]);
+  const [inputText, setInputText] = useState("");
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Clear pending after reading — safe to call multiple times
+  useEffect(() => { clearPendingConv(); }, []);
+
   const activeConv = getConversationById(activeId);
-  const messages = getChatMessages(activeId);
+
+  // If no stored conv exists, build a virtual one from pending data so the header always renders
+  const effectiveConv: Conversation | undefined = activeConv ?? (
+    pending && pending.id === activeId
+      ? {
+          id: pending.id,
+          type: "friend" as const,
+          name: pending.name,
+          initials: pending.initials,
+          avatarUrl: pending.avatarUrl,
+          level: pending.level,
+          preview: "",
+          time: "",
+          online: false,
+        }
+      : undefined
+  );
+
+  // Reset messages when switching conversation
+  useEffect(() => {
+    setMessages([...getChatMessages(activeId)]);
+  }, [activeId]);
+
+  // Scroll to bottom on new message
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  function handleSend() {
+    const text = inputText.trim();
+    if (!text || !activeId) return;
+    const now = new Date();
+    const msg: ChatMessage = {
+      sender: currentUser.username,
+      initials: currentUser.initials,
+      text,
+      time: `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`,
+      me: true,
+    };
+    addChatMessage(activeId, msg);
+    setMessages([...getChatMessages(activeId)]);
+    setInputText("");
+  }
 
   return (
     <>
@@ -62,7 +120,7 @@ export default function MessagesPage() {
       {/* Chat area */}
       <div className="flex flex-1 flex-col bg-bg-tertiary">
         {/* Chat header */}
-        {activeConv && <ChatHeader conv={activeConv} />}
+        {effectiveConv && <ChatHeader conv={effectiveConv} />}
 
         {/* Messages */}
         <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-[22px] py-[22px]">
@@ -93,6 +151,7 @@ export default function MessagesPage() {
               </div>
             </div>
           ))}
+          <div ref={messagesEndRef} />
         </div>
 
         {/* Input */}
@@ -108,10 +167,18 @@ export default function MessagesPage() {
             </svg>
           </button>
           <input
+            value={inputText}
+            onChange={(e) => setInputText(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") handleSend(); }}
             className="flex-1 rounded-full border border-border-default bg-bg-hover px-4 py-2.5 text-[13.5px] text-text-tertiary outline-none focus:border-border-strong focus:text-text-primary"
             placeholder="Write a message..."
           />
-          <button className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-text-primary text-bg-tertiary hover:opacity-85">
+          <button
+            type="button"
+            onClick={handleSend}
+            disabled={!inputText.trim()}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-text-primary text-bg-tertiary transition-opacity hover:opacity-85 disabled:opacity-40"
+          >
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <line x1="12" y1="19" x2="12" y2="5" /><polyline points="5 12 12 5 19 12" />
             </svg>

@@ -81,10 +81,10 @@ export default function PrivacyPolicyPage() {
             <ul className="list-disc space-y-1 pl-5">
               <li>
                 Providing and maintaining the platform (authentication,
-                profiles, messaging, rooms, and feed).
+                profiles, messaging, channels, and feed).
               </li>
               <li>
-                Suggesting connections and rooms based on shared interests and
+                Suggesting connections and channels based on shared interests and
                 campus proximity.
               </li>
               <li>

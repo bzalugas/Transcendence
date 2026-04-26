@@ -16,6 +16,9 @@ export const suggestions: SuggestionProfile[] = [
   { initials: "sc", name: "schauvet", level: 5, online: false, sharedTags: ["Photo", "Music"], otherTags: ["Science", "Nature"] },
 ];
 
+// Backend will return the real count from its search index
+export const suggestionsTotal = 24;
+
 export const friendRequests = [
   { initials: "jb", name: "jbernard", sharedCount: 3 },
   { initials: "sc", name: "schauvet", sharedCount: 2 },

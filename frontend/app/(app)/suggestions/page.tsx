@@ -5,14 +5,47 @@ import Link from "next/link";
 import Avatar from "@/components/Avatar";
 import FriendsList from "@/components/FriendsList";
 import PanelToggleIcon from "@/components/icons/PanelToggleIcon";
-import { getSuggestions, getSuggestionsTotal, getFriendRequests } from "@/lib/data/suggestions";
-import { getFriends, getCohortStats } from "@/lib/data/friends";
+import {
+  getSuggestions,
+  getSuggestionsTotal,
+  getFriendRequests,
+  sendFriendRequest,
+  getSentRequestNames,
+} from "@/lib/data/suggestions";
+import { getFriends, getCohortStats, addFriend } from "@/lib/data/friends";
+import type { Friend } from "@/lib/types";
 
 export default function SuggestionsPage() {
   const [showPanel, setShowPanel] = useState(true);
   const [search, setSearch] = useState("");
+  const [requested, setRequested] = useState<Set<string>>(
+    () => new Set(getSentRequestNames()),
+  );
+  const [pendingRequests, setPendingRequests] = useState(
+    () => [...getFriendRequests()],
+  );
+  const [friendsList, setFriendsList] = useState(() => getFriends());
   const suggestions = getSuggestions();
   const totalProfiles = getSuggestionsTotal();
+
+  function sendRequest(name: string) {
+    sendFriendRequest(name);
+    setRequested((prev) => new Set([...prev, name]));
+  }
+
+  function acceptRequest(name: string) {
+    const req = pendingRequests.find((r) => r.name === name);
+    if (req) {
+      const newFriend = { name: req.name, initials: req.initials, level: 0 };
+      addFriend(newFriend);
+      setFriendsList((prev) => [...prev, newFriend]);
+    }
+    setPendingRequests((prev) => prev.filter((r) => r.name !== name));
+  }
+
+  function rejectRequest(name: string) {
+    setPendingRequests((prev) => prev.filter((r) => r.name !== name));
+  }
 
   const filteredSuggestions = suggestions.filter((s) => {
     const q = search.toLowerCase();
@@ -68,7 +101,7 @@ export default function SuggestionsPage() {
                   )}
                 </div>
                 <div className="flex-1">
-                  <div className="text-[14px] font-medium">{s.name}</div>
+                  <Link href={`/profile/${s.name}`} className="text-[14px] font-medium hover:underline">{s.name}</Link>
                   <div className="mt-[3px] flex items-center gap-1.5 text-[12px] text-text-muted">
                     <div className="flex h-[22px] w-[22px] items-center justify-center rounded-full border border-border-default bg-bg-hover text-[11px] font-medium">
                       {s.level}
@@ -76,9 +109,34 @@ export default function SuggestionsPage() {
                     Level {s.level}
                   </div>
                 </div>
-                <button className="flex h-[34px] w-[34px] shrink-0 cursor-pointer items-center justify-center rounded-full border-[1.5px] border-border-default text-[22px] font-light leading-none text-text-tertiary transition-colors hover:border-border-strong hover:text-text-primary">
-                  +
-                </button>
+                {requested.has(s.name) ? (
+                  <div
+                    className="flex h-[34px] shrink-0 items-center justify-center gap-1.5 rounded-full border-[1.5px] border-accent-green/40 bg-accent-green/10 px-3 text-[12px] font-medium text-accent-green"
+                    title="Friend request sent"
+                  >
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="h-[14px] w-[14px]"
+                    >
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                    Sent
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => sendRequest(s.name)}
+                    title="Send friend request"
+                    className="flex h-[34px] w-[34px] shrink-0 cursor-pointer items-center justify-center rounded-full border-[1.5px] border-border-default text-[22px] font-light leading-none text-text-tertiary transition-colors hover:border-border-strong hover:text-text-primary"
+                  >
+                    +
+                  </button>
+                )}
               </div>
               <div className="flex flex-wrap gap-[5px]">
                 {s.sharedTags.map((t) => (
@@ -99,16 +157,31 @@ export default function SuggestionsPage() {
 
       {showPanel && (
         <div className="flex w-[260px] shrink-0">
-          <SuggestionsPanel />
+          <SuggestionsPanel
+            pendingRequests={pendingRequests}
+            friends={friendsList}
+            onAccept={acceptRequest}
+            onReject={rejectRequest}
+          />
         </div>
       )}
     </>
   );
 }
 
-function SuggestionsPanel() {
-  const friendRequests = getFriendRequests();
-  const friends = getFriends();
+type FriendRequest = ReturnType<typeof getFriendRequests>[number];
+
+function SuggestionsPanel({
+  pendingRequests,
+  friends,
+  onAccept,
+  onReject,
+}: {
+  pendingRequests: FriendRequest[];
+  friends: Friend[];
+  onAccept: (name: string) => void;
+  onReject: (name: string) => void;
+}) {
   const cohortStats = getCohortStats();
   return (
     <aside className="flex w-full flex-col overflow-hidden border-l border-border-default bg-bg-secondary">
@@ -117,11 +190,11 @@ function SuggestionsPanel() {
         <div className="mb-3 text-[10.5px] font-semibold uppercase tracking-wider text-text-muted">
           Friend requests{" "}
           <span className="ml-1 rounded-[10px] bg-bg-hover px-1.5 py-px text-[10px] font-semibold text-text-primary">
-            {friendRequests.length}
+            {pendingRequests.length}
           </span>
         </div>
         <div className="flex flex-col gap-0.5">
-          {friendRequests.map((r) => (
+          {pendingRequests.map((r) => (
             <div key={r.name} className="flex items-center gap-[9px] py-[7px]">
               <Link href="/profile" className="flex min-w-0 flex-1 items-center gap-[9px] hover:opacity-80">
                 <Avatar initials={r.initials} size="md" />
@@ -131,10 +204,18 @@ function SuggestionsPanel() {
                 </div>
               </Link>
               <div className="flex gap-[5px]">
-                <button className="rounded-[5px] bg-text-primary px-2.5 py-1 text-[11.5px] font-medium text-bg-tertiary hover:opacity-90">
+                <button
+                  type="button"
+                  onClick={() => onAccept(r.name)}
+                  className="rounded-[5px] bg-text-primary px-2.5 py-1 text-[11.5px] font-medium text-bg-tertiary hover:opacity-90"
+                >
                   Accept
                 </button>
-                <button className="rounded-[5px] border border-border-default px-2.5 py-1 text-[11.5px] text-text-muted hover:bg-bg-hover hover:text-text-primary">
+                <button
+                  type="button"
+                  onClick={() => onReject(r.name)}
+                  className="rounded-[5px] border border-border-default px-2.5 py-1 text-[11.5px] text-text-muted hover:bg-bg-hover hover:text-text-primary"
+                >
                   &#x2715;
                 </button>
               </div>

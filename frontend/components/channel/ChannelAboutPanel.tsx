@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import Avatar from "@/components/Avatar";
 import FriendsList from "@/components/FriendsList";
 import ConfirmModal from "@/components/ConfirmModal";
@@ -172,7 +173,7 @@ function InfoRow({ label, value }: { label: string; value: string }) {
 function OtherMemberRow({ member }: { member: ChannelMember }) {
   const dotColor = presenceColor[member.status];
   return (
-    <div className="flex items-center gap-2.5 rounded-[7px] px-2 py-1.5">
+    <Link href={`/profile/${member.username}`} className="flex items-center gap-2.5 rounded-[7px] px-2 py-1.5 transition-colors hover:bg-bg-hover">
       <div className="relative">
         <Avatar
           initials={member.initials}
@@ -190,6 +191,6 @@ function OtherMemberRow({ member }: { member: ChannelMember }) {
         {member.username}
       </span>
       <span className="text-[11px] text-text-dimmed">lvl {member.level}</span>
-    </div>
+    </Link>
   );
 }

@@ -6,11 +6,19 @@ import { getCurrentUser } from "@/lib/data/auth";
 
 interface ChannelComposerProps {
   channelLabel: string;
+  onPost: (body: string) => void;
 }
 
-export default function ChannelComposer({ channelLabel }: ChannelComposerProps) {
+export default function ChannelComposer({ channelLabel, onPost }: ChannelComposerProps) {
   const [text, setText] = useState("");
   const currentUser = getCurrentUser();
+
+  function handlePost() {
+    const body = text.trim();
+    if (!body) return;
+    onPost(body);
+    setText("");
+  }
 
   return (
     <div className="rounded-xl border border-border-subtle bg-bg-secondary px-4 py-3.5">
@@ -20,6 +28,7 @@ export default function ChannelComposer({ channelLabel }: ChannelComposerProps) 
           type="text"
           value={text}
           onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") handlePost(); }}
           placeholder={`Share something with ${channelLabel}...`}
           className="flex-1 bg-transparent text-[13.5px] text-text-primary outline-none placeholder:text-text-dimmed"
         />
@@ -44,8 +53,9 @@ export default function ChannelComposer({ channelLabel }: ChannelComposerProps) 
         </button>
         <button
           type="button"
+          onClick={handlePost}
           disabled={!text.trim()}
-          className="rounded-[7px] bg-btn-primary-bg px-3.5 py-1.5 text-[12.5px] font-medium text-btn-primary-text transition-opacity hover:opacity-90 disabled:opacity-40"
+          className="rounded-[7px] bg-text-primary px-3.5 py-1.5 text-[12.5px] font-semibold text-bg-primary transition-opacity hover:opacity-90 disabled:opacity-40"
         >
           Post
         </button>

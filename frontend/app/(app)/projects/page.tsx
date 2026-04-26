@@ -17,6 +17,11 @@ export default function ProjectsPage() {
   const lfgPosts = getLfgPosts();
   const allProjects = getAllProjects();
   const currentUser = getCurrentUser();
+  const [appliedKeys, setAppliedKeys] = useState<Set<string>>(new Set());
+
+  function handleApply(key: string) {
+    setAppliedKeys((prev) => new Set([...prev, key]));
+  }
 
   const filteredProjects = allProjects.filter((p) => {
     const q = projectSearch.toLowerCase();
@@ -90,12 +95,9 @@ export default function ProjectsPage() {
               <div className="flex items-center gap-2">
                 <select className="cursor-pointer appearance-none rounded-md border border-border-default bg-bg-hover px-2.5 py-1.5 text-[12px] text-text-secondary outline-none hover:border-border-strong">
                   <option value="">Project...</option>
-                  <option>ft_transcendence</option>
-                  <option>minishell</option>
-                  <option>webserv</option>
-                  <option>ft_irc</option>
-                  <option>cub3d</option>
-                  <option>inception</option>
+                  {allProjects.map((p) => (
+                    <option key={p.name} value={p.name}>{p.name}</option>
+                  ))}
                 </select>
                 <input
                   type="number"
@@ -119,9 +121,17 @@ export default function ProjectsPage() {
                 className="w-full rounded-lg border border-border-default bg-bg-secondary px-3.5 py-2.5 text-[13.5px] text-text-primary outline-none placeholder:text-text-dimmed focus:border-border-strong"
                 placeholder="Search a team or project..."
               />
-              {filteredLfg.map((post, idx) => (
-                <LfgCard key={idx} post={post} />
-              ))}
+              {filteredLfg.map((post) => {
+                const key = `${post.name}-${post.project}`;
+                return (
+                  <LfgCard
+                    key={key}
+                    post={post}
+                    applied={appliedKeys.has(key)}
+                    onApply={() => handleApply(key)}
+                  />
+                );
+              })}
             </div>
           </>
         )}
@@ -172,8 +182,7 @@ export default function ProjectsPage() {
   );
 }
 
-function LfgCard({ post }: { post: LfgPost }) {
-  const [applied, setApplied] = useState(false);
+function LfgCard({ post, applied, onApply }: { post: LfgPost; applied: boolean; onApply: () => void }) {
 
   return (
     <div className="overflow-hidden rounded-xl border border-border-default bg-bg-secondary transition-colors hover:border-border-strong">
@@ -245,7 +254,7 @@ function LfgCard({ post }: { post: LfgPost }) {
             </span>
           ) : (
             <button
-              onClick={() => setApplied(true)}
+              onClick={onApply}
               className="rounded-md bg-text-primary px-3.5 py-[5px] text-[12px] font-medium text-bg-tertiary hover:opacity-90"
             >
               Apply

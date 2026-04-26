@@ -8,8 +8,8 @@ import TermsAcceptanceModal from "@/components/TermsAcceptanceModal";
 
 const features = [
   {
-    title: "Rooms",
-    description: "Join topic-based groups (photo, cycling, AI, and more).",
+    title: "Channels",
+    description: "Join topic-based channels (photo, cycling, AI, and more).",
   },
   {
     title: "Feed",

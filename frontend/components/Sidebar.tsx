@@ -14,7 +14,7 @@ import {
   ProfileIcon,
   SettingsIcon,
 } from "@/components/icons/NavIcons";
-import { getAllChannels } from "@/lib/data/channels";
+import { getJoinedChannels } from "@/lib/data/channels";
 import { getCurrentUser } from "@/lib/data/auth";
 import { getNavBadges } from "@/lib/data/nav";
 
@@ -30,7 +30,7 @@ export default function Sidebar() {
   const pathname = usePathname();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const settingsRef = useRef<HTMLButtonElement>(null);
-  const channels = getAllChannels();
+  const channels = getJoinedChannels();
   const currentUser = getCurrentUser();
   const navBadges = getNavBadges();
 

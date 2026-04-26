@@ -2,7 +2,7 @@
 
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { getCurrentUser } from "@/lib/data/auth";
+import { getCurrentUser, updateCurrentUser } from "@/lib/data/auth";
 import { getMyProfile } from "@/lib/data/profile";
 import type { ProfileSocial } from "@/lib/types";
 
@@ -49,8 +49,10 @@ export default function EditProfilePage() {
 
   /* ── save ── */
   function handleSave() {
-    // TODO: wire to backend — for now just go back
-    router.push("/profile");
+    const trimmed = username.trim();
+    if (!trimmed) return;
+    updateCurrentUser({ username: trimmed, bio: bio.trim() || undefined });
+    router.push(`/profile/${trimmed}`);
   }
 
   return (
@@ -193,7 +195,7 @@ export default function EditProfilePage() {
         <div className="flex items-center justify-end gap-3 border-t border-border-default pt-5">
           <button
             type="button"
-            onClick={() => router.push("/profile")}
+            onClick={() => router.push(`/profile/${currentUser.username}`)}
             className="rounded-[7px] border border-border-default bg-transparent px-[18px] py-[8px] text-[13px] text-text-primary transition-colors hover:bg-bg-hover"
           >
             Cancel

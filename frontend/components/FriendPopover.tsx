@@ -2,8 +2,11 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { Friend } from "@/lib/types";
 import { getAllChannels } from "@/lib/data/channels";
+import { addChatMessage, setPendingConv } from "@/lib/data/messages";
+import { getCurrentUser } from "@/lib/data/auth";
 import GameModal from "@/components/GameModal";
 import ConfirmActionModal, { type ConfirmAction } from "@/components/ConfirmActionModal";
 
@@ -11,10 +14,13 @@ type FriendPopoverProps = {
   friend: Friend;
   anchorRef: React.RefObject<HTMLElement | null>;
   onClose: () => void;
+  onRemove?: () => void;
 };
 
-export default function FriendPopover({ friend, anchorRef, onClose }: FriendPopoverProps) {
+export default function FriendPopover({ friend, anchorRef, onClose, onRemove }: FriendPopoverProps) {
+  const router = useRouter();
   const channels = getAllChannels();
+  const [msgText, setMsgText] = useState("");
   const popRef = useRef<HTMLDivElement>(null);
   const subMoreRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState({ top: 0, left: 0 });
@@ -47,6 +53,30 @@ export default function FriendPopover({ friend, anchorRef, onClose }: FriendPopo
 
   const initials = friend.initials ?? friend.name.slice(0, 2);
 
+  function handleSendMessage() {
+    const text = msgText.trim();
+    if (!text) return;
+    const currentUser = getCurrentUser();
+    const convId = `fr-${friend.name}`;
+    const now = new Date();
+    addChatMessage(convId, {
+      sender: currentUser.username,
+      initials: currentUser.initials,
+      text,
+      time: `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`,
+      me: true,
+    });
+    setPendingConv({
+      id: convId,
+      name: friend.name,
+      initials: friend.initials,
+      avatarUrl: friend.avatarUrl,
+      level: friend.level,
+    });
+    onClose();
+    router.push("/messages");
+  }
+
   return (
     <>
       {/* Main popover */}
@@ -64,7 +94,7 @@ export default function FriendPopover({ friend, anchorRef, onClose }: FriendPopo
           </div>
           <div className="min-w-0 flex-1">
             <Link
-              href="/profile"
+              href={`/profile/${friend.name}`}
               onClick={onClose}
               className="inline-block text-[13.5px] font-semibold text-white hover:underline"
             >
@@ -87,7 +117,10 @@ export default function FriendPopover({ friend, anchorRef, onClose }: FriendPopo
         <div className="px-3.5 py-2.5">
           <input
             type="text"
-            placeholder="Send a message..."
+            value={msgText}
+            onChange={(e) => setMsgText(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") handleSendMessage(); }}
+            placeholder="Send a message…"
             className="w-full rounded-[6px] border border-white/10 bg-[#1a1a19] px-2.5 py-2 text-[12px] text-white outline-none placeholder:text-[#666666] focus:border-white/20"
           />
         </div>
@@ -178,7 +211,13 @@ export default function FriendPopover({ friend, anchorRef, onClose }: FriendPopo
           action={confirmAction}
           friendName={friend.name}
           onCancel={() => setConfirmAction(null)}
-          onConfirm={() => { setConfirmAction(null); onClose(); }}
+          onConfirm={() => {
+            setConfirmAction(null);
+            if (confirmAction === "remove" || confirmAction === "block") {
+              onRemove?.();
+            }
+            onClose();
+          }}
         />
       )}
     </>

@@ -3,20 +3,28 @@
 import { useRef, useState } from "react";
 import Avatar from "@/components/Avatar";
 import FriendPopover from "@/components/FriendPopover";
+import { removeFriend } from "@/lib/data/friends";
 import type { Friend } from "@/lib/types";
 
 type FriendsListProps = {
   friends: Friend[];
 };
 
-export default function FriendsList({ friends }: FriendsListProps) {
+export default function FriendsList({ friends: initialFriends }: FriendsListProps) {
+  const [displayedFriends, setDisplayedFriends] = useState<Friend[]>(initialFriends);
   const [activeFriend, setActiveFriend] = useState<Friend | null>(null);
   const buttonRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
+
+  function handleRemove(name: string) {
+    removeFriend(name);
+    setDisplayedFriends((prev) => prev.filter((f) => f.name !== name));
+    setActiveFriend(null);
+  }
 
   return (
     <>
       <div className="flex flex-col gap-0.5">
-        {friends.map((f) => (
+        {displayedFriends.map((f) => (
           <button
             key={f.name}
             ref={(el) => { if (el) buttonRefs.current.set(f.name, el); }}
@@ -38,6 +46,7 @@ export default function FriendsList({ friends }: FriendsListProps) {
           friend={activeFriend}
           anchorRef={{ current: buttonRefs.current.get(activeFriend.name) ?? null }}
           onClose={() => setActiveFriend(null)}
+          onRemove={() => handleRemove(activeFriend.name)}
         />
       )}
     </>

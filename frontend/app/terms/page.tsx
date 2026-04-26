@@ -112,13 +112,13 @@ export default function TermsOfServicePage() {
 
           <section>
             <h2 className="mb-2 text-[16px] font-semibold text-text-primary">
-              6. Rooms and Projects
+              6. Channels and Projects
             </h2>
             <p>
-              Rooms are community spaces organized around shared interests.
-              Projects allow users to form teams and collaborate. Room creators
+              Channels are community spaces organized around shared interests.
+              Projects allow users to form teams and collaborate. Channel creators
               and project leads may set additional guidelines for their spaces.
-              The platform reserves the right to remove rooms or projects that
+              The platform reserves the right to remove channels or projects that
               violate these terms or are used for purposes contrary to the
               spirit of the 42 community.
             </p>

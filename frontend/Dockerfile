@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 FROM oven/bun:1 AS base
 WORKDIR /app
 
@@ -21,3 +22,19 @@ WORKDIR /app
 COPY --from=build /app/dist ./dist
 
 CMD ["bun", "x", "serve", "-s", "dist", "-l", "8080"]
+=======
+FROM node:24-alpine3.22
+
+WORKDIR /app
+
+COPY ./package*.json .
+
+RUN npm install
+
+COPY . .
+
+# RUN npm run build
+
+ENTRYPOINT ["npm", "run"]
+CMD ["dev"]
+>>>>>>> dbe8aa6 (Prepare rebase from main)

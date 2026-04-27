@@ -1,11 +1,4 @@
 {
-<<<<<<< HEAD
-  "files": [],
-  "references": [
-    { "path": "./tsconfig.app.json" },
-    { "path": "./tsconfig.node.json" }
-  ]
-=======
   "compilerOptions": {
     "target": "ES2017",
     "lib": ["dom", "dom.iterable", "esnext"],
@@ -38,5 +31,4 @@
     "**/*.mts"
   ],
   "exclude": ["node_modules"]
->>>>>>> dbe8aa6 (Prepare rebase from main)
 }

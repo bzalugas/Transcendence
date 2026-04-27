@@ -1,9 +1,6 @@
 node_modules/
 .next
-<<<<<<< HEAD
 *.md
 LICENSE
 .vscode
 Dockerfile
-=======
->>>>>>> dbe8aa6 (Prepare rebase from main)

@@ -1,3 +1,6 @@
 .DS_Store
 .env
 .env-dev
+.next
+node_modules
+subject.pdf

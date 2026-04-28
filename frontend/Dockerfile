@@ -20,4 +20,4 @@ WORKDIR /app
 
 COPY --from=build /app/dist ./dist
 
-CMD ["bun", "x", "serve", "-s", "dist", "-l", "8080"]
+CMD ["bun", "run", "dev"]

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import TermsAcceptanceModal from "@/components/TermsAcceptanceModal";
+import { authClient } from "@/lib/auth-client"; 
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -15,6 +16,7 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const pwRules = [
     { label: "12 characters", test: password.length >= 12 },
@@ -23,6 +25,26 @@ export default function RegisterPage() {
     { label: "A special character", test: /[^a-zA-Z0-9]/.test(password) },
   ];
   const passwordValid = pwRules.every((r) => r.test);
+
+  const registerUser = async () => {
+    setLoading(true);
+    setError("");
+
+    const { error } = await authClient.signUp.email({
+      email,
+      password,
+      name: `${firstName} ${lastName}`,
+    });
+
+    setLoading(false);
+
+    if (error) {
+      setError(error.message ?? "Registration failed.");
+      return;
+    }
+
+    router.push("/");
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,7 +67,8 @@ export default function RegisterPage() {
 
     const accepted = localStorage.getItem("terms_accepted");
     if (accepted === "true") {
-      router.push("/");
+      registerUser();
+		// router.push("/");
     } else {
       setShowTerms(true);
     }
@@ -54,7 +77,7 @@ export default function RegisterPage() {
   const handleAccept = () => {
     localStorage.setItem("terms_accepted", "true");
     setShowTerms(false);
-    router.push("/");
+    registerUser(); // router.push("/");
   };
 
   const handleDecline = () => {
@@ -238,9 +261,10 @@ export default function RegisterPage() {
           {/* Submit */}
           <button
             type="submit"
-            className="mt-1 w-full rounded-[14px] bg-btn-primary-bg px-[18px] py-3.5 text-[15px] font-semibold text-btn-primary-text transition-opacity hover:opacity-88"
+			disabled={loading}
+            className="mt-1 w-full rounded-[14px] bg-btn-primary-bg px-[18px] py-3.5 text-[15px] font-semibold text-btn-primary-text transition-opacity hover:opacity-88 disabled:opacity-50"
           >
-            Create account
+            {loading ? "Creating account..." : "Create account"}
           </button>
         </form>
 

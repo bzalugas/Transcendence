@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import TermsAcceptanceModal from "@/components/TermsAcceptanceModal";
+import { authClient } from "@/lib/auth-client";
 
 export default function GuestLoginPage() {
   const router = useRouter();
@@ -12,6 +13,7 @@ export default function GuestLoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,16 +26,39 @@ export default function GuestLoginPage() {
 
     const accepted = localStorage.getItem("terms_accepted");
     if (accepted === "true") {
-      router.push("/");
+		signInWithEmail();
+    //   router.push("/");
     } else {
       setShowTerms(true);
     }
   };
 
+  //----------
+  const signInWithEmail = async () => {
+    setLoading(true);
+    setError("");
+
+    const { error } = await authClient.signIn.email({
+      email,
+      password,
+    });
+
+    setLoading(false);
+
+    if (error) {
+      setError(error.message ?? "Sign in failed.");
+      return;
+    }
+
+    router.push("/");
+  };
+  //----------
+
   const handleAccept = () => {
     localStorage.setItem("terms_accepted", "true");
     setShowTerms(false);
-    router.push("/");
+	signInWithEmail();
+    // router.push("/");
   };
 
   const handleDecline = () => {

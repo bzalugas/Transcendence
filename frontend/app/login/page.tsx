@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Logo42 from "@/components/Logo42";
 import TermsAcceptanceModal from "@/components/TermsAcceptanceModal";
+import { authClient } from "@/lib/auth-client";
 
 const features = [
   {
@@ -32,16 +33,29 @@ export default function LoginPage() {
   const handleSignIn = () => {
     const accepted = localStorage.getItem("terms_accepted");
     if (accepted === "true") {
-      router.push("/");
+	  signInWith42();
+      //router.push("/");
     } else {
       setShowTerms(true);
     }
   };
 
+ //------
+  const signInWith42 = async () => {
+    setLoading(true);
+    await authClient.signIn.social({
+      provider: "42school",
+      callbackURL: "/",
+    });
+    setLoading(false);
+  };
+  //----------
+
   const handleAccept = () => {
     localStorage.setItem("terms_accepted", "true");
     setShowTerms(false);
-    router.push("/");
+	signInWith42();
+    //router.push("/");
   };
 
   const handleDecline = () => {

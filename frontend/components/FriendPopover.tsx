@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { Friend } from "@/lib/types";
+import type { Channel, Friend } from "@/lib/types";
 import { getAllChannels } from "@/lib/data/channels";
 import { addChatMessage, setPendingConv } from "@/lib/data/messages";
 import { useCurrentUser } from "@/lib/data/auth";
@@ -19,7 +19,7 @@ type FriendPopoverProps = {
 
 export default function FriendPopover({ friend, anchorRef, onClose, onRemove }: FriendPopoverProps) {
   const router = useRouter();
-  const channels = getAllChannels();
+  const [channels, setChannels] = useState<Channel[]>([]);
   const { user: currentUser } = useCurrentUser();
   const [msgText, setMsgText] = useState("");
   const popRef = useRef<HTMLDivElement>(null);
@@ -29,6 +29,22 @@ export default function FriendPopover({ friend, anchorRef, onClose, onRemove }: 
   const [showSubChannels, setShowSubChannels] = useState(false);
   const [showGameModal, setShowGameModal] = useState(false);
   const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null);
+
+  useEffect(() => {
+    let active = true;
+
+    getAllChannels()
+      .then((items) => {
+        if (active) setChannels(items);
+      })
+      .catch(() => {
+        if (active) setChannels([]);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!anchorRef.current) return;

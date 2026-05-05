@@ -4,7 +4,6 @@ import {
   profileSocials,
   currentProjects,
 } from "@/lib/mocks/profile";
-import { channelMembers } from "@/lib/mocks/channelMembers";
 import { getFriends } from "@/lib/data/friends";
 import type { User } from "@/lib/types";
 
@@ -31,18 +30,16 @@ export function getProfileByUsername(username: string, currentUser: User) {
     };
   }
 
-  // Look up basic info from other mocks
+  // Look up basic info from the remaining friend fallback.
   const friend = getFriends().find((f) => f.name === username);
-  const allMembers = Object.values(channelMembers).flat();
-  const member = allMembers.find((m) => m.username === username);
 
   return {
     user: {
       id: username,
       username,
-      initials: friend?.initials ?? member?.initials ?? username.slice(0, 2),
-      avatarUrl: friend?.avatarUrl ?? member?.avatarUrl,
-      level: friend?.level ?? member?.level ?? 0,
+      initials: friend?.initials ?? username.slice(0, 2),
+      avatarUrl: friend?.avatarUrl,
+      level: friend?.level ?? 0,
       bio: undefined as string | undefined,
     },
     isSelf: false as const,

@@ -53,7 +53,7 @@ export class InterestsService {
       .sort((a, b) => a.name.localeCompare(b.name));
   }
 
-  // Creates the user-interest relation if needed and returns the joined interest.
+  // Creates the user-interest relation, joins the matching channel, and returns the interest.
   async joinForUser(userId: string, interestId: number): Promise<InterestDto> {
     const interest = await this.prisma.interest.findUnique({
       where: { id: interestId },
@@ -76,6 +76,27 @@ export class InterestsService {
       },
       update: {},
     });
+
+    const channel = await this.prisma.channel.findUnique({
+      where: { interestId },
+    });
+
+    if (channel) {
+      await this.prisma.user_Channel.upsert({
+        where: {
+          userId_channelId: {
+            userId,
+            channelId: channel.id,
+          },
+        },
+        create: {
+          userId,
+          channelId: channel.id,
+          isFavorite: false,
+        },
+        update: {},
+      });
+    }
 
     const joinedInterest = await this.prisma.interest.findUniqueOrThrow({
       where: { id: interestId },

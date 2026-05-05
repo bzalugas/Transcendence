@@ -1,4 +1,5 @@
 import type { AvailableInterest, ProfileInterest } from "@/lib/types";
+import { notifyChannelsUpdated } from "@/lib/data/channel-events";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
 
@@ -41,5 +42,7 @@ export async function joinMyInterest(
     throw new Error(`POST /interests/me/${interest.id} failed with ${response.status}`);
   }
 
-  return response.json();
+  const joinedInterest = await response.json();
+  notifyChannelsUpdated();
+  return joinedInterest;
 }

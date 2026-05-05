@@ -7,7 +7,7 @@ import PanelToggleIcon from "@/components/icons/PanelToggleIcon";
 import { getLfgPosts, getAllProjects, getTrendingProjects } from "@/lib/data/projects";
 import type { LfgPost } from "@/lib/mocks/projects";
 import { getCohortStats } from "@/lib/data/friends";
-import { getCurrentUser } from "@/lib/data/auth";
+import { useCurrentUser } from "@/lib/data/auth";
 
 export default function ProjectsPage() {
   const [showPanel, setShowPanel] = useState(true);
@@ -16,8 +16,10 @@ export default function ProjectsPage() {
   const [lfgSearch, setLfgSearch] = useState("");
   const lfgPosts = getLfgPosts();
   const allProjects = getAllProjects();
-  const currentUser = getCurrentUser();
+  const { user: currentUser } = useCurrentUser();
   const [appliedKeys, setAppliedKeys] = useState<Set<string>>(new Set());
+
+  if (!currentUser) return null;
 
   function handleApply(key: string) {
     setAppliedKeys((prev) => new Set([...prev, key]));

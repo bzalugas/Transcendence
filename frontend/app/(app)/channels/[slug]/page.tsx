@@ -15,6 +15,7 @@ import {
   createChannelPost,
   leaveChannel,
 } from "@/lib/data/channels";
+import { useCurrentUser } from "@/lib/data/auth";
 import type { ChannelFeedItem } from "@/lib/types";
 
 interface ChannelPageProps {
@@ -24,6 +25,7 @@ interface ChannelPageProps {
 export default function ChannelPage({ params }: ChannelPageProps) {
   const { slug } = use(params);
   const router = useRouter();
+  const { user: currentUser } = useCurrentUser();
 
   // All hooks before any conditional return
   const [feed, setFeed] = useState<ChannelFeedItem[]>(() => [...getChannelFeed(slug)]);
@@ -41,7 +43,8 @@ export default function ChannelPage({ params }: ChannelPageProps) {
   if (!channel) notFound();
 
   function handlePost(body: string) {
-    createChannelPost(slug, body);
+    if (!currentUser) return;
+    createChannelPost(slug, body, currentUser);
     setFeed([...getChannelFeed(slug)]);
   }
 

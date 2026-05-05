@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import type { Friend } from "@/lib/types";
 import { getAllChannels } from "@/lib/data/channels";
 import { addChatMessage, setPendingConv } from "@/lib/data/messages";
-import { getCurrentUser } from "@/lib/data/auth";
+import { useCurrentUser } from "@/lib/data/auth";
 import GameModal from "@/components/GameModal";
 import ConfirmActionModal, { type ConfirmAction } from "@/components/ConfirmActionModal";
 
@@ -20,6 +20,7 @@ type FriendPopoverProps = {
 export default function FriendPopover({ friend, anchorRef, onClose, onRemove }: FriendPopoverProps) {
   const router = useRouter();
   const channels = getAllChannels();
+  const { user: currentUser } = useCurrentUser();
   const [msgText, setMsgText] = useState("");
   const popRef = useRef<HTMLDivElement>(null);
   const subMoreRef = useRef<HTMLDivElement>(null);
@@ -55,8 +56,7 @@ export default function FriendPopover({ friend, anchorRef, onClose, onRemove }: 
 
   function handleSendMessage() {
     const text = msgText.trim();
-    if (!text) return;
-    const currentUser = getCurrentUser();
+    if (!text || !currentUser) return;
     const convId = `fr-${friend.name}`;
     const now = new Date();
     addChatMessage(convId, {

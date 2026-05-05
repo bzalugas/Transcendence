@@ -6,8 +6,8 @@ import {
   currentProjects,
 } from "@/lib/mocks/profile";
 import { channelMembers } from "@/lib/mocks/channelMembers";
-import { getCurrentUser } from "@/lib/data/auth";
 import { getFriends } from "@/lib/data/friends";
+import type { User } from "@/lib/types";
 
 // Backend swap point: replace with `fetch('/api/profile/:username')`.
 
@@ -21,8 +21,7 @@ export function getMyProfile() {
   };
 }
 
-export function getProfileByUsername(username: string) {
-  const currentUser = getCurrentUser();
+export function getProfileByUsername(username: string, currentUser: User) {
   const isSelf = username === currentUser.username;
 
   if (isSelf) {

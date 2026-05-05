@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Logo42 from "@/components/Logo42";
 import TermsAcceptanceModal from "@/components/TermsAcceptanceModal";
@@ -27,8 +26,8 @@ const features = [
 ];
 
 export default function LoginPage() {
-  const router = useRouter();
   const [showTerms, setShowTerms] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const handleSignIn = () => {
     const accepted = localStorage.getItem("terms_accepted");
@@ -80,6 +79,7 @@ export default function LoginPage() {
         {/* Primary CTA */}
         <button
           onClick={handleSignIn}
+          disabled={loading}
           className="flex w-full items-center justify-center gap-2.5 rounded-[14px] bg-btn-primary-bg px-[18px] py-4 text-base font-semibold text-btn-primary-text transition-opacity hover:opacity-88"
         >
           <Logo42 className="h-[20px] w-auto" />

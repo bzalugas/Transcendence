@@ -11,13 +11,13 @@ import {
   getPendingConv,
   clearPendingConv,
 } from "@/lib/data/messages";
-import { getCurrentUser } from "@/lib/data/auth";
+import { useCurrentUser } from "@/lib/data/auth";
 import type { ChatMessage, Conversation } from "@/lib/types";
 
 export default function MessagesPage() {
   const friendConvs = getFriendConversations();
   const channelConvs = getChannelConversations();
-  const currentUser = getCurrentUser();
+  const { user: currentUser } = useCurrentUser();
 
   const pending = getPendingConv();
   const [activeId, setActiveId] = useState<string>(
@@ -61,7 +61,7 @@ export default function MessagesPage() {
 
   function handleSend() {
     const text = inputText.trim();
-    if (!text || !activeId) return;
+    if (!text || !activeId || !currentUser) return;
     const now = new Date();
     const msg: ChatMessage = {
       sender: currentUser.username,

@@ -15,7 +15,7 @@ import {
   SettingsIcon,
 } from "@/components/icons/NavIcons";
 import { getJoinedChannels } from "@/lib/data/channels";
-import { getCurrentUser } from "@/lib/data/auth";
+import { useCurrentUser } from "@/lib/data/auth";
 import { getNavBadges } from "@/lib/data/nav";
 
 const navItems = [
@@ -31,8 +31,10 @@ export default function Sidebar() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const settingsRef = useRef<HTMLButtonElement>(null);
   const channels = getJoinedChannels();
-  const currentUser = getCurrentUser();
+  const { user: currentUser } = useCurrentUser();
   const navBadges = getNavBadges();
+
+  if (!currentUser) return null;
 
   return (
     <aside className="flex w-[220px] shrink-0 flex-col gap-0.5 overflow-y-auto border-r border-border-default bg-bg-secondary px-4 py-6">

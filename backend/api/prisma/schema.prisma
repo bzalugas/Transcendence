@@ -37,6 +37,7 @@ model Profile {
   pseudo        String?
   birthdate     DateTime?
   avatarUri     String?
+  level         Float?     @default(0)
   bio           String?
   userId        Int        @unique
   user          User       @relation(fields: [userId], references: [id])

@@ -10,6 +10,7 @@ import InterestPickerModal from "@/components/InterestPickerModal";
 import PanelToggleIcon from "@/components/icons/PanelToggleIcon";
 import { getProfileByUsername } from "@/lib/data/profile";
 import { useCurrentUser } from "@/lib/data/auth";
+import { getMyInterests } from "@/lib/data/interests";
 import { setPendingConv } from "@/lib/data/messages";
 import type { ProfileInterest } from "@/lib/types";
 
@@ -29,10 +30,32 @@ export default function ProfilePage({ params }: ProfilePageProps) {
   const [showPanel, setShowPanel] = useState(true);
   const [interests, setInterests] = useState<ProfileInterest[]>([]);
   const [showPicker, setShowPicker] = useState(false);
+  const [interestsLoading, setInterestsLoading] = useState(false);
 
   useEffect(() => {
-    setInterests(profile?.interests ?? []);
-  }, [username, currentUser?.username]);
+    if (!profile?.isSelf) {
+      setInterests(profile?.interests ?? []);
+      return;
+    }
+
+    let active = true;
+    setInterestsLoading(true);
+
+    getMyInterests()
+      .then((items) => {
+        if (active) setInterests(items);
+      })
+      .catch(() => {
+        if (active) setInterests([]);
+      })
+      .finally(() => {
+        if (active) setInterestsLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [profile?.isSelf, username, currentUser?.username]);
 
   if (!profile) return null;
 
@@ -187,7 +210,9 @@ export default function ProfilePage({ params }: ProfilePageProps) {
           {/* Right column */}
           <div className="flex flex-1 flex-col gap-3.5">
             <Card title="Interests">
-              {interests.length > 0 ? (
+              {interestsLoading ? (
+                <p className="text-[13px] italic text-text-dimmed">Loading interests...</p>
+              ) : interests.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
                   {interests.map((i) => (
                     <div

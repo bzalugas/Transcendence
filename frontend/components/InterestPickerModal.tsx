@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import type { AvailableInterest, ProfileInterest } from "@/lib/types";
-import { allAvailableInterests } from "@/lib/mocks/profile";
+import { getAllInterests, joinMyInterest } from "@/lib/data/interests";
 
 interface Props {
   joined: ProfileInterest[];
@@ -15,6 +15,9 @@ const PREVIEW_COUNT = 12;
 export default function InterestPickerModal({ joined, onJoin, onClose }: Props) {
   const [search, setSearch] = useState("");
   const [detail, setDetail] = useState<AvailableInterest | null>(null);
+  const [allInterests, setAllInterests] = useState<AvailableInterest[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [requestSent, setRequestSent] = useState(false);
   const [requestDesc, setRequestDesc] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
@@ -23,8 +26,29 @@ export default function InterestPickerModal({ joined, onJoin, onClose }: Props) 
     searchRef.current?.focus();
   }, []);
 
+  useEffect(() => {
+    let active = true;
+
+    getAllInterests()
+      .then((interests) => {
+        if (!active) return;
+        setAllInterests(interests);
+        setError("");
+      })
+      .catch(() => {
+        if (active) setError("Unable to load interests.");
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const joinedNames = new Set(joined.map((i) => i.name));
-  const available = allAvailableInterests.filter((i) => !joinedNames.has(i.name));
+  const available = allInterests.filter((i) => !joinedNames.has(i.name));
   const isSearching = search.trim() !== "";
   const filtered = isSearching
     ? available.filter((i) => i.name.toLowerCase().includes(search.toLowerCase()))
@@ -32,8 +56,9 @@ export default function InterestPickerModal({ joined, onJoin, onClose }: Props) 
 
   const showRequest = isSearching && filtered.length === 0;
 
-  function handleJoin(interest: AvailableInterest) {
-    onJoin({ name: interest.name, color: interest.color });
+  async function handleJoin(interest: AvailableInterest) {
+    const joinedInterest = await joinMyInterest(interest);
+    onJoin(joinedInterest);
   }
 
   function handleSendRequest() {
@@ -127,6 +152,18 @@ export default function InterestPickerModal({ joined, onJoin, onClose }: Props) 
       />
 
       {/* Grid */}
+      {loading && (
+        <div className="px-6 pb-6 text-[13px] text-text-muted">
+          Loading interests...
+        </div>
+      )}
+
+      {error && (
+        <div className="px-6 pb-6 text-[13px] text-danger">
+          {error}
+        </div>
+      )}
+
       {!showRequest && (
         <div className="flex max-h-[320px] flex-wrap content-start gap-2 overflow-y-auto px-6 pb-5">
           {(isSearching ? filtered : filtered.slice(0, PREVIEW_COUNT)).map((i) => (

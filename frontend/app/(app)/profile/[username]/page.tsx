@@ -209,7 +209,18 @@ export default function ProfilePage({ params }: ProfilePageProps) {
                   )}
                 </div>
               ) : (
-                <p className="text-[13px] italic text-text-dimmed">No interests yet.</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-[13px] italic text-text-dimmed">No interests yet.</p>
+                  {isSelf && (
+                    <button
+                      type="button"
+                      onClick={() => setShowPicker(true)}
+                      className="rounded-full border border-dashed border-border-default px-3 py-[7px] text-[13px] text-text-muted transition-colors hover:border-solid hover:text-text-primary"
+                    >
+                      + Add
+                    </button>
+                  )}
+                </div>
               )}
             </Card>
 

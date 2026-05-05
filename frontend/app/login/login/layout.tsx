@@ -7,15 +7,15 @@ import { useCurrentUser } from "@/lib/data/auth";
 
 export default function LoginLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const { isPending, isAuthenticated } = useCurrentUser();
+  const { isAuthenticated } = useCurrentUser();
 
   useEffect(() => {
-    if (!isPending && isAuthenticated) {
+    if (isAuthenticated) {
       router.replace("/");
     }
-  }, [isPending, isAuthenticated, router]);
+  }, [isAuthenticated, router]);
 
-  if (isPending || isAuthenticated) {
+  if (isAuthenticated) {
     return (
       <div className="flex h-full items-center justify-center bg-bg-tertiary text-[13px] text-text-muted">
         Checking session...

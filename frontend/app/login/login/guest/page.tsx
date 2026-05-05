@@ -26,14 +26,13 @@ export default function GuestLoginPage() {
 
     const accepted = localStorage.getItem("terms_accepted");
     if (accepted === "true") {
-		signInWithEmail();
-    //   router.push("/");
+      signInWithEmail();
     } else {
       setShowTerms(true);
     }
   };
 
-  //----------
+  // Creates a real better-auth session for email/password login.
   const signInWithEmail = async () => {
     setLoading(true);
     setError("");
@@ -52,13 +51,11 @@ export default function GuestLoginPage() {
 
     router.push("/");
   };
-  //----------
 
   const handleAccept = () => {
     localStorage.setItem("terms_accepted", "true");
     setShowTerms(false);
-	signInWithEmail();
-    // router.push("/");
+    signInWithEmail();
   };
 
   const handleDecline = () => {
@@ -183,6 +180,7 @@ export default function GuestLoginPage() {
           {/* Submit */}
           <button
             type="submit"
+            disabled={loading}
             className="mt-1 w-full rounded-[14px] bg-btn-primary-bg px-[18px] py-3.5 text-[15px] font-semibold text-btn-primary-text transition-opacity hover:opacity-88"
           >
             Sign in

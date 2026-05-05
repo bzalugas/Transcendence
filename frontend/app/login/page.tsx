@@ -28,33 +28,39 @@ const features = [
 export default function LoginPage() {
   const [showTerms, setShowTerms] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const handleSignIn = () => {
+    setError("");
     const accepted = localStorage.getItem("terms_accepted");
     if (accepted === "true") {
-	  signInWith42();
-      //router.push("/");
+      signInWith42();
     } else {
       setShowTerms(true);
     }
   };
 
- //------
+  // Starts the 42 OAuth flow through better-auth and reports provider errors.
   const signInWith42 = async () => {
     setLoading(true);
-    await authClient.signIn.social({
+    setError("");
+
+    const { error } = await authClient.signIn.social({
       provider: "42school",
       callbackURL: "/",
     });
+
     setLoading(false);
+
+    if (error) {
+      setError(error.message ?? "Sign in failed.");
+    }
   };
-  //----------
 
   const handleAccept = () => {
     localStorage.setItem("terms_accepted", "true");
     setShowTerms(false);
-	signInWith42();
-    //router.push("/");
+    signInWith42();
   };
 
   const handleDecline = () => {
@@ -75,6 +81,12 @@ export default function LoginPage() {
         <p className="mb-8 text-[14px] leading-relaxed text-text-tertiary">
           A social intranet for students built around shared interests: rooms, posts, messaging, and profiles—so you can find your people on campus.
         </p>
+
+        {error && (
+          <div className="mb-4 rounded-lg bg-danger/10 px-3.5 py-2.5 text-[13px] text-danger">
+            {error}
+          </div>
+        )}
 
         {/* Primary CTA */}
         <button

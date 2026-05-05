@@ -22,7 +22,7 @@ export function getMyProfile() {
 }
 
 export function getProfileByUsername(username: string, currentUser: User) {
-  const isSelf = username === currentUser.username;
+  const isSelf = normalizeProfileKey(username) === normalizeProfileKey(currentUser.username);
 
   if (isSelf) {
     return {
@@ -53,4 +53,8 @@ export function getProfileByUsername(username: string, currentUser: User) {
     socials: [],
     currentProjects: [],
   };
+}
+
+function normalizeProfileKey(value: string): string {
+  return decodeURIComponent(value).trim().toLowerCase();
 }

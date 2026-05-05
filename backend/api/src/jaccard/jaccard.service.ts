@@ -50,17 +50,28 @@ export class JaccardService {
           some: { interestId: { in: currentInterestIds } },
         },
       },
-      include: { interests: true },
+      include: {
+        interests: { include: { interest: true } },
+        profile: true,
+      },
     });
 
     const suggestions = candidats.map(user => {
-      const interestIds = user.interests.map(i => i.interestId);
+      const interestIds = user.interests.map((i: { interestId: number }) => i.interestId);
       const score = this.jaccardScore(currentInterestIds, interestIds);
-      const commonInterests = currentInterestIds
-        .filter(id => interestIds.includes(id))
-        .map(id => ({ id, name: interestMap.get(id) }));
+      const sharedIds = new Set(currentInterestIds.filter(id => interestIds.includes(id)));
 
-      return { userId: user.id, login: user.login, score, commonInterests };
+      return {
+        name: user.login,
+        initials: user.login.substring(0, 2),
+        level: user.profile?.level ?? 0,
+        online: false,
+        score,
+        sharedTags: [...sharedIds].map(id => interestMap.get(id) as string),
+        otherTags: user.interests
+          .filter((i: { interestId: number }) => !sharedIds.has(i.interestId))
+          .map((i: { interest: { name: string } }) => i.interest.name),
+      };
     });
 
     return suggestions

@@ -37,15 +37,16 @@ model User {
 }
 
 model Profile {
-  id        Int       @id @default(autoincrement())
-  firstname String?
-  lastname  String?
-  pseudo    String?
-  birthdate DateTime?
-  avatarUri String?
-  bio       String?
-  userId    String       @unique
-  user      User      @relation(fields: [userId], references: [id])
+  id            Int        @id @default(autoincrement())
+  firstname     String?
+  lastname      String?
+  pseudo        String?
+  birthdate     DateTime?
+  avatarUri     String?
+  level         Float?     @default(0)
+  bio           String?
+  userId        String        @unique
+  user          User       @relation(fields: [userId], references: [id])
 }
 
 model FriendRequest {

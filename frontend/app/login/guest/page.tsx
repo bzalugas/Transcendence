@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import TermsAcceptanceModal from "@/components/TermsAcceptanceModal";
+import { authClient } from "@/lib/auth-client";
 
 export default function GuestLoginPage() {
   const router = useRouter();
@@ -12,6 +13,7 @@ export default function GuestLoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,16 +26,36 @@ export default function GuestLoginPage() {
 
     const accepted = localStorage.getItem("terms_accepted");
     if (accepted === "true") {
-      router.push("/");
+      signInWithEmail();
     } else {
       setShowTerms(true);
     }
   };
 
+  // Creates a real better-auth session for email/password login.
+  const signInWithEmail = async () => {
+    setLoading(true);
+    setError("");
+
+    const { error } = await authClient.signIn.email({
+      email,
+      password,
+    });
+
+    setLoading(false);
+
+    if (error) {
+      setError(error.message ?? "Sign in failed.");
+      return;
+    }
+
+    router.push("/");
+  };
+
   const handleAccept = () => {
     localStorage.setItem("terms_accepted", "true");
     setShowTerms(false);
-    router.push("/");
+    signInWithEmail();
   };
 
   const handleDecline = () => {
@@ -158,20 +180,21 @@ export default function GuestLoginPage() {
           {/* Submit */}
           <button
             type="submit"
+            disabled={loading}
             className="mt-1 w-full rounded-[14px] bg-btn-primary-bg px-[18px] py-3.5 text-[15px] font-semibold text-btn-primary-text transition-opacity hover:opacity-88"
           >
             Sign in
           </button>
         </form>
 
-        {/* Sign up link */}
+        {/* Register link */}
         <p className="mt-[22px] text-center text-[13px] text-text-muted">
           Don&apos;t have an account?{" "}
           <Link
             href="/login/register"
             className="font-medium text-text-primary transition-colors hover:text-accent-blue"
           >
-            Sign up
+            Register
           </Link>
         </p>
       </div>

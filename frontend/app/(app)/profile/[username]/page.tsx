@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useState } from "react";
+import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { notFound } from "next/navigation";
 import Link from "next/link";
@@ -9,7 +9,7 @@ import FriendsPanel from "@/components/FriendsPanel";
 import InterestPickerModal from "@/components/InterestPickerModal";
 import PanelToggleIcon from "@/components/icons/PanelToggleIcon";
 import { getProfileByUsername } from "@/lib/data/profile";
-import { getCurrentUser } from "@/lib/data/auth";
+import { useCurrentUser } from "@/lib/data/auth";
 import { setPendingConv } from "@/lib/data/messages";
 import type { ProfileInterest } from "@/lib/types";
 
@@ -20,16 +20,23 @@ interface ProfilePageProps {
 export default function ProfilePage({ params }: ProfilePageProps) {
   const { username } = use(params);
   const router = useRouter();
-  const currentUser = getCurrentUser();
+  const { user: currentUser } = useCurrentUser();
 
-  const profile = getProfileByUsername(username);
-  if (!profile) notFound();
+  const profile = currentUser ? getProfileByUsername(username, currentUser) : null;
 
-  const { user, isSelf, interests: initialInterests, friends, activity, socials } = profile;
+  if (currentUser && !profile) notFound();
 
   const [showPanel, setShowPanel] = useState(true);
-  const [interests, setInterests] = useState<ProfileInterest[]>(initialInterests);
+  const [interests, setInterests] = useState<ProfileInterest[]>([]);
   const [showPicker, setShowPicker] = useState(false);
+
+  useEffect(() => {
+    setInterests(profile?.interests ?? []);
+  }, [username, currentUser?.username]);
+
+  if (!profile) return null;
+
+  const { user, isSelf, friends, activity, socials } = profile;
 
   function handleJoinInterest(interest: ProfileInterest) {
     setInterests((prev) =>
@@ -202,7 +209,18 @@ export default function ProfilePage({ params }: ProfilePageProps) {
                   )}
                 </div>
               ) : (
-                <p className="text-[13px] italic text-text-dimmed">No interests yet.</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-[13px] italic text-text-dimmed">No interests yet.</p>
+                  {isSelf && (
+                    <button
+                      type="button"
+                      onClick={() => setShowPicker(true)}
+                      className="rounded-full border border-dashed border-border-default px-3 py-[7px] text-[13px] text-text-muted transition-colors hover:border-solid hover:text-text-primary"
+                    >
+                      + Add
+                    </button>
+                  )}
+                </div>
               )}
             </Card>
 

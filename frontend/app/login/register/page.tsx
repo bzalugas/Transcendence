@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import TermsAcceptanceModal from "@/components/TermsAcceptanceModal";
+import { authClient } from "@/lib/auth-client"; 
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -15,6 +16,7 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const pwRules = [
     { label: "12 characters", test: password.length >= 12 },
@@ -23,6 +25,26 @@ export default function RegisterPage() {
     { label: "A special character", test: /[^a-zA-Z0-9]/.test(password) },
   ];
   const passwordValid = pwRules.every((r) => r.test);
+
+  const registerUser = async () => {
+    setLoading(true);
+    setError("");
+
+    const { error } = await authClient.signUp.email({
+      email,
+      password,
+      name: `${firstName} ${lastName}`,
+    });
+
+    setLoading(false);
+
+    if (error) {
+      setError(error.message ?? "Registration failed.");
+      return;
+    }
+
+    router.push("/");
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,7 +67,8 @@ export default function RegisterPage() {
 
     const accepted = localStorage.getItem("terms_accepted");
     if (accepted === "true") {
-      router.push("/");
+      registerUser();
+		// router.push("/");
     } else {
       setShowTerms(true);
     }
@@ -54,7 +77,7 @@ export default function RegisterPage() {
   const handleAccept = () => {
     localStorage.setItem("terms_accepted", "true");
     setShowTerms(false);
-    router.push("/");
+    registerUser(); // router.push("/");
   };
 
   const handleDecline = () => {
@@ -142,19 +165,19 @@ export default function RegisterPage() {
               Password
             </label>
             <div className="relative">
-              <input
-                type={showPassword ? "text" : "password"}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Min. 12 characters"
-                autoComplete="new-password"
-                className="w-full rounded-[10px] border border-border-default bg-bg-primary px-3.5 py-3 pr-11 text-[14px] text-text-primary outline-none placeholder:text-text-dimmed focus:border-border-strong"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-text-dimmed transition-colors hover:text-text-primary"
-              >
+				<input
+					type={showPassword ? "text" : "password"}
+					value={password}
+					onChange={(e) => setPassword(e.target.value)}
+					placeholder="Min. 12 characters"
+					autoComplete="new-password"
+					className="w-full rounded-[10px] border border-border-default bg-bg-primary px-3.5 py-3 pr-11 text-[14px] text-text-primary outline-none placeholder:text-text-dimmed focus:border-border-strong"
+				/>
+				<button
+                	type="button"
+                	onClick={() => setShowPassword(!showPassword)}
+                	className="absolute right-3 top-1/2 -translate-y-1/2 text-text-dimmed transition-colors hover:text-text-primary"
+					>
                 {showPassword ? (
                   <svg
                     width="18"
@@ -212,19 +235,19 @@ export default function RegisterPage() {
           </div>
 
           {/* Confirm password */}
-          <div className={`transition-opacity ${!passwordValid ? "pointer-events-none opacity-40" : ""}`}>
-            <label className="mb-1.5 block text-[12px] font-medium text-text-muted">
-              Confirm password
-            </label>
+		  <div className={`transition-opacity ${!passwordValid ? "pointer-events-none opacity-40" : ""}`}>
+			<label className="mb-1.5 block text-[12px] font-medium text-text-muted">
+				Confirm password
+			</label>
             <input
-              type={showPassword ? "text" : "password"}
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              onPaste={(e) => e.preventDefault()}
-              placeholder="Re-enter your password"
-              autoComplete="new-password"
-              disabled={!passwordValid}
-              className="w-full rounded-[10px] border border-border-default bg-bg-primary px-3.5 py-3 text-[14px] text-text-primary outline-none placeholder:text-text-dimmed focus:border-border-strong disabled:cursor-not-allowed"
+            	type={showPassword ? "text" : "password"}
+            	value={confirmPassword}
+            	onChange={(e) => setConfirmPassword(e.target.value)}
+            	onPaste={(e) => e.preventDefault()}
+            	placeholder="Re-enter your password"
+            	autoComplete="new-password"
+            	// disabled={!passwordValid}
+            	className="w-full rounded-[10px] border border-border-default bg-bg-primary px-3.5 py-3 text-[14px] text-text-primary outline-none placeholder:text-text-dimmed focus:border-border-strong disabled:cursor-not-allowed"
             />
           </div>
 
@@ -238,9 +261,10 @@ export default function RegisterPage() {
           {/* Submit */}
           <button
             type="submit"
-            className="mt-1 w-full rounded-[14px] bg-btn-primary-bg px-[18px] py-3.5 text-[15px] font-semibold text-btn-primary-text transition-opacity hover:opacity-88"
+			// disabled={loading}
+            className="mt-1 w-full rounded-[14px] bg-btn-primary-bg px-[18px] py-3.5 text-[15px] font-semibold text-btn-primary-text transition-opacity hover:opacity-88 disabled:opacity-50"
           >
-            Create account
+            {loading ? "Creating account..." : "Create account"}
           </button>
         </form>
 

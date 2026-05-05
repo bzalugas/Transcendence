@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Avatar from "@/components/Avatar";
-import { getCurrentUser } from "@/lib/data/auth";
+import { useCurrentUser } from "@/lib/data/auth";
 
 interface ChannelComposerProps {
   channelLabel: string;
@@ -11,11 +11,11 @@ interface ChannelComposerProps {
 
 export default function ChannelComposer({ channelLabel, onPost }: ChannelComposerProps) {
   const [text, setText] = useState("");
-  const currentUser = getCurrentUser();
+  const { user: currentUser } = useCurrentUser();
 
   function handlePost() {
     const body = text.trim();
-    if (!body) return;
+    if (!body || !currentUser) return;
     onPost(body);
     setText("");
   }
@@ -23,7 +23,7 @@ export default function ChannelComposer({ channelLabel, onPost }: ChannelCompose
   return (
     <div className="rounded-xl border border-border-subtle bg-bg-secondary px-4 py-3.5">
       <div className="flex items-center gap-2.5">
-        <Avatar initials={currentUser.initials} avatarUrl={currentUser.avatarUrl} size="md" />
+        <Avatar initials={currentUser?.initials ?? "me"} avatarUrl={currentUser?.avatarUrl} size="md" />
         <input
           type="text"
           value={text}

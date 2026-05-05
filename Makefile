@@ -2,6 +2,9 @@ COMPOSE			:= docker compose
 COMPOSE_FILE	:= docker/compose.yaml
 COMPOSE_DEV		:= docker/compose-dev.yaml
 ENV_FILE		:= docker/.env
+BACKEND_DIR     := backend/api
+API_CONTAINER   := transcendence_api
+DB_CONTAINER    := transcendence_db
 
 all: up
 
@@ -66,6 +69,18 @@ prod-restart:
 	$(COMPOSE) -f $(COMPOSE_FILE) -f $(COMPOSE_DEV) restart
 
 #--- UTILS ---
+# Generate Better Auth schema + create migration locally
+migrate-generate:
+	docker exec -it $(API_CONTAINER) ./node_modules/.bin/prisma migrate dev --name better_auth_schema
+
+# Apply pending migrations inside the container
+migrate:
+	docker exec -it $(API_CONTAINER) npm exec prisma migrate deploy
+
+# Reset DB and restart fresh
+migrate-reset: down-v
+	docker compose -f $(COMPOSE_FILE) -f $(COMPOSE_DEV) --env-file $(ENV_FILE) up -d
+
 clean: down-v rmi
 	docker volume prune -f
 

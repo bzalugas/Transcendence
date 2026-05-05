@@ -1,8 +1,7 @@
 import { channels } from "@/lib/mocks/channels";
 import { channelMembers } from "@/lib/mocks/channelMembers";
 import { channelFeeds } from "@/lib/mocks/channelFeed";
-import type { Channel, ChannelFeedItem, ChannelMember, Post } from "@/lib/types";
-import { getCurrentUser } from "@/lib/data/auth";
+import type { Channel, ChannelFeedItem, ChannelMember, Post, User } from "@/lib/types";
 
 // Backend swap point: replace each function body with a `fetch` call
 // against the real API. Component-side signatures must stay unchanged.
@@ -39,8 +38,7 @@ export function getChannelFeed(slug: string): ChannelFeedItem[] {
 }
 
 // Backend swap point: replace with POST /api/channels/:slug/posts
-export function createChannelPost(slug: string, body: string): Post {
-  const user = getCurrentUser();
+export function createChannelPost(slug: string, body: string, user: User): Post {
   const channel = getChannelBySlug(slug);
   const label = channel ? `${channel.emoji ?? ""} ${channel.label}`.trim() : slug;
 

@@ -7,12 +7,15 @@ import NewChannelCard from "@/components/NewChannelCard";
 import FriendsPanel from "@/components/FriendsPanel";
 import PanelToggleIcon from "@/components/icons/PanelToggleIcon";
 import { getHomeFeed } from "@/lib/data/feed";
-import { getCurrentUser } from "@/lib/data/auth";
+import { useCurrentUser } from "@/lib/data/auth";
 
 export default function HomePage() {
   const [showPanel, setShowPanel] = useState(true);
-  const currentUser = getCurrentUser();
+  const { user: currentUser } = useCurrentUser();
   const feed = getHomeFeed();
+
+//   IF NOT LOGGED -> REDIRECT TO SIGN IN SIGN UP
+  if (!currentUser) return null;
 
   return (
     <>

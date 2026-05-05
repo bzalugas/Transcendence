@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useTheme } from "@/lib/ThemeContext";
+import { authClient } from "@/lib/auth-client";
 
 export default function SettingsPopup({
   open,
@@ -16,6 +17,13 @@ export default function SettingsPopup({
   const { theme, setTheme } = useTheme();
   const popupRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState({ left: 0, top: 0 });
+
+  // Deletes the better-auth session before returning the user to the login page.
+  async function handleLogout() {
+    onClose();
+    await authClient.signOut();
+    window.location.href = "/login";
+  }
 
   useEffect(() => {
     if (open && anchorRef.current) {
@@ -79,10 +87,7 @@ export default function SettingsPopup({
       {/* Logout */}
       <div className="px-2 py-1.5 pb-2.5">
         <button
-          onClick={() => {
-            onClose();
-            window.location.href = "/login";
-          }}
+          onClick={handleLogout}
           className="flex w-full items-center rounded-[5px] px-2 py-[7px] text-[12.5px] text-danger transition-colors hover:bg-danger/10"
         >
           Log out

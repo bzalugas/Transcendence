@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getCurrentUser, updateCurrentUser } from "@/lib/data/auth";
+import { updateCurrentUser, useCurrentUser } from "@/lib/data/auth";
 import { getMyProfile } from "@/lib/data/profile";
 import type { ProfileSocial } from "@/lib/types";
 
@@ -10,21 +10,26 @@ import type { ProfileSocial } from "@/lib/types";
 
 export default function EditProfilePage() {
   const router = useRouter();
-  const currentUser = getCurrentUser();
+  const { user: currentUser } = useCurrentUser();
   const profileData = getMyProfile();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   /* ── form state ── */
-  const [username, setUsername] = useState(currentUser.username);
-  const [bio, setBio] = useState(currentUser.bio ?? "");
-  const [avatarPreview, setAvatarPreview] = useState(currentUser.avatarUrl ?? "");
+  const [username, setUsername] = useState("");
+  const [bio, setBio] = useState("");
+  const [avatarPreview, setAvatarPreview] = useState("");
   const [socials, setSocials] = useState<ProfileSocial[]>(profileData.socials);
 
   /* ── new-social input ── */
   const [newPlatform, setNewPlatform] = useState("");
   const [newLabel, setNewLabel] = useState("");
 
-
+  useEffect(() => {
+    if (!currentUser) return;
+    setUsername(currentUser.username);
+    setBio(currentUser.bio ?? "");
+    setAvatarPreview(currentUser.avatarUrl ?? "");
+  }, [currentUser]);
 
   /* ── avatar upload handler ── */
   function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -48,12 +53,14 @@ export default function EditProfilePage() {
 
 
   /* ── save ── */
-  function handleSave() {
+  async function handleSave() {
     const trimmed = username.trim();
-    if (!trimmed) return;
-    updateCurrentUser({ username: trimmed, bio: bio.trim() || undefined });
+    if (!trimmed || !currentUser) return;
+    await updateCurrentUser({ username: trimmed, bio: bio.trim() || undefined });
     router.push(`/profile/${trimmed}`);
   }
+
+  if (!currentUser) return null;
 
   return (
     <div className="flex flex-1 flex-col overflow-y-auto bg-bg-tertiary">

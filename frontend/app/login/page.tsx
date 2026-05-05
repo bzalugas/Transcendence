@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Logo42 from "@/components/Logo42";
 import TermsAcceptanceModal from "@/components/TermsAcceptanceModal";
+import { authClient } from "@/lib/auth-client";
 
 const features = [
   {
@@ -26,22 +26,41 @@ const features = [
 ];
 
 export default function LoginPage() {
-  const router = useRouter();
   const [showTerms, setShowTerms] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const handleSignIn = () => {
+    setError("");
     const accepted = localStorage.getItem("terms_accepted");
     if (accepted === "true") {
-      router.push("/");
+      signInWith42();
     } else {
       setShowTerms(true);
+    }
+  };
+
+  // Starts the 42 OAuth flow through better-auth and reports provider errors.
+  const signInWith42 = async () => {
+    setLoading(true);
+    setError("");
+
+    const { error } = await authClient.signIn.social({
+      provider: "42school",
+      callbackURL: "/",
+    });
+
+    setLoading(false);
+
+    if (error) {
+      setError(error.message ?? "Sign in failed.");
     }
   };
 
   const handleAccept = () => {
     localStorage.setItem("terms_accepted", "true");
     setShowTerms(false);
-    router.push("/");
+    signInWith42();
   };
 
   const handleDecline = () => {
@@ -63,9 +82,16 @@ export default function LoginPage() {
           A social intranet for students built around shared interests: rooms, posts, messaging, and profiles—so you can find your people on campus.
         </p>
 
+        {error && (
+          <div className="mb-4 rounded-lg bg-danger/10 px-3.5 py-2.5 text-[13px] text-danger">
+            {error}
+          </div>
+        )}
+
         {/* Primary CTA */}
         <button
           onClick={handleSignIn}
+          disabled={loading}
           className="flex w-full items-center justify-center gap-2.5 rounded-[14px] bg-btn-primary-bg px-[18px] py-4 text-base font-semibold text-btn-primary-text transition-opacity hover:opacity-88"
         >
           <Logo42 className="h-[20px] w-auto" />

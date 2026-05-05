@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import Avatar from "@/components/Avatar";
 import type { Comment, Post as PostType } from "@/lib/types";
-import { getCurrentUser } from "@/lib/data/auth";
+import { useCurrentUser } from "@/lib/data/auth";
 
 type PostProps = Omit<PostType, "id">;
 
@@ -22,7 +22,7 @@ export default function Post({
   liked,
   comments,
 }: PostProps) {
-  const currentUser = getCurrentUser();
+  const { user: currentUser } = useCurrentUser();
   const [isLiked, setIsLiked] = useState(liked ?? false);
   const [count, setCount] = useState(likeCount);
   const [localComments, setLocalComments] = useState<Comment[]>([...comments]);
@@ -30,7 +30,7 @@ export default function Post({
 
   function submitComment() {
     const text = commentText.trim();
-    if (!text) return;
+    if (!text || !currentUser) return;
     const newComment: Comment = {
       initials: currentUser.initials,
       avatarUrl: currentUser.avatarUrl,
@@ -174,7 +174,7 @@ export default function Post({
 
       {/* Comment input */}
       <div className="flex items-center gap-2.5 border-t border-border-default px-4 py-2.5">
-        <Avatar initials={currentUser.initials} avatarUrl={currentUser.avatarUrl} size="sm" />
+        <Avatar initials={currentUser?.initials ?? "me"} avatarUrl={currentUser?.avatarUrl} size="sm" />
         <input
           type="text"
           value={commentText}

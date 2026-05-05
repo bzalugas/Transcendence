@@ -67,7 +67,7 @@ model Interest {
   name            String          @unique
   color           String? // couleur d'affichage d'un interet et de ses enfants 
   imageUri        String?
-  parentId        Int?            @default(0) /// catégorie parente (interet de niveau supérieur)
+  parentId        Int?             /// catégorie parente (interet de niveau supérieur)
   parent          Interest?       @relation(name: "tree", fields: [parentId], references: [id])
   children        Interest[]      @relation(name: "tree")
   channel         Channel?        @relation(name: "mainInterest")

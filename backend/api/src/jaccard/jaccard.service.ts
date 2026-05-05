@@ -5,7 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 export class JaccardService {
   constructor(private readonly prisma: PrismaService) {}
 
-  private async getAmisIds(userId: number): Promise<number[]> {
+  private async getAmisIds(userId: string): Promise<string[]> {
     const friendRequests = await this.prisma.friendRequest.findMany({
       where: {
         AND: [
@@ -20,12 +20,12 @@ export class JaccardService {
       },
     });
 
-    return friendRequests.map(fr =>
+    return friendRequests.map((fr) =>
       fr.senderId === userId ? fr.receiverId : fr.senderId
     );
   }
 
-  async getSuggestions(userId: number, limit: number = 10): Promise<object[]> {
+  async getSuggestions(userId: string, limit: number = 10): Promise<object[]> {
     const safeLimit = Math.min(limit, 50);
 
     const currentUser = await this.prisma.user.findUnique({
@@ -56,14 +56,15 @@ export class JaccardService {
       },
     });
 
-    const suggestions = candidats.map(user => {
+    const suggestions = candidats.map((user) => {
       const interestIds = user.interests.map((i: { interestId: number }) => i.interestId);
       const score = this.jaccardScore(currentInterestIds, interestIds);
       const sharedIds = new Set(currentInterestIds.filter(id => interestIds.includes(id)));
+      const displayName = user.login ?? user.name ?? user.email.split('@')[0];
 
       return {
-        name: user.login,
-        initials: user.login.substring(0, 2),
+        name: displayName,
+        initials: displayName.substring(0, 2),
         level: user.profile?.level ?? 0,
         online: false,
         score,

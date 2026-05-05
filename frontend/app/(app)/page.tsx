@@ -14,6 +14,7 @@ export default function HomePage() {
   const currentUser = getCurrentUser();
   const feed = getHomeFeed();
 
+//   IF NOT LOGGED -> REDIRECT TO SIGN IN SIGN UP
   return (
     <>
       <div className="flex flex-1 flex-col gap-3 overflow-y-auto bg-bg-tertiary px-8 py-7">

@@ -1,5 +1,4 @@
 import {
-  profileInterests,
   profileFriends,
   profileActivity,
   profileSocials,
@@ -13,7 +12,7 @@ import type { User } from "@/lib/types";
 
 export function getMyProfile() {
   return {
-    interests: profileInterests,
+    interests: [],
     friends: profileFriends,
     activity: profileActivity,
     socials: profileSocials,

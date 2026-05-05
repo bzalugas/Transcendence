@@ -13,11 +13,13 @@ export interface ProfileSocial {
 }
 
 export interface ProfileInterest {
+  id?: number;
   name: string;
   color: string;
 }
 
 export interface AvailableInterest extends ProfileInterest {
+  id: number;
   desc: string;
   members: number;
 }

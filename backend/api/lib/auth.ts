@@ -4,13 +4,22 @@ import { PrismaClient } from "@prisma/client";
 import { genericOAuth } from "better-auth/plugins";
 
 const prisma = new PrismaClient();
+const apiBaseUrl =
+  process.env.BETTER_AUTH_URL ??
+  process.env.NEXT_PUBLIC_API_URL ??
+  "http://localhost:3000";
+const frontendBaseUrl =
+  process.env.NEXT_PUBLIC_FRONTEND_URL ?? "http://localhost:8080";
 
 export const auth = betterAuth({
+  baseURL: apiBaseUrl,
+  basePath: "/api/auth",
+
   database: prismaAdapter(prisma, {
     provider: "postgresql",
   }),
 
-  trustedOrigins: [process.env.NEXT_PUBLIC_FRONTEND_URL  ?? "http://localhost:8080"],
+  trustedOrigins: [frontendBaseUrl],
 
   emailAndPassword: {
     enabled: true,

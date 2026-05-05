@@ -13,10 +13,11 @@ import {
   getChannelFeed,
   getChannelMembers,
   createChannelPost,
+  createChannelReply,
   leaveChannel,
 } from "@/lib/data/channels";
 import { useCurrentUser } from "@/lib/data/auth";
-import type { ChannelFeedItem } from "@/lib/types";
+import type { Channel, ChannelFeedItem, ChannelMember } from "@/lib/types";
 
 interface ChannelPageProps {
   params: Promise<{ slug: string }>;
@@ -28,24 +29,55 @@ export default function ChannelPage({ params }: ChannelPageProps) {
   const { user: currentUser } = useCurrentUser();
 
   // All hooks before any conditional return
-  const [feed, setFeed] = useState<ChannelFeedItem[]>(() => [...getChannelFeed(slug)]);
+  const [feed, setFeed] = useState<ChannelFeedItem[]>([]);
+  const [channel, setChannel] = useState<Channel | null>(null);
+  const [members, setMembers] = useState<ChannelMember[]>([]);
+  const [loaded, setLoaded] = useState(false);
   const [panelOpen, setPanelOpen] = useState(true);
   const [inviteOpen, setInviteOpen] = useState(false);
 
   // Reset feed when navigating to a different channel
   useEffect(() => {
-    setFeed([...getChannelFeed(slug)]);
+    let active = true;
+
+    setLoaded(false);
+    Promise.all([getChannelBySlug(slug), getChannelMembers(slug), getChannelFeed(slug)])
+      .then(([nextChannel, nextMembers, nextFeed]) => {
+        if (!active) return;
+        setChannel(nextChannel ?? null);
+        setMembers(nextMembers);
+        setFeed(nextFeed);
+      })
+      .catch(() => {
+        if (!active) return;
+        setChannel(null);
+        setMembers([]);
+        setFeed([]);
+      })
+      .finally(() => {
+        if (active) setLoaded(true);
+      });
+
+    return () => {
+      active = false;
+    };
   }, [slug]);
 
-  const channel = getChannelBySlug(slug);
-  const members = getChannelMembers(slug);
+  if (loaded && !channel) notFound();
 
-  if (!channel) notFound();
+  if (!channel) {
+    return (
+      <div className="flex flex-1 items-center justify-center bg-bg-tertiary text-[13px] text-text-muted">
+        Loading channel...
+      </div>
+    );
+  }
 
-  function handlePost(body: string) {
+  // Persists a new channel post and prepends the returned DB-backed post to the feed.
+  async function handlePost(body: string) {
     if (!currentUser) return;
-    createChannelPost(slug, body, currentUser);
-    setFeed([...getChannelFeed(slug)]);
+    const post = await createChannelPost(slug, body, currentUser);
+    setFeed((items) => [{ kind: "post", post }, ...items]);
   }
 
   return (
@@ -68,7 +100,13 @@ export default function ChannelPage({ params }: ChannelPageProps) {
           ) : (
             feed.map((item) =>
               item.kind === "post" ? (
-                <Post key={item.post.id} {...item.post} />
+                <Post
+                  key={item.post.id}
+                  {...item.post}
+                  onReply={(postId, replyBody) =>
+                    createChannelReply(slug, postId, replyBody)
+                  }
+                />
               ) : (
                 <ChannelSystemEvent
                   key={item.event.id}
@@ -86,8 +124,8 @@ export default function ChannelPage({ params }: ChannelPageProps) {
           <ChannelAboutPanel
             channel={channel}
             members={members}
-            onLeave={() => {
-              leaveChannel(slug);
+            onLeave={async () => {
+              await leaveChannel(slug);
               router.push("/");
             }}
           />

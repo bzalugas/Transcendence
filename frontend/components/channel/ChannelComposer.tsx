@@ -6,17 +6,18 @@ import { useCurrentUser } from "@/lib/data/auth";
 
 interface ChannelComposerProps {
   channelLabel: string;
-  onPost: (body: string) => void;
+  onPost: (body: string) => void | Promise<void>;
 }
 
 export default function ChannelComposer({ channelLabel, onPost }: ChannelComposerProps) {
   const [text, setText] = useState("");
   const { user: currentUser } = useCurrentUser();
 
-  function handlePost() {
+  // Sends the composed text to the parent and clears it after the post succeeds.
+  async function handlePost() {
     const body = text.trim();
     if (!body || !currentUser) return;
-    onPost(body);
+    await onPost(body);
     setText("");
   }
 

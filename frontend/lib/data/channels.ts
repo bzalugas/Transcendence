@@ -1,62 +1,164 @@
-import { channels } from "@/lib/mocks/channels";
-import { channelMembers } from "@/lib/mocks/channelMembers";
-import { channelFeeds } from "@/lib/mocks/channelFeed";
-import type { Channel, ChannelFeedItem, ChannelMember, Post, User } from "@/lib/types";
+import type { Channel, ChannelFeedItem, ChannelMember, Comment, Post, User } from "@/lib/types";
+import { notifyChannelsUpdated } from "@/lib/data/channel-events";
 
-// Backend swap point: replace each function body with a `fetch` call
-// against the real API. Component-side signatures must stay unchanged.
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
 
-// Module-level joined channels — backend swap: use session/user profile
-const joinedSlugs = new Set(channels.map((c) => c.slug));
+let channelsCache: Channel[] = [];
 
-export function getAllChannels(): Channel[] {
-  return channels;
+interface ApiChannel {
+  id: number;
+  interestId: number;
+  slug: string;
+  label: string;
+  color: string;
+  imageUri: string | null;
+  memberCount: number;
+  postCount: number;
+  joined?: boolean;
+  isFavorite?: boolean;
 }
 
-export function getJoinedChannels(): Channel[] {
-  return channels.filter((c) => joinedSlugs.has(c.slug));
+interface ApiChannelMember {
+  id: string;
+  username: string;
+  initials: string;
+  avatarUrl?: string;
+  level: number;
+  joinedAt: string;
+  isFavorite: boolean;
 }
 
-export function leaveChannel(slug: string): void {
-  joinedSlugs.delete(slug);
+// Loads every channel from the database-backed API.
+export async function getAllChannels(): Promise<Channel[]> {
+  const channels = await request<ApiChannel[]>("/channels");
+  channelsCache = channels.map(toChannel);
+  return channelsCache;
 }
 
-export function joinChannel(slug: string): void {
-  joinedSlugs.add(slug);
+// Loads channels joined by the currently authenticated user.
+export async function getJoinedChannels(): Promise<Channel[]> {
+  const channels = await request<ApiChannel[]>("/channels/joined");
+  const joinedChannels = channels.map(toChannel);
+  mergeChannelCache(joinedChannels);
+  return joinedChannels;
 }
 
-export function getChannelBySlug(slug: string): Channel | undefined {
-  return channels.find((c) => c.slug === slug);
+// Leaves a channel and its matching interest for the current user.
+export async function leaveChannel(slug: string): Promise<void> {
+  await request(`/channels/${slug}/leave`, { method: "DELETE" });
+  channelsCache = channelsCache.filter((channel) => channel.slug !== slug);
+  notifyChannelsUpdated();
 }
 
-export function getChannelMembers(slug: string): ChannelMember[] {
-  return channelMembers[slug] ?? [];
+// Joins a channel and its matching interest for the current user.
+export async function joinChannel(slug: string): Promise<Channel> {
+  const channel = toChannel(
+    await request<ApiChannel>(`/channels/${slug}/join`, { method: "POST" }),
+  );
+  mergeChannelCache([channel]);
+  notifyChannelsUpdated();
+  return channel;
 }
 
-export function getChannelFeed(slug: string): ChannelFeedItem[] {
-  return channelFeeds[slug] ?? [];
+// Loads one channel from the database-backed API by its slug.
+export async function getChannelBySlug(slug: string): Promise<Channel | undefined> {
+  try {
+    const channel = toChannel(await request<ApiChannel>(`/channels/${slug}`));
+    mergeChannelCache([channel]);
+    return channel;
+  } catch {
+    return undefined;
+  }
 }
 
-// Backend swap point: replace with POST /api/channels/:slug/posts
-export function createChannelPost(slug: string, body: string, user: User): Post {
-  const channel = getChannelBySlug(slug);
-  const label = channel ? `${channel.emoji ?? ""} ${channel.label}`.trim() : slug;
+// Loads channel members from the database-backed API.
+export async function getChannelMembers(slug: string): Promise<ChannelMember[]> {
+  const members = await request<ApiChannelMember[]>(`/channels/${slug}/members`);
+  return members.map((member) => ({
+    id: member.id,
+    username: member.username,
+    initials: member.initials,
+    avatarUrl: member.avatarUrl,
+    level: member.level,
+    status: "offline",
+    isFriend: false,
+    joinedAt: member.joinedAt,
+    isFavorite: member.isFavorite,
+  }));
+}
 
-  const post: Post = {
-    id: crypto.randomUUID(),
-    author: user.username,
-    initials: user.initials,
-    avatarUrl: user.avatarUrl,
-    time: "just now",
-    channelSlug: slug,
-    channelLabel: label,
-    body,
-    likeCount: 0,
-    liked: false,
-    comments: [],
+// Loads the persisted post feed for one channel.
+export async function getChannelFeed(slug: string): Promise<ChannelFeedItem[]> {
+  return request<ChannelFeedItem[]>(`/channels/${slug}/feed`);
+}
+
+// Creates a persisted post in one channel for the current authenticated user.
+export async function createChannelPost(slug: string, body: string, _user: User): Promise<Post> {
+  return request<Post>(`/channels/${slug}/posts`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ content: body }),
+  });
+}
+
+// Creates a persisted reply attached to one post in a channel.
+export async function createChannelReply(
+  slug: string,
+  postId: string,
+  body: string,
+): Promise<Comment> {
+  return request<Comment>(`/channels/${slug}/posts/${postId}/replies`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ content: body }),
+  });
+}
+
+// Sends an authenticated request to the backend API and validates the response.
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    ...init,
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error(`${init?.method ?? "GET"} ${path} failed with ${response.status}`);
+  }
+
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
+  return response.json();
+}
+
+// Converts the backend channel DTO into the frontend Channel type.
+function toChannel(channel: ApiChannel): Channel {
+  return {
+    id: channel.id,
+    interestId: channel.interestId,
+    slug: channel.slug,
+    label: channel.label,
+    color: channel.color,
+    imageUri: channel.imageUri,
+    memberCount: channel.memberCount,
+    postCount: channel.postCount,
+    joined: channel.joined,
+    isFavorite: channel.isFavorite,
   };
+}
 
-  if (!channelFeeds[slug]) channelFeeds[slug] = [];
-  channelFeeds[slug].unshift({ kind: "post", post });
-  return post;
+// Keeps recently loaded channels available for local post labels.
+function mergeChannelCache(channels: Channel[]): void {
+  const bySlug = new Map(channelsCache.map((channel) => [channel.slug, channel]));
+
+  for (const channel of channels) {
+    bySlug.set(channel.slug, channel);
+  }
+
+  channelsCache = Array.from(bySlug.values());
 }

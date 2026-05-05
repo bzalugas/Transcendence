@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Logo42 from "@/components/Logo42";
@@ -15,8 +15,10 @@ import {
   SettingsIcon,
 } from "@/components/icons/NavIcons";
 import { getJoinedChannels } from "@/lib/data/channels";
+import { listenForChannelsUpdated } from "@/lib/data/channel-events";
 import { useCurrentUser } from "@/lib/data/auth";
 import { getNavBadges } from "@/lib/data/nav";
+import type { Channel } from "@/lib/types";
 
 const navItems = [
   { href: "/", label: "Home", icon: HomeIcon },
@@ -29,10 +31,33 @@ const navItems = [
 export default function Sidebar() {
   const pathname = usePathname();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [channels, setChannels] = useState<Channel[]>([]);
   const settingsRef = useRef<HTMLButtonElement>(null);
-  const channels = getJoinedChannels();
   const { user: currentUser } = useCurrentUser();
   const navBadges = getNavBadges();
+
+  useEffect(() => {
+    let active = true;
+
+    // Refreshes the sidebar channel list from the authenticated user's memberships.
+    function loadJoinedChannels() {
+      getJoinedChannels()
+        .then((items) => {
+          if (active) setChannels(items);
+        })
+        .catch(() => {
+          if (active) setChannels([]);
+        });
+    }
+
+    loadJoinedChannels();
+    const stopListening = listenForChannelsUpdated(loadJoinedChannels);
+
+    return () => {
+      active = false;
+      stopListening();
+    };
+  }, []);
 
   if (!currentUser) return null;
 

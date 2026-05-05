@@ -6,9 +6,12 @@ import Avatar from "@/components/Avatar";
 import type { Comment, Post as PostType } from "@/lib/types";
 import { useCurrentUser } from "@/lib/data/auth";
 
-type PostProps = Omit<PostType, "id">;
+type PostProps = PostType & {
+  onReply?: (postId: string, body: string) => Promise<Comment>;
+};
 
 export default function Post({
+  id,
   initials,
   avatarUrl,
   author,
@@ -21,6 +24,7 @@ export default function Post({
   likeCount,
   liked,
   comments,
+  onReply,
 }: PostProps) {
   const { user: currentUser } = useCurrentUser();
   const [isLiked, setIsLiked] = useState(liked ?? false);
@@ -28,16 +32,21 @@ export default function Post({
   const [localComments, setLocalComments] = useState<Comment[]>([...comments]);
   const [commentText, setCommentText] = useState("");
 
-  function submitComment() {
+  // Persists a reply when possible, then adds it to the displayed comments.
+  async function submitComment() {
     const text = commentText.trim();
     if (!text || !currentUser) return;
-    const newComment: Comment = {
-      initials: currentUser.initials,
-      avatarUrl: currentUser.avatarUrl,
-      author: currentUser.username,
-      text,
-      time: "just now",
-    };
+
+    const newComment = onReply
+      ? await onReply(id, text)
+      : {
+          initials: currentUser.initials,
+          avatarUrl: currentUser.avatarUrl,
+          author: currentUser.username,
+          text,
+          time: "just now",
+        };
+
     setLocalComments([...localComments, newComment]);
     setCommentText("");
   }
@@ -179,14 +188,14 @@ export default function Post({
           type="text"
           value={commentText}
           onChange={(e) => setCommentText(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter") submitComment(); }}
+          onKeyDown={(e) => { if (e.key === "Enter") void submitComment(); }}
           placeholder="Write a comment…"
           className="flex-1 bg-transparent text-[12.5px] text-text-secondary placeholder:text-text-dimmed outline-none"
         />
         {commentText.trim() && (
           <button
             type="button"
-            onClick={submitComment}
+            onClick={() => { void submitComment(); }}
             className="text-[11.5px] font-medium text-accent-blue transition-opacity hover:opacity-80"
           >
             Send

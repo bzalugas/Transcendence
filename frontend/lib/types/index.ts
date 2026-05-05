@@ -27,18 +27,24 @@ export interface AvailableInterest extends ProfileInterest {
 export type PresenceStatus = "online" | "offline" | "away";
 
 export interface Channel {
+  id?: number;
+  interestId?: number;
   slug: string;
   label: string;
   color: string;
+  imageUri?: string | null;
   emoji?: string;
   description?: string;
   tagline?: string;
   memberCount?: number;
   postCount?: number;
   createdAt?: string;
+  joined?: boolean;
+  isFavorite?: boolean;
 }
 
 export interface ChannelMember {
+  id?: string;
   initials: string;
   avatarUrl?: string;
   username: string;
@@ -46,9 +52,12 @@ export interface ChannelMember {
   status: PresenceStatus;
   isFriend: boolean;
   isSelf?: boolean;
+  joinedAt?: string;
+  isFavorite?: boolean;
 }
 
 export interface Comment {
+  id?: string;
   initials: string;
   avatarUrl?: string;
   author: string;

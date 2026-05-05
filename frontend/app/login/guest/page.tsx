@@ -164,14 +164,14 @@ export default function GuestLoginPage() {
           </button>
         </form>
 
-        {/* Sign up link */}
+        {/* Register link */}
         <p className="mt-[22px] text-center text-[13px] text-text-muted">
           Don&apos;t have an account?{" "}
           <Link
             href="/login/register"
             className="font-medium text-text-primary transition-colors hover:text-accent-blue"
           >
-            Sign up
+            Register
           </Link>
         </p>
       </div>

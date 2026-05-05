@@ -1,4 +1,4 @@
-import { Controller, Get, Param, ParseIntPipe, Query } from '@nestjs/common';
+import { Controller, Get, Param, Query } from '@nestjs/common';
 import { JaccardService } from './jaccard.service';
 
 @Controller('suggestions')
@@ -7,10 +7,12 @@ export class JaccardController {
 
   @Get(':userId')
   getSuggestions(
-    @Param('userId', ParseIntPipe) userId: number,
-    @Query('limit') limit?: number,
+    @Param('userId') userId: string,
+    @Query('limit') limit?: string,
   ) {
-    return this.jaccardService.getSuggestions(userId, limit);
+    return this.jaccardService.getSuggestions(
+      userId,
+      limit ? Number(limit) : undefined,
+    );
   }
 }
-

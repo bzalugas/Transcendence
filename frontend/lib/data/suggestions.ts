@@ -1,11 +1,16 @@
-import {
-  suggestions,
-  suggestionsTotal,
-  type SuggestionProfile,
-} from "@/lib/mocks/suggestions";
 import type { Friend } from "@/lib/types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
+
+export interface SuggestionProfile {
+  initials: string;
+  name: string;
+  level: number;
+  online: boolean;
+  score: number;
+  sharedTags: string[];
+  otherTags: string[];
+}
 
 export interface FriendRequest {
   id: number;
@@ -14,17 +19,14 @@ export interface FriendRequest {
   sharedCount: number;
 }
 
-export function getSuggestions(): SuggestionProfile[] {
-  return suggestions;
+// Loads Jaccard-based profile suggestions for the current authenticated user.
+export async function getSuggestions(limit = 10): Promise<SuggestionProfile[]> {
+  return request<SuggestionProfile[]>(`/suggestions/me?limit=${limit}`);
 }
 
 // Loads pending friend requests received by the current user from the API.
 export async function getFriendRequests(): Promise<FriendRequest[]> {
   return request<FriendRequest[]>("/friendships/requests/received");
-}
-
-export function getSuggestionsTotal(): number {
-  return suggestionsTotal;
 }
 
 // Creates a pending friend request for a profile username.

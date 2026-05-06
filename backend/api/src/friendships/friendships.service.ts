@@ -102,6 +102,9 @@ export class FriendshipsService {
           },
         ],
       },
+      orderBy: {
+        UpdatedAt: 'desc',
+      },
       include: {
         sender: {
           include: {
@@ -119,6 +122,33 @@ export class FriendshipsService {
     });
 
     if (existing) {
+      if (existing.status === 'Rejected') {
+        const request = await this.prisma.friendRequest.update({
+          where: {
+            id: existing.id,
+          },
+          data: {
+            senderId: userId,
+            receiverId: receiver.id,
+            status: 'Pending',
+          },
+          include: {
+            receiver: {
+              include: {
+                profile: true,
+                interests: true,
+              },
+            },
+          },
+        });
+
+        return this.toFriendRequestDto(
+          request.id,
+          request.receiver,
+          await this.getInterestIds(userId),
+        );
+      }
+
       const requestUser = existing.senderId === userId ? existing.receiver : existing.sender;
 
       return this.toFriendRequestDto(

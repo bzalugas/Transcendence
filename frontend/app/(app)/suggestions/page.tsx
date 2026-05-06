@@ -8,13 +8,13 @@ import FriendsList from "@/components/FriendsList";
 import PanelToggleIcon from "@/components/icons/PanelToggleIcon";
 import {
   getSuggestions,
-  getSuggestionsTotal,
   getFriendRequests,
   sendFriendRequest,
   getSentRequestNames,
   acceptFriendRequest,
   rejectFriendRequest,
   type FriendRequest,
+  type SuggestionProfile,
 } from "@/lib/data/suggestions";
 import { getFriends } from "@/lib/data/friends";
 import type { Friend } from "@/lib/types";
@@ -23,10 +23,31 @@ export default function SuggestionsPage() {
   const [showPanel, setShowPanel] = useState(true);
   const [search, setSearch] = useState("");
   const [requested, setRequested] = useState<Set<string>>(new Set());
+  const [sendingRequests, setSendingRequests] = useState<Set<string>>(new Set());
   const [pendingRequests, setPendingRequests] = useState<FriendRequest[]>([]);
   const [friendsList, setFriendsList] = useState<Friend[]>([]);
-  const suggestions = getSuggestions();
-  const totalProfiles = getSuggestionsTotal();
+  const [suggestions, setSuggestions] = useState<SuggestionProfile[]>([]);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(true);
+  const totalProfiles = suggestions.length;
+
+  useEffect(() => {
+    let active = true;
+
+    getSuggestions()
+      .then((items) => {
+        if (active) setSuggestions(items);
+      })
+      .catch(() => {
+        if (active) setSuggestions([]);
+      })
+      .finally(() => {
+        if (active) setSuggestionsLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -66,8 +87,18 @@ export default function SuggestionsPage() {
 
   // Sends a friend request and marks the suggestion as pending in the UI.
   async function sendRequest(name: string) {
-    await sendFriendRequest(name);
-    setRequested((prev) => new Set([...prev, name]));
+    setSendingRequests((prev) => new Set([...prev, name]));
+
+    try {
+      await sendFriendRequest(name);
+      setRequested((prev) => new Set([...prev, name]));
+    } finally {
+      setSendingRequests((prev) => {
+        const next = new Set(prev);
+        next.delete(name);
+        return next;
+      });
+    }
   }
 
   // Accepts a received request and refreshes the real friends list.
@@ -125,6 +156,15 @@ export default function SuggestionsPage() {
         />
 
         {/* Cards grid */}
+        {suggestionsLoading ? (
+          <div className="rounded-xl border border-border-default bg-bg-secondary p-[18px] text-[13px] italic text-text-dimmed">
+            Loading suggestions...
+          </div>
+        ) : filteredSuggestions.length === 0 ? (
+          <div className="rounded-xl border border-border-default bg-bg-secondary p-[18px] text-[13px] italic text-text-dimmed">
+            No suggestions found.
+          </div>
+        ) : (
         <div className="grid grid-cols-3 gap-[13px]">
           {filteredSuggestions.map((s) => (
             <div
@@ -168,11 +208,12 @@ export default function SuggestionsPage() {
                 ) : (
                   <button
                     type="button"
+                    disabled={sendingRequests.has(s.name)}
                     onClick={() => sendRequest(s.name)}
                     title="Send friend request"
-                    className="flex h-[34px] w-[34px] shrink-0 cursor-pointer items-center justify-center rounded-full border-[1.5px] border-border-default text-[22px] font-light leading-none text-text-tertiary transition-colors hover:border-border-strong hover:text-text-primary"
+                    className="flex h-[34px] w-[34px] shrink-0 cursor-pointer items-center justify-center rounded-full border-[1.5px] border-border-default text-[22px] font-light leading-none text-text-tertiary transition-colors hover:border-border-strong hover:text-text-primary disabled:cursor-default disabled:opacity-50"
                   >
-                    +
+                    {sendingRequests.has(s.name) ? "..." : "+"}
                   </button>
                 )}
               </div>
@@ -191,6 +232,7 @@ export default function SuggestionsPage() {
             </div>
           ))}
         </div>
+        )}
       </div>
 
       {showPanel && (

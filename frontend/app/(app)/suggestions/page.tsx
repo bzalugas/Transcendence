@@ -181,9 +181,6 @@ export default function SuggestionsPage() {
                 <div className="flex-1">
                   <Link href={`/profile/${s.name}`} className="text-[14px] font-medium hover:underline">{s.name}</Link>
                   <div className="mt-[3px] flex items-center gap-1.5 text-[12px] text-text-muted">
-                    <div className="flex h-[22px] w-[22px] items-center justify-center rounded-full border border-border-default bg-bg-hover text-[11px] font-medium">
-                      {s.level}
-                    </div>
                     Level {s.level}
                   </div>
                 </div>

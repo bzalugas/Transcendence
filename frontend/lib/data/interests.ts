@@ -46,3 +46,17 @@ export async function joinMyInterest(
   notifyChannelsUpdated();
   return joinedInterest;
 }
+
+// Removes an interest from the authenticated user and refreshes channel listeners.
+export async function leaveMyInterest(interestId: number): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/interests/me/${interestId}`, {
+    method: "DELETE",
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error(`DELETE /interests/me/${interestId} failed with ${response.status}`);
+  }
+
+  notifyChannelsUpdated();
+}

@@ -53,14 +53,15 @@ export type ChannelFeedItemDto = { kind: 'post'; post: ChannelPostDto };
 export class ChannelsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  // Reads all channels with their interest metadata and aggregate counts.
+  // Reads all channels with their interest metadata and root post counts.
   async findAll(): Promise<ChannelDto[]> {
     const channels = await this.prisma.channel.findMany({
       include: this.channelInclude(),
     });
+    const rootPostCounts = await this.getRootPostCounts(channels.map((channel) => channel.id));
 
     return channels
-      .map((channel) => this.toChannelDto(channel))
+      .map((channel) => this.toChannelDto(channel, undefined, rootPostCounts.get(channel.id) ?? 0))
       .sort((a, b) => a.label.localeCompare(b.label));
   }
 
@@ -74,13 +75,16 @@ export class ChannelsService {
         },
       },
     });
+    const rootPostCounts = await this.getRootPostCounts(
+      joinedChannels.map((joinedChannel) => joinedChannel.channel.id),
+    );
 
     return joinedChannels
       .map((joinedChannel) =>
         this.toChannelDto(joinedChannel.channel, {
           joined: true,
           isFavorite: joinedChannel.isFavorite,
-        }),
+        }, rootPostCounts.get(joinedChannel.channel.id) ?? 0),
       )
       .sort((a, b) => a.label.localeCompare(b.label));
   }
@@ -88,7 +92,7 @@ export class ChannelsService {
   // Finds one channel from the public slug derived from its interest name.
   async findBySlug(slug: string): Promise<ChannelDto> {
     const channel = await this.findChannelBySlug(slug);
-    return this.toChannelDto(channel);
+    return this.toChannelDto(channel, undefined, await this.countRootPosts(channel.id));
   }
 
   // Lists users who joined the channel identified by slug.
@@ -244,7 +248,7 @@ export class ChannelsService {
     return this.toChannelDto(channel, {
       joined: true,
       isFavorite: membership.isFavorite,
-    });
+    }, await this.countRootPosts(channel.id));
   }
 
   // Leaves both the channel and its owning interest for one user.
@@ -291,10 +295,39 @@ export class ChannelsService {
       _count: {
         select: {
           users: true,
-          posts: true,
         },
       },
     } as const;
+  }
+
+  // Counts only top-level channel posts, excluding replies/comments.
+  private async countRootPosts(channelId: number): Promise<number> {
+    return this.prisma.post.count({
+      where: {
+        channelId,
+        parentId: null,
+      },
+    });
+  }
+
+  // Counts top-level posts for a set of channels in one grouped query.
+  private async getRootPostCounts(channelIds: number[]): Promise<Map<number, number>> {
+    if (channelIds.length === 0) return new Map();
+
+    const counts = await this.prisma.post.groupBy({
+      by: ['channelId'],
+      where: {
+        channelId: {
+          in: channelIds,
+        },
+        parentId: null,
+      },
+      _count: {
+        _all: true,
+      },
+    });
+
+    return new Map(counts.map((count) => [count.channelId, count._count._all]));
   }
 
   // Builds the shared Prisma include used by channel feed queries.
@@ -333,10 +366,10 @@ export class ChannelsService {
       };
       _count: {
         users: number;
-        posts: number;
       };
     },
     membership?: { joined?: boolean; isFavorite?: boolean },
+    rootPostCount = 0,
   ): ChannelDto {
     return {
       id: channel.id,
@@ -346,7 +379,7 @@ export class ChannelsService {
       color: channel.interest.color ?? '#6B7280',
       imageUri: channel.interest.imageUri,
       memberCount: channel._count.users,
-      postCount: channel._count.posts,
+      postCount: rootPostCount,
       ...membership,
     };
   }

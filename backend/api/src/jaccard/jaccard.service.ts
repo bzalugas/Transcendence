@@ -5,16 +5,21 @@ import { PrismaService } from '../prisma/prisma.service';
 export class JaccardService {
   constructor(private readonly prisma: PrismaService) {}
 
-  private async getAmisIds(userId: string): Promise<string[]> {
+  // Finds users who should not appear in suggestions because a relationship already exists.
+  private async getExcludedUserIds(userId: string): Promise<string[]> {
     const friendRequests = await this.prisma.friendRequest.findMany({
       where: {
-        AND: [
-          { status: 'Accepted' },
+        OR: [
           {
+            status: 'Accepted',
             OR: [
               { senderId: userId },
               { receiverId: userId },
             ],
+          },
+          {
+            status: 'Pending',
+            receiverId: userId,
           },
         ],
       },
@@ -41,11 +46,11 @@ export class JaccardService {
       currentUser.interests.map(i => [i.interestId, i.interest.name])
     );
 
-    const amisIds = await this.getAmisIds(userId);
+    const excludedUserIds = await this.getExcludedUserIds(userId);
 
     const candidats = await this.prisma.user.findMany({
       where: {
-        id: { notIn: [...amisIds, userId] },
+        id: { notIn: [...excludedUserIds, userId] },
         interests: {
           some: { interestId: { in: currentInterestIds } },
         },

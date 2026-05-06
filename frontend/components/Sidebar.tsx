@@ -18,7 +18,7 @@ import { getJoinedChannels } from "@/lib/data/channels";
 import { listenForChannelsUpdated } from "@/lib/data/channel-events";
 import { useCurrentUser } from "@/lib/data/auth";
 import { getNavBadges } from "@/lib/data/nav";
-import type { Channel } from "@/lib/types";
+import type { Channel, NavBadges } from "@/lib/types";
 
 const navItems = [
   { href: "/", label: "Home", icon: HomeIcon },
@@ -32,9 +32,9 @@ export default function Sidebar() {
   const pathname = usePathname();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [channels, setChannels] = useState<Channel[]>([]);
+  const [navBadges, setNavBadges] = useState<NavBadges>({ suggestions: 0, messages: 0 });
   const settingsRef = useRef<HTMLButtonElement>(null);
   const { user: currentUser } = useCurrentUser();
-  const navBadges = getNavBadges();
 
   useEffect(() => {
     let active = true;
@@ -59,6 +59,22 @@ export default function Sidebar() {
     };
   }, []);
 
+  useEffect(() => {
+    let active = true;
+
+    getNavBadges()
+      .then((badges) => {
+        if (active) setNavBadges(badges);
+      })
+      .catch(() => {
+        if (active) setNavBadges({ suggestions: 0, messages: 0 });
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
   if (!currentUser) return null;
 
   return (
@@ -77,6 +93,7 @@ export default function Sidebar() {
         {navItems.map(({ href, label, icon: Icon, badgeKey }) => {
           const isActive = pathname === href;
           const badge = badgeKey ? navBadges[badgeKey] : undefined;
+          const shouldShowBadge = typeof badge === "number" && badge > 0;
           return (
             <Link
               key={href}
@@ -89,7 +106,7 @@ export default function Sidebar() {
             >
               <Icon />
               <span>{label}</span>
-              {badge && (
+              {shouldShowBadge && (
                 <span className="ml-auto rounded-[10px] bg-text-primary px-1.5 py-px text-[10px] font-semibold text-bg-tertiary">
                   {badge}
                 </span>

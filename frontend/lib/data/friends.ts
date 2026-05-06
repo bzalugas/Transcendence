@@ -1,24 +1,36 @@
-import { friends, cohortStats } from "@/lib/mocks/friends";
-import type { CohortStat, Friend } from "@/lib/types";
+import type { Friend } from "@/lib/types";
 
-// Module-level mutable list — backend swap: replace all functions with real API calls.
-const _friends: Friend[] = [...friends];
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
 
-export function getFriends(): Friend[] {
-  return [..._friends];
+// Loads accepted friends for the current authenticated user from the API.
+export async function getFriends(): Promise<Friend[]> {
+  return request<Friend[]>("/friendships/me");
 }
 
-export function removeFriend(name: string): void {
-  const idx = _friends.findIndex((f) => f.name === name);
-  if (idx !== -1) _friends.splice(idx, 1);
+// Loads accepted friends for a public profile username from the API.
+export async function getProfileFriends(username: string): Promise<Friend[]> {
+  return request<Friend[]>(`/friendships/${encodeURIComponent(username)}`);
 }
 
-export function addFriend(friend: Friend): void {
-  if (!_friends.some((f) => f.name === friend.name)) {
-    _friends.push(friend);
+// Removes an accepted friendship for the current user by profile username.
+export async function removeFriend(name: string): Promise<void> {
+  await request(`/friendships/me/${encodeURIComponent(name)}`, {
+    method: "DELETE",
+  });
+}
+
+// Sends an authenticated request to the backend friendship API.
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    ...init,
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error(`${init?.method ?? "GET"} ${path} failed with ${response.status}`);
   }
-}
 
-export function getCohortStats(): CohortStat[] {
-  return cohortStats;
+  if (response.status === 204) return undefined as T;
+
+  return response.json();
 }

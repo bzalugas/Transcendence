@@ -22,6 +22,7 @@ export interface ChannelMemberDto {
   level: number;
   joinedAt: string;
   isFavorite: boolean;
+  isFriend: boolean;
 }
 
 export interface ChannelPostDto {
@@ -96,7 +97,10 @@ export class ChannelsService {
   }
 
   // Lists users who joined the channel identified by slug.
-  async findMembersBySlug(slug: string): Promise<ChannelMemberDto[]> {
+  async findMembersBySlug(
+    slug: string,
+    currentUserId: string,
+  ): Promise<ChannelMemberDto[]> {
     const channel = await this.findChannelBySlug(slug);
     const memberships = await this.prisma.user_Channel.findMany({
       where: { channelId: channel.id },
@@ -111,6 +115,8 @@ export class ChannelsService {
         joinedAt: 'asc',
       },
     });
+    const friendIds = await this.getAcceptedFriendIds(currentUserId);
+    const friendIdSet = new Set(friendIds);
 
     return memberships.map((membership) => ({
       id: membership.user.id,
@@ -120,6 +126,7 @@ export class ChannelsService {
       level: membership.user.profile?.level ?? 0,
       joinedAt: membership.joinedAt.toISOString(),
       isFavorite: membership.isFavorite,
+      isFriend: friendIdSet.has(membership.user.id),
     }));
   }
 
@@ -328,6 +335,33 @@ export class ChannelsService {
     });
 
     return new Map(counts.map((count) => [count.channelId, count._count._all]));
+  }
+
+  // Finds ids connected to one user by accepted FriendRequest rows.
+  private async getAcceptedFriendIds(userId: string): Promise<string[]> {
+    const friendRequests = await this.prisma.friendRequest.findMany({
+      where: {
+        status: 'Accepted',
+        OR: [
+          {
+            senderId: userId,
+          },
+          {
+            receiverId: userId,
+          },
+        ],
+      },
+      select: {
+        senderId: true,
+        receiverId: true,
+      },
+    });
+
+    return friendRequests.map((friendRequest) =>
+      friendRequest.senderId === userId
+        ? friendRequest.receiverId
+        : friendRequest.senderId,
+    );
   }
 
   // Builds the shared Prisma include used by channel feed queries.

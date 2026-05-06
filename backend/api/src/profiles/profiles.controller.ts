@@ -14,6 +14,12 @@ export class ProfilesController {
     return this.profilesService.findByUserId(userId);
   }
 
+  // Returns real aggregate profile stats for shared frontend side panels.
+  @Get('stats')
+  getStats() {
+    return this.profilesService.getStats();
+  }
+
   // Returns one profile by login, display name, or email-derived username.
   @Get(':username')
   findOne(@Param('username') username: string) {

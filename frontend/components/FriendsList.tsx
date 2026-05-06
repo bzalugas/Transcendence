@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import Avatar from "@/components/Avatar";
 import FriendPopover from "@/components/FriendPopover";
 import { removeFriend } from "@/lib/data/friends";
@@ -11,14 +11,19 @@ type FriendsListProps = {
 };
 
 export default function FriendsList({ friends: initialFriends }: FriendsListProps) {
-  const [displayedFriends, setDisplayedFriends] = useState<Friend[]>(initialFriends);
   const [activeFriend, setActiveFriend] = useState<Friend | null>(null);
-  const buttonRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
+  const [activeAnchor, setActiveAnchor] = useState<HTMLElement | null>(null);
+  const [activeAnchorPosition, setActiveAnchorPosition] = useState({ top: 0, left: 0 });
+  const [removedNames, setRemovedNames] = useState<Set<string>>(new Set());
+  const displayedFriends = initialFriends.filter((friend) => !removedNames.has(friend.name));
 
-  function handleRemove(name: string) {
-    removeFriend(name);
-    setDisplayedFriends((prev) => prev.filter((f) => f.name !== name));
+  // Removes a friend through the API and reflects it in the visible list.
+  async function handleRemove(name: string) {
+    await removeFriend(name);
+    setRemovedNames((prev) => new Set([...prev, name]));
     setActiveFriend(null);
+    setActiveAnchor(null);
+    setActiveAnchorPosition({ top: 0, left: 0 });
   }
 
   return (
@@ -27,9 +32,16 @@ export default function FriendsList({ friends: initialFriends }: FriendsListProp
         {displayedFriends.map((f) => (
           <button
             key={f.name}
-            ref={(el) => { if (el) buttonRefs.current.set(f.name, el); }}
             type="button"
-            onClick={() => setActiveFriend(activeFriend?.name === f.name ? null : f)}
+            onClick={(event) => {
+              const nextFriend = activeFriend?.name === f.name ? null : f;
+              const rect = event.currentTarget.getBoundingClientRect();
+              setActiveFriend(nextFriend);
+              setActiveAnchor(nextFriend ? event.currentTarget : null);
+              setActiveAnchorPosition(
+                nextFriend ? { top: rect.top, left: rect.left - 248 } : { top: 0, left: 0 },
+              );
+            }}
             className={`flex items-center gap-[9px] rounded-[7px] px-2 py-[5px] transition-colors hover:bg-bg-hover ${
               activeFriend?.name === f.name ? "bg-bg-hover" : ""
             }`}
@@ -44,8 +56,13 @@ export default function FriendsList({ friends: initialFriends }: FriendsListProp
       {activeFriend && (
         <FriendPopover
           friend={activeFriend}
-          anchorRef={{ current: buttonRefs.current.get(activeFriend.name) ?? null }}
-          onClose={() => setActiveFriend(null)}
+          anchorElement={activeAnchor}
+          anchorPosition={activeAnchorPosition}
+          onClose={() => {
+            setActiveFriend(null);
+            setActiveAnchor(null);
+            setActiveAnchorPosition({ top: 0, left: 0 });
+          }}
           onRemove={() => handleRemove(activeFriend.name)}
         />
       )}

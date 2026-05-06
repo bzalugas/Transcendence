@@ -1,50 +1,119 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import Avatar from "@/components/Avatar";
+import CohortStatsPanel from "@/components/CohortStatsPanel";
 import FriendsList from "@/components/FriendsList";
 import PanelToggleIcon from "@/components/icons/PanelToggleIcon";
 import {
   getSuggestions,
-  getSuggestionsTotal,
   getFriendRequests,
   sendFriendRequest,
   getSentRequestNames,
+  acceptFriendRequest,
+  rejectFriendRequest,
+  type FriendRequest,
+  type SuggestionProfile,
 } from "@/lib/data/suggestions";
-import { getFriends, getCohortStats, addFriend } from "@/lib/data/friends";
+import { getFriends } from "@/lib/data/friends";
 import type { Friend } from "@/lib/types";
 
 export default function SuggestionsPage() {
   const [showPanel, setShowPanel] = useState(true);
   const [search, setSearch] = useState("");
-  const [requested, setRequested] = useState<Set<string>>(
-    () => new Set(getSentRequestNames()),
-  );
-  const [pendingRequests, setPendingRequests] = useState(
-    () => [...getFriendRequests()],
-  );
-  const [friendsList, setFriendsList] = useState(() => getFriends());
-  const suggestions = getSuggestions();
-  const totalProfiles = getSuggestionsTotal();
+  const [requested, setRequested] = useState<Set<string>>(new Set());
+  const [sendingRequests, setSendingRequests] = useState<Set<string>>(new Set());
+  const [pendingRequests, setPendingRequests] = useState<FriendRequest[]>([]);
+  const [friendsList, setFriendsList] = useState<Friend[]>([]);
+  const [suggestions, setSuggestions] = useState<SuggestionProfile[]>([]);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(true);
+  const totalProfiles = suggestions.length;
 
-  function sendRequest(name: string) {
-    sendFriendRequest(name);
-    setRequested((prev) => new Set([...prev, name]));
-  }
+  useEffect(() => {
+    let active = true;
 
-  function acceptRequest(name: string) {
-    const req = pendingRequests.find((r) => r.name === name);
-    if (req) {
-      const newFriend = { name: req.name, initials: req.initials, level: 0 };
-      addFriend(newFriend);
-      setFriendsList((prev) => [...prev, newFriend]);
+    getSuggestions()
+      .then((items) => {
+        if (active) setSuggestions(items);
+      })
+      .catch(() => {
+        if (active) setSuggestions([]);
+      })
+      .finally(() => {
+        if (active) setSuggestionsLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    getFriends()
+      .then((items) => {
+        if (active) setFriendsList(items);
+      })
+      .catch(() => {
+        if (active) setFriendsList([]);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    Promise.all([getFriendRequests(), getSentRequestNames()])
+      .then(([requests, sentNames]) => {
+        if (!active) return;
+        setPendingRequests(requests);
+        setRequested(new Set(sentNames));
+      })
+      .catch(() => {
+        if (!active) return;
+        setPendingRequests([]);
+        setRequested(new Set());
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // Sends a friend request and marks the suggestion as pending in the UI.
+  async function sendRequest(name: string) {
+    setSendingRequests((prev) => new Set([...prev, name]));
+
+    try {
+      await sendFriendRequest(name);
+      setRequested((prev) => new Set([...prev, name]));
+    } finally {
+      setSendingRequests((prev) => {
+        const next = new Set(prev);
+        next.delete(name);
+        return next;
+      });
     }
-    setPendingRequests((prev) => prev.filter((r) => r.name !== name));
   }
 
-  function rejectRequest(name: string) {
-    setPendingRequests((prev) => prev.filter((r) => r.name !== name));
+  // Accepts a received request and refreshes the real friends list.
+  async function acceptRequest(request: FriendRequest) {
+    const friend = await acceptFriendRequest(request.id);
+    setFriendsList((prev) =>
+      prev.some((item) => item.name === friend.name) ? prev : [...prev, friend],
+    );
+    setPendingRequests((prev) => prev.filter((r) => r.id !== request.id));
+  }
+
+  // Rejects a received request and removes it from the pending list.
+  async function rejectRequest(request: FriendRequest) {
+    await rejectFriendRequest(request.id);
+    setPendingRequests((prev) => prev.filter((r) => r.id !== request.id));
   }
 
   const filteredSuggestions = suggestions.filter((s) => {
@@ -87,6 +156,15 @@ export default function SuggestionsPage() {
         />
 
         {/* Cards grid */}
+        {suggestionsLoading ? (
+          <div className="rounded-xl border border-border-default bg-bg-secondary p-[18px] text-[13px] italic text-text-dimmed">
+            Loading suggestions...
+          </div>
+        ) : filteredSuggestions.length === 0 ? (
+          <div className="rounded-xl border border-border-default bg-bg-secondary p-[18px] text-[13px] italic text-text-dimmed">
+            No suggestions found.
+          </div>
+        ) : (
         <div className="grid grid-cols-3 gap-[13px]">
           {filteredSuggestions.map((s) => (
             <div
@@ -103,9 +181,6 @@ export default function SuggestionsPage() {
                 <div className="flex-1">
                   <Link href={`/profile/${s.name}`} className="text-[14px] font-medium hover:underline">{s.name}</Link>
                   <div className="mt-[3px] flex items-center gap-1.5 text-[12px] text-text-muted">
-                    <div className="flex h-[22px] w-[22px] items-center justify-center rounded-full border border-border-default bg-bg-hover text-[11px] font-medium">
-                      {s.level}
-                    </div>
                     Level {s.level}
                   </div>
                 </div>
@@ -130,11 +205,12 @@ export default function SuggestionsPage() {
                 ) : (
                   <button
                     type="button"
+                    disabled={sendingRequests.has(s.name)}
                     onClick={() => sendRequest(s.name)}
                     title="Send friend request"
-                    className="flex h-[34px] w-[34px] shrink-0 cursor-pointer items-center justify-center rounded-full border-[1.5px] border-border-default text-[22px] font-light leading-none text-text-tertiary transition-colors hover:border-border-strong hover:text-text-primary"
+                    className="flex h-[34px] w-[34px] shrink-0 cursor-pointer items-center justify-center rounded-full border-[1.5px] border-border-default text-[22px] font-light leading-none text-text-tertiary transition-colors hover:border-border-strong hover:text-text-primary disabled:cursor-default disabled:opacity-50"
                   >
-                    +
+                    {sendingRequests.has(s.name) ? "..." : "+"}
                   </button>
                 )}
               </div>
@@ -153,6 +229,7 @@ export default function SuggestionsPage() {
             </div>
           ))}
         </div>
+        )}
       </div>
 
       {showPanel && (
@@ -169,8 +246,6 @@ export default function SuggestionsPage() {
   );
 }
 
-type FriendRequest = ReturnType<typeof getFriendRequests>[number];
-
 function SuggestionsPanel({
   pendingRequests,
   friends,
@@ -179,10 +254,9 @@ function SuggestionsPanel({
 }: {
   pendingRequests: FriendRequest[];
   friends: Friend[];
-  onAccept: (name: string) => void;
-  onReject: (name: string) => void;
+  onAccept: (request: FriendRequest) => void;
+  onReject: (request: FriendRequest) => void;
 }) {
-  const cohortStats = getCohortStats();
   return (
     <aside className="flex w-full flex-col overflow-hidden border-l border-border-default bg-bg-secondary">
       <div className="flex-1 overflow-y-auto px-[18px] py-6">
@@ -196,7 +270,7 @@ function SuggestionsPanel({
         <div className="flex flex-col gap-0.5">
           {pendingRequests.map((r) => (
             <div key={r.name} className="flex items-center gap-[9px] py-[7px]">
-              <Link href="/profile" className="flex min-w-0 flex-1 items-center gap-[9px] hover:opacity-80">
+              <Link href={`/profile/${r.name}`} className="flex min-w-0 flex-1 items-center gap-[9px] hover:opacity-80">
                 <Avatar initials={r.initials} size="md" />
                 <div className="min-w-0">
                   <div className="text-[13px] font-medium">{r.name}</div>
@@ -206,14 +280,14 @@ function SuggestionsPanel({
               <div className="flex gap-[5px]">
                 <button
                   type="button"
-                  onClick={() => onAccept(r.name)}
+                  onClick={() => onAccept(r)}
                   className="rounded-[5px] bg-text-primary px-2.5 py-1 text-[11.5px] font-medium text-bg-tertiary hover:opacity-90"
                 >
                   Accept
                 </button>
                 <button
                   type="button"
-                  onClick={() => onReject(r.name)}
+                  onClick={() => onReject(r)}
                   className="rounded-[5px] border border-border-default px-2.5 py-1 text-[11.5px] text-text-muted hover:bg-bg-hover hover:text-text-primary"
                 >
                   &#x2715;
@@ -234,17 +308,7 @@ function SuggestionsPanel({
 
       {/* Cohort stats (fixed footer) */}
       <div className="shrink-0 border-t border-border-default px-[18px] py-4">
-        <div className="mb-3 text-[10.5px] font-semibold uppercase tracking-wider text-text-muted">
-          Class stats
-        </div>
-        <div className="flex flex-col gap-2">
-          {cohortStats.map((s) => (
-            <div key={s.label} className="flex items-center justify-between text-[12.5px]">
-              <span className="text-text-muted">{s.label}</span>
-              <span className="font-medium text-text-primary">{s.value}</span>
-            </div>
-          ))}
-        </div>
+        <CohortStatsPanel />
 
         {/* Legal links */}
         <div className="mt-4 flex justify-center gap-3 border-t border-border-default pt-3 text-[10.5px] text-text-dimmed">

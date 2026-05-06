@@ -162,15 +162,11 @@ export interface ChatMessage {
 }
 
 export interface Friend {
+  id?: string;
   initials: string;
   avatarUrl?: string;
   name: string;
   level: number;
-}
-
-export interface CohortStat {
-  label: string;
-  value: string;
 }
 
 export interface NavBadges {

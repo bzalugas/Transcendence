@@ -1,10 +1,8 @@
 import {
-  profileFriends,
   profileActivity,
   profileSocials,
   currentProjects,
 } from "@/lib/mocks/profile";
-import { getFriends } from "@/lib/data/friends";
 import type { User } from "@/lib/types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
@@ -14,7 +12,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
 export function getMyProfile() {
   return {
     interests: [],
-    friends: profileFriends,
+    friends: [],
     activity: profileActivity,
     socials: profileSocials,
     currentProjects,
@@ -32,16 +30,13 @@ export function getProfileByUsername(username: string, currentUser: User) {
     };
   }
 
-  // Look up basic info from the remaining friend fallback.
-  const friend = getFriends().find((f) => f.name === username);
-
   return {
     user: {
       id: username,
       username,
-      initials: friend?.initials ?? username.slice(0, 2),
-      avatarUrl: friend?.avatarUrl,
-      level: friend?.level ?? 0,
+      initials: username.slice(0, 2),
+      avatarUrl: undefined,
+      level: 0,
       bio: undefined as string | undefined,
     },
     isSelf: false as const,

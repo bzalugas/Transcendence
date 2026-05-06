@@ -1,0 +1,78 @@
+import {
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseIntPipe,
+  Post,
+  Req,
+} from '@nestjs/common';
+import type { Request } from 'express';
+import { getSessionUserId } from '../auth/session';
+import { FriendshipsService } from './friendships.service';
+
+@Controller('friendships')
+export class FriendshipsController {
+  constructor(private readonly friendshipsService: FriendshipsService) {}
+
+  // Returns pending friend requests received by the current user.
+  @Get('requests/received')
+  async findReceivedRequests(@Req() req: Request) {
+    const userId = await getSessionUserId(req);
+    return this.friendshipsService.findReceivedRequests(userId);
+  }
+
+  // Returns pending friend requests sent by the current user.
+  @Get('requests/sent')
+  async findSentRequests(@Req() req: Request) {
+    const userId = await getSessionUserId(req);
+    return this.friendshipsService.findSentRequests(userId);
+  }
+
+  // Sends a friend request from the current user to a profile username.
+  @Post('requests/:username')
+  async createRequest(@Req() req: Request, @Param('username') username: string) {
+    const userId = await getSessionUserId(req);
+    return this.friendshipsService.createRequestByUsername(userId, username);
+  }
+
+  // Accepts a pending friend request received by the current user.
+  @Post('requests/:requestId/accept')
+  async acceptRequest(
+    @Req() req: Request,
+    @Param('requestId', ParseIntPipe) requestId: number,
+  ) {
+    const userId = await getSessionUserId(req);
+    return this.friendshipsService.acceptRequest(userId, requestId);
+  }
+
+  // Rejects a pending friend request received by the current user.
+  @Post('requests/:requestId/reject')
+  async rejectRequest(
+    @Req() req: Request,
+    @Param('requestId', ParseIntPipe) requestId: number,
+  ) {
+    const userId = await getSessionUserId(req);
+    return this.friendshipsService.rejectRequest(userId, requestId);
+  }
+
+  // Returns accepted friends for the current better-auth session user.
+  @Get('me')
+  async findMine(@Req() req: Request) {
+    const userId = await getSessionUserId(req);
+    return this.friendshipsService.findAcceptedForUser(userId);
+  }
+
+  // Removes an accepted friendship between the current user and a profile username.
+  @Delete('me/:username')
+  async removeMine(@Req() req: Request, @Param('username') username: string) {
+    const userId = await getSessionUserId(req);
+    return this.friendshipsService.removeAcceptedByUsername(userId, username);
+  }
+
+  // Returns accepted friends for the public profile identified by username.
+  @Get(':username')
+  findByUsername(@Param('username') username: string) {
+    return this.friendshipsService.findAcceptedByUsername(username);
+  }
+}

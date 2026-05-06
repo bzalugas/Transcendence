@@ -10,9 +10,11 @@ import InterestPickerModal from "@/components/InterestPickerModal";
 import PanelToggleIcon from "@/components/icons/PanelToggleIcon";
 import { getProfileByUsername, getUserProfileByUsername } from "@/lib/data/profile";
 import { useCurrentUser } from "@/lib/data/auth";
+import { getProfileFriends } from "@/lib/data/friends";
 import { getMyInterests, leaveMyInterest } from "@/lib/data/interests";
 import { setPendingConv } from "@/lib/data/messages";
-import type { ProfileInterest, User } from "@/lib/types";
+import { sendFriendRequest } from "@/lib/data/suggestions";
+import type { Friend, ProfileInterest, User } from "@/lib/types";
 
 interface ProfilePageProps {
   params: Promise<{ username: string }>;
@@ -29,6 +31,9 @@ export default function ProfilePage({ params }: ProfilePageProps) {
   const [selectedInterest, setSelectedInterest] = useState<ProfileInterest | null>(null);
   const [interestsLoading, setInterestsLoading] = useState(false);
   const [viewedUser, setViewedUser] = useState<User | null | undefined>(undefined);
+  const [profileFriends, setProfileFriends] = useState<Friend[]>([]);
+  const [friendRequestSent, setFriendRequestSent] = useState(false);
+  const viewedUsername = viewedUser?.username;
   const isCurrentUserProfile =
     currentUser &&
     normalizeProfileKey(username) === normalizeProfileKey(currentUser.username);
@@ -72,6 +77,24 @@ export default function ProfilePage({ params }: ProfilePageProps) {
   if (currentUser && viewedUser === null) notFound();
 
   useEffect(() => {
+    if (!viewedUsername) return;
+
+    let active = true;
+
+    getProfileFriends(viewedUsername)
+      .then((items) => {
+        if (active) setProfileFriends(items);
+      })
+      .catch(() => {
+        if (active) setProfileFriends([]);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [viewedUsername]);
+
+  useEffect(() => {
     if (!profile?.isSelf) {
       setInterests(profile?.interests ?? []);
       return;
@@ -98,7 +121,12 @@ export default function ProfilePage({ params }: ProfilePageProps) {
 
   if (!profile) return null;
 
-  const { user, isSelf, friends, activity, socials } = profile;
+  const { user, isSelf, activity, socials } = profile;
+  const friends = profileFriends;
+  const isAlreadyFriend = Boolean(
+    currentUser &&
+    friends.some((friend) => normalizeProfileKey(friend.name) === normalizeProfileKey(currentUser.username)),
+  );
 
   function handleJoinInterest(interest: ProfileInterest) {
     setInterests((prev) =>
@@ -113,6 +141,12 @@ export default function ProfilePage({ params }: ProfilePageProps) {
     await leaveMyInterest(interest.id);
     setInterests((prev) => prev.filter((item) => item.id !== interest.id));
     setSelectedInterest(null);
+  }
+
+  // Sends a real friend request for the profile currently being viewed.
+  async function handleAddFriend() {
+    await sendFriendRequest(user.username);
+    setFriendRequestSent(true);
   }
 
   return (
@@ -210,9 +244,11 @@ export default function ProfilePage({ params }: ProfilePageProps) {
                   </button>
                   <button
                     type="button"
-                    className="rounded-[7px] bg-text-primary px-[18px] py-[7px] text-[13px] font-medium text-bg-primary transition-opacity hover:opacity-90"
+                    disabled={isAlreadyFriend || friendRequestSent}
+                    onClick={handleAddFriend}
+                    className="rounded-[7px] bg-text-primary px-[18px] py-[7px] text-[13px] font-medium text-bg-primary transition-opacity hover:opacity-90 disabled:cursor-default disabled:opacity-60"
                   >
-                    Add friend
+                    {isAlreadyFriend ? "Friend" : friendRequestSent ? "Request sent" : "Add friend"}
                   </button>
                 </div>
               )}

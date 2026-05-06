@@ -162,6 +162,7 @@ export interface ChatMessage {
 }
 
 export interface Friend {
+  id?: string;
   initials: string;
   avatarUrl?: string;
   name: string;

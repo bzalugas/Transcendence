@@ -18,8 +18,9 @@ export default function ChannelInviteModal({
 }: ChannelInviteModalProps) {
   const [search, setSearch] = useState("");
   const [sent, setSent] = useState<Set<string>>(new Set());
+  const [friends, setFriends] = useState<Friend[]>([]);
+  const [friendsLoading, setFriendsLoading] = useState(true);
 
-  const friends = getFriends();
   const memberNames = useMemo(
     () => new Set(members.map((m) => m.username)),
     [members],
@@ -30,6 +31,25 @@ export default function ChannelInviteModal({
     if (!q) return friends;
     return friends.filter((f) => f.name.toLowerCase().includes(q));
   }, [friends, search]);
+
+  useEffect(() => {
+    let active = true;
+
+    getFriends()
+      .then((items) => {
+        if (active) setFriends(items);
+      })
+      .catch(() => {
+        if (active) setFriends([]);
+      })
+      .finally(() => {
+        if (active) setFriendsLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -90,7 +110,11 @@ export default function ChannelInviteModal({
 
         {/* List */}
         <div className="flex-1 overflow-y-auto px-3 pb-3.5">
-          {filtered.length === 0 ? (
+          {friendsLoading ? (
+            <div className="px-2 py-8 text-center text-[12.5px] text-text-dimmed">
+              Loading friends...
+            </div>
+          ) : filtered.length === 0 ? (
             <div className="px-2 py-8 text-center text-[12.5px] text-text-dimmed">
               No friend matches &ldquo;{search}&rdquo;.
             </div>

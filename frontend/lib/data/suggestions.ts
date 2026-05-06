@@ -1,31 +1,71 @@
 import {
   suggestions,
-  friendRequests,
   suggestionsTotal,
   type SuggestionProfile,
 } from "@/lib/mocks/suggestions";
+import type { Friend } from "@/lib/types";
 
-// Backend swap point: replace with real API calls.
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
+
+export interface FriendRequest {
+  id: number;
+  initials: string;
+  name: string;
+  sharedCount: number;
+}
 
 export function getSuggestions(): SuggestionProfile[] {
   return suggestions;
 }
 
-export function getFriendRequests() {
-  return friendRequests;
+// Loads pending friend requests received by the current user from the API.
+export async function getFriendRequests(): Promise<FriendRequest[]> {
+  return request<FriendRequest[]>("/friendships/requests/received");
 }
 
 export function getSuggestionsTotal(): number {
   return suggestionsTotal;
 }
 
-// Module-level sent requests — persists across navigations during the session
-const _sentRequests = new Set<string>();
-
-export function sendFriendRequest(name: string): void {
-  _sentRequests.add(name);
+// Creates a pending friend request for a profile username.
+export async function sendFriendRequest(name: string): Promise<void> {
+  await request(`/friendships/requests/${encodeURIComponent(name)}`, {
+    method: "POST",
+  });
 }
 
-export function getSentRequestNames(): string[] {
-  return Array.from(_sentRequests);
+// Accepts one pending friend request received by the current user.
+export async function acceptFriendRequest(requestId: number): Promise<Friend> {
+  return request<Friend>(`/friendships/requests/${requestId}/accept`, {
+    method: "POST",
+  });
+}
+
+// Rejects one pending friend request received by the current user.
+export async function rejectFriendRequest(requestId: number): Promise<void> {
+  await request(`/friendships/requests/${requestId}/reject`, {
+    method: "POST",
+  });
+}
+
+// Loads usernames that already have a pending request from the current user.
+export async function getSentRequestNames(): Promise<string[]> {
+  const requests = await request<FriendRequest[]>("/friendships/requests/sent");
+  return requests.map((friendRequest) => friendRequest.name);
+}
+
+// Sends an authenticated request to the backend friendship API.
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    ...init,
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error(`${init?.method ?? "GET"} ${path} failed with ${response.status}`);
+  }
+
+  if (response.status === 204) return undefined as T;
+
+  return response.json();
 }

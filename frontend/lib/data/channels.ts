@@ -26,6 +26,7 @@ interface ApiChannelMember {
   level: number;
   joinedAt: string;
   isFavorite: boolean;
+  isFriend: boolean;
 }
 
 // Loads every channel from the database-backed API.
@@ -81,7 +82,7 @@ export async function getChannelMembers(slug: string): Promise<ChannelMember[]> 
     avatarUrl: member.avatarUrl,
     level: member.level,
     status: "offline",
-    isFriend: false,
+    isFriend: member.isFriend,
     joinedAt: member.joinedAt,
     isFavorite: member.isFavorite,
   }));

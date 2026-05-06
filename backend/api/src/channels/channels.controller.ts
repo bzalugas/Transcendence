@@ -37,8 +37,9 @@ export class ChannelsController {
 
   // Returns members of one channel by its interest-name slug.
   @Get(':slug/members')
-  findMembers(@Param('slug') slug: string) {
-    return this.channelsService.findMembersBySlug(slug);
+  async findMembers(@Req() req: Request, @Param('slug') slug: string) {
+    const userId = await getSessionUserId(req);
+    return this.channelsService.findMembersBySlug(slug, userId);
   }
 
   // Returns the persisted post feed for one channel.

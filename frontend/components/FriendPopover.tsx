@@ -12,19 +12,25 @@ import ConfirmActionModal, { type ConfirmAction } from "@/components/ConfirmActi
 
 type FriendPopoverProps = {
   friend: Friend;
-  anchorRef: React.RefObject<HTMLElement | null>;
+  anchorElement: HTMLElement | null;
+  anchorPosition: { top: number; left: number };
   onClose: () => void;
-  onRemove?: () => void;
+  onRemove?: () => void | Promise<void>;
 };
 
-export default function FriendPopover({ friend, anchorRef, onClose, onRemove }: FriendPopoverProps) {
+export default function FriendPopover({
+  friend,
+  anchorElement,
+  anchorPosition,
+  onClose,
+  onRemove,
+}: FriendPopoverProps) {
   const router = useRouter();
   const [channels, setChannels] = useState<Channel[]>([]);
   const { user: currentUser } = useCurrentUser();
   const [msgText, setMsgText] = useState("");
   const popRef = useRef<HTMLDivElement>(null);
   const subMoreRef = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState({ top: 0, left: 0 });
   const [showSubMore, setShowSubMore] = useState(false);
   const [showSubChannels, setShowSubChannels] = useState(false);
   const [showGameModal, setShowGameModal] = useState(false);
@@ -47,26 +53,20 @@ export default function FriendPopover({ friend, anchorRef, onClose, onRemove }: 
   }, []);
 
   useEffect(() => {
-    if (!anchorRef.current) return;
-    const rect = anchorRef.current.getBoundingClientRect();
-    setPos({ top: rect.top, left: rect.left - 248 });
-  }, [anchorRef]);
-
-  useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (confirmAction || showGameModal) return;
       const target = e.target as Node;
       if (
         popRef.current && !popRef.current.contains(target) &&
         (!subMoreRef.current || !subMoreRef.current.contains(target)) &&
-        anchorRef.current && !anchorRef.current.contains(target)
+        anchorElement && !anchorElement.contains(target)
       ) {
         onClose();
       }
     }
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
-  }, [onClose, anchorRef, confirmAction, showGameModal]);
+  }, [onClose, anchorElement, confirmAction, showGameModal]);
 
   const initials = friend.initials ?? friend.name.slice(0, 2);
 
@@ -99,7 +99,7 @@ export default function FriendPopover({ friend, anchorRef, onClose, onRemove }: 
       <div
         ref={popRef}
         className="fixed z-[1000] w-[240px] overflow-hidden rounded-[10px] border border-white/[0.12] bg-[#0f0f0e] shadow-[0_8px_30px_rgba(0,0,0,0.6)]"
-        style={{ top: pos.top, left: pos.left }}
+        style={{ top: anchorPosition.top, left: anchorPosition.left }}
       >
         {/* Header */}
         <div className="flex items-center gap-2.5 rounded-t-[8px] px-3.5 py-[14px] pb-[10px]">
@@ -160,7 +160,7 @@ export default function FriendPopover({ friend, anchorRef, onClose, onRemove }: 
         <div
           ref={subMoreRef}
           className="fixed z-[1001] w-[220px] rounded-[10px] border border-white/[0.12] bg-[#0f0f0e] px-2 py-1.5 shadow-[0_8px_30px_rgba(0,0,0,0.6)]"
-          style={{ top: pos.top, left: pos.left + 248 }}
+          style={{ top: anchorPosition.top, left: anchorPosition.left + 248 }}
         >
           <div
             className="relative"
@@ -230,7 +230,7 @@ export default function FriendPopover({ friend, anchorRef, onClose, onRemove }: 
           onConfirm={() => {
             setConfirmAction(null);
             if (confirmAction === "remove" || confirmAction === "block") {
-              onRemove?.();
+              void onRemove?.();
             }
             onClose();
           }}

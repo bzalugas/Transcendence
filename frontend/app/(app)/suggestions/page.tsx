@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import Avatar from "@/components/Avatar";
 import FriendsList from "@/components/FriendsList";
@@ -11,40 +11,77 @@ import {
   getFriendRequests,
   sendFriendRequest,
   getSentRequestNames,
+  acceptFriendRequest,
+  rejectFriendRequest,
+  type FriendRequest,
 } from "@/lib/data/suggestions";
-import { getFriends, getCohortStats, addFriend } from "@/lib/data/friends";
+import { getFriends, getCohortStats } from "@/lib/data/friends";
 import type { Friend } from "@/lib/types";
 
 export default function SuggestionsPage() {
   const [showPanel, setShowPanel] = useState(true);
   const [search, setSearch] = useState("");
-  const [requested, setRequested] = useState<Set<string>>(
-    () => new Set(getSentRequestNames()),
-  );
-  const [pendingRequests, setPendingRequests] = useState(
-    () => [...getFriendRequests()],
-  );
-  const [friendsList, setFriendsList] = useState(() => getFriends());
+  const [requested, setRequested] = useState<Set<string>>(new Set());
+  const [pendingRequests, setPendingRequests] = useState<FriendRequest[]>([]);
+  const [friendsList, setFriendsList] = useState<Friend[]>([]);
   const suggestions = getSuggestions();
   const totalProfiles = getSuggestionsTotal();
 
-  function sendRequest(name: string) {
-    sendFriendRequest(name);
+  useEffect(() => {
+    let active = true;
+
+    getFriends()
+      .then((items) => {
+        if (active) setFriendsList(items);
+      })
+      .catch(() => {
+        if (active) setFriendsList([]);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    Promise.all([getFriendRequests(), getSentRequestNames()])
+      .then(([requests, sentNames]) => {
+        if (!active) return;
+        setPendingRequests(requests);
+        setRequested(new Set(sentNames));
+      })
+      .catch(() => {
+        if (!active) return;
+        setPendingRequests([]);
+        setRequested(new Set());
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // Sends a friend request and marks the suggestion as pending in the UI.
+  async function sendRequest(name: string) {
+    await sendFriendRequest(name);
     setRequested((prev) => new Set([...prev, name]));
   }
 
-  function acceptRequest(name: string) {
-    const req = pendingRequests.find((r) => r.name === name);
-    if (req) {
-      const newFriend = { name: req.name, initials: req.initials, level: 0 };
-      addFriend(newFriend);
-      setFriendsList((prev) => [...prev, newFriend]);
-    }
-    setPendingRequests((prev) => prev.filter((r) => r.name !== name));
+  // Accepts a received request and refreshes the real friends list.
+  async function acceptRequest(request: FriendRequest) {
+    const friend = await acceptFriendRequest(request.id);
+    setFriendsList((prev) =>
+      prev.some((item) => item.name === friend.name) ? prev : [...prev, friend],
+    );
+    setPendingRequests((prev) => prev.filter((r) => r.id !== request.id));
   }
 
-  function rejectRequest(name: string) {
-    setPendingRequests((prev) => prev.filter((r) => r.name !== name));
+  // Rejects a received request and removes it from the pending list.
+  async function rejectRequest(request: FriendRequest) {
+    await rejectFriendRequest(request.id);
+    setPendingRequests((prev) => prev.filter((r) => r.id !== request.id));
   }
 
   const filteredSuggestions = suggestions.filter((s) => {
@@ -169,8 +206,6 @@ export default function SuggestionsPage() {
   );
 }
 
-type FriendRequest = ReturnType<typeof getFriendRequests>[number];
-
 function SuggestionsPanel({
   pendingRequests,
   friends,
@@ -179,8 +214,8 @@ function SuggestionsPanel({
 }: {
   pendingRequests: FriendRequest[];
   friends: Friend[];
-  onAccept: (name: string) => void;
-  onReject: (name: string) => void;
+  onAccept: (request: FriendRequest) => void;
+  onReject: (request: FriendRequest) => void;
 }) {
   const cohortStats = getCohortStats();
   return (
@@ -196,7 +231,7 @@ function SuggestionsPanel({
         <div className="flex flex-col gap-0.5">
           {pendingRequests.map((r) => (
             <div key={r.name} className="flex items-center gap-[9px] py-[7px]">
-              <Link href="/profile" className="flex min-w-0 flex-1 items-center gap-[9px] hover:opacity-80">
+              <Link href={`/profile/${r.name}`} className="flex min-w-0 flex-1 items-center gap-[9px] hover:opacity-80">
                 <Avatar initials={r.initials} size="md" />
                 <div className="min-w-0">
                   <div className="text-[13px] font-medium">{r.name}</div>
@@ -206,14 +241,14 @@ function SuggestionsPanel({
               <div className="flex gap-[5px]">
                 <button
                   type="button"
-                  onClick={() => onAccept(r.name)}
+                  onClick={() => onAccept(r)}
                   className="rounded-[5px] bg-text-primary px-2.5 py-1 text-[11.5px] font-medium text-bg-tertiary hover:opacity-90"
                 >
                   Accept
                 </button>
                 <button
                   type="button"
-                  onClick={() => onReject(r.name)}
+                  onClick={() => onReject(r)}
                   className="rounded-[5px] border border-border-default px-2.5 py-1 text-[11.5px] text-text-muted hover:bg-bg-hover hover:text-text-primary"
                 >
                   &#x2715;

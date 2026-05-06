@@ -11,6 +11,78 @@ const apiBaseUrl =
 const frontendBaseUrl =
   process.env.NEXT_PUBLIC_FRONTEND_URL ?? "http://localhost:8080";
 
+interface FortyTwoUserInfo {
+  id: number;
+  email: string;
+  login: string;
+  first_name?: string | null;
+  last_name?: string | null;
+  displayname?: string | null;
+  image?: {
+    link?: string | null;
+  } | null;
+  cursus_users?: Array<{
+    level?: number | null;
+  }>;
+}
+
+// Fetches the authenticated 42 profile from the access token returned by OAuth.
+async function fetchFortyTwoMe(accessToken: string): Promise<FortyTwoUserInfo | null> {
+  const response = await fetch("https://api.intra.42.fr/v2/me", {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!response.ok) return null;
+
+  return response.json();
+}
+
+// Synchronizes 42 OAuth profile fields into the local User and Profile tables.
+async function syncFortyTwoProfile(userId: string, accessToken?: string | null) {
+  if (!accessToken) return;
+
+  const data = await fetchFortyTwoMe(accessToken);
+
+  if (!data?.login) return;
+
+  const avatarUri = data.image?.link ?? null;
+  const fullName =
+    data.displayname ||
+    [data.first_name, data.last_name].filter(Boolean).join(" ") ||
+    data.login;
+  const level = data.cursus_users?.[0]?.level ?? 0;
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: {
+      login: data.login,
+      name: fullName,
+      image: avatarUri,
+      emailVerified: true,
+      profile: {
+        upsert: {
+          create: {
+            firstname: data.first_name ?? null,
+            lastname: data.last_name ?? null,
+            pseudo: data.login,
+            avatarUri,
+            level,
+          },
+          update: {
+            firstname: data.first_name ?? null,
+            lastname: data.last_name ?? null,
+            pseudo: data.login,
+            avatarUri,
+            level,
+          },
+        },
+      },
+    },
+  });
+}
+
 export const auth = betterAuth({
   baseURL: apiBaseUrl,
   basePath: "/api/auth",
@@ -29,49 +101,70 @@ export const auth = betterAuth({
     additionalFields: {
       name: {
         type: "string",
-        required: false, // Matches your schema (String?)
-        // Optionally, you can add a default value if name is missing
-        // defaultValue: () => "Anonymous", 
+        required: false,
+      },
+      login: {
+        type: "string",
+        required: false,
       },
     },
-    // Map the incoming 'name' from signUp payload to the DB field
     changeEmail: {
-      enabled: true, 
+      enabled: true,
+    },
+  },
+
+  databaseHooks: {
+    account: {
+      create: {
+        // Populates app profile data when a 42 OAuth account is first linked.
+        async after(account) {
+          if (account.providerId !== "42school") return;
+          await syncFortyTwoProfile(account.userId, account.accessToken);
+        },
+      },
+      update: {
+        // Keeps app profile data fresh on later 42 OAuth sign-ins.
+        async after(account) {
+          if (account.providerId !== "42school") return;
+          await syncFortyTwoProfile(account.userId, account.accessToken);
+        },
+      },
     },
   },
 
   plugins: [
-	genericOAuth({
-		config: [
-		{
-			providerId: "42school",
-			clientId: process.env.FORTY_TWO_CLIENT_ID!,
-			clientSecret: process.env.FORTY_TWO_CLIENT_SECRET!,
-			authorizationUrl: "https://api.intra.42.fr/oauth/authorize",
-			tokenUrl: "https://api.intra.42.fr/oauth/token",
-			scopes: ["public"],
+    genericOAuth({
+      config: [
+        {
+          providerId: "42school",
+          clientId: process.env.FORTY_TWO_CLIENT_ID!,
+          clientSecret: process.env.FORTY_TWO_CLIENT_SECRET!,
+          authorizationUrl: "https://api.intra.42.fr/oauth/authorize",
+          tokenUrl: "https://api.intra.42.fr/oauth/token",
+          scopes: ["public"],
+          overrideUserInfo: true,
 
-			getUserInfo: async (tokens) => {
-				const res = await fetch("https://api.intra.42.fr/v2/me", {
-					headers: {
-						Authorization: `Bearer ${tokens.accessToken}`,
-					},
-				});
+          getUserInfo: async (tokens) => {
+            if (!tokens.accessToken) return null;
 
-				if (!res.ok) return null;
+            const data = await fetchFortyTwoMe(tokens.accessToken);
 
-				const data = await res.json();
+            if (!data) return null;
 
-				return {
-					id: String(data.id),
-					email: data.email,
-					name: data.login,
-					image: data.image?.link ?? null,
-					emailVerified: true,
-				} as any;
+            return {
+              id: String(data.id),
+              email: data.email,
+              emailVerified: true,
+              login: data.login,
+              name:
+                data.displayname ||
+                [data.first_name, data.last_name].filter(Boolean).join(" ") ||
+                data.login,
+              image: data.image?.link ?? null,
+            } as any;
           },
-		},
-		],
-	}),
-	]
+        },
+      ],
+    }),
+  ],
 });

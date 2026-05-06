@@ -10,7 +10,7 @@ import InterestPickerModal from "@/components/InterestPickerModal";
 import PanelToggleIcon from "@/components/icons/PanelToggleIcon";
 import { getProfileByUsername } from "@/lib/data/profile";
 import { useCurrentUser } from "@/lib/data/auth";
-import { getMyInterests } from "@/lib/data/interests";
+import { getMyInterests, leaveMyInterest } from "@/lib/data/interests";
 import { setPendingConv } from "@/lib/data/messages";
 import type { ProfileInterest } from "@/lib/types";
 
@@ -30,6 +30,7 @@ export default function ProfilePage({ params }: ProfilePageProps) {
   const [showPanel, setShowPanel] = useState(true);
   const [interests, setInterests] = useState<ProfileInterest[]>([]);
   const [showPicker, setShowPicker] = useState(false);
+  const [selectedInterest, setSelectedInterest] = useState<ProfileInterest | null>(null);
   const [interestsLoading, setInterestsLoading] = useState(false);
 
   useEffect(() => {
@@ -65,6 +66,15 @@ export default function ProfilePage({ params }: ProfilePageProps) {
     setInterests((prev) =>
       prev.some((i) => i.name === interest.name) ? prev : [...prev, interest],
     );
+  }
+
+  // Leaves an interest and removes its matching channel from the current profile.
+  async function handleLeaveInterest(interest: ProfileInterest) {
+    if (!interest.id) return;
+
+    await leaveMyInterest(interest.id);
+    setInterests((prev) => prev.filter((item) => item.id !== interest.id));
+    setSelectedInterest(null);
   }
 
   return (
@@ -215,13 +225,18 @@ export default function ProfilePage({ params }: ProfilePageProps) {
               ) : interests.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
                   {interests.map((i) => (
-                    <div
+                    <button
                       key={i.name}
-                      className="flex items-center gap-[7px] rounded-full border border-border-default bg-bg-hover px-3 py-[7px] text-[13px] text-text-primary"
+                      type="button"
+                      disabled={!isSelf}
+                      onClick={() => {
+                        if (isSelf) setSelectedInterest(i);
+                      }}
+                      className="flex items-center gap-[7px] rounded-full border border-border-default bg-bg-hover px-3 py-[7px] text-[13px] text-text-primary transition-colors enabled:hover:border-border-strong disabled:cursor-default"
                     >
                       <div className="h-[7px] w-[7px] shrink-0 rounded-full" style={{ background: i.color }} />
                       {i.name}
-                    </div>
+                    </button>
                   ))}
                   {isSelf && (
                     <button
@@ -285,7 +300,80 @@ export default function ProfilePage({ params }: ProfilePageProps) {
           onClose={() => setShowPicker(false)}
         />
       )}
+
+      {isSelf && selectedInterest && (
+        <InterestDetailModal
+          interest={selectedInterest}
+          onClose={() => setSelectedInterest(null)}
+          onLeave={() => handleLeaveInterest(selectedInterest)}
+        />
+      )}
     </>
+  );
+}
+
+function InterestDetailModal({
+  interest,
+  onClose,
+  onLeave,
+}: {
+  interest: ProfileInterest;
+  onClose: () => void;
+  onLeave: () => void | Promise<void>;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/60 backdrop-blur-[4px]"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div className="flex w-[420px] flex-col gap-5 rounded-[14px] border border-border-default bg-bg-secondary p-6 shadow-[0_20px_60px_rgba(0,0,0,0.6)]">
+        <div className="flex items-center gap-3.5">
+          <div
+            className="h-4 w-4 shrink-0 rounded-full"
+            style={{ background: interest.color }}
+          />
+          <div className="text-[20px] font-semibold">{interest.name}</div>
+        </div>
+
+        <div className="flex items-center gap-2 text-[13px] text-text-muted">
+          <svg
+            width="15"
+            height="15"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+            <circle cx="9" cy="7" r="4" />
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+          </svg>
+          {interest.members ?? 0} member{(interest.members ?? 0) > 1 ? "s" : ""}
+        </div>
+
+        <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg border border-border-default px-4 py-2 text-[13px] text-text-secondary transition-colors hover:border-border-strong hover:text-text-primary"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={() => { void onLeave(); }}
+            className="rounded-lg bg-danger px-4 py-2 text-[13px] font-medium text-white transition-opacity hover:opacity-90"
+          >
+            Leave
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 

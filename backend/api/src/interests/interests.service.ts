@@ -112,6 +112,39 @@ export class InterestsService {
     return this.toDto(joinedInterest);
   }
 
+  // Removes the user-interest relation and the matching channel membership.
+  async leaveForUser(userId: string, interestId: number): Promise<{ left: true }> {
+    const interest = await this.prisma.interest.findUnique({
+      where: { id: interestId },
+    });
+
+    if (!interest) {
+      throw new NotFoundException('Interest not found');
+    }
+
+    await this.prisma.user_Interest.deleteMany({
+      where: {
+        userId,
+        interestId,
+      },
+    });
+
+    const channel = await this.prisma.channel.findUnique({
+      where: { interestId },
+    });
+
+    if (channel) {
+      await this.prisma.user_Channel.deleteMany({
+        where: {
+          userId,
+          channelId: channel.id,
+        },
+      });
+    }
+
+    return { left: true };
+  }
+
   private toDto(interest: {
     id: number;
     name: string;

@@ -16,6 +16,7 @@ export interface ProfileInterest {
   id?: number;
   name: string;
   color: string;
+  members?: number;
 }
 
 export interface AvailableInterest extends ProfileInterest {

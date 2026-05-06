@@ -1,5 +1,6 @@
 import {
   Controller,
+  Delete,
   Get,
   Param,
   ParseIntPipe,
@@ -35,5 +36,15 @@ export class InterestsController {
   ) {
     const userId = await getSessionUserId(req);
     return this.interestsService.joinForUser(userId, interestId);
+  }
+
+  // Removes one interest and its matching channel from the current session user.
+  @Delete('me/:interestId')
+  async leaveMine(
+    @Req() req: Request,
+    @Param('interestId', ParseIntPipe) interestId: number,
+  ) {
+    const userId = await getSessionUserId(req);
+    return this.interestsService.leaveForUser(userId, interestId);
   }
 }

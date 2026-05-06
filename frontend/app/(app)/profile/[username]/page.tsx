@@ -8,11 +8,11 @@ import Avatar from "@/components/Avatar";
 import FriendsPanel from "@/components/FriendsPanel";
 import InterestPickerModal from "@/components/InterestPickerModal";
 import PanelToggleIcon from "@/components/icons/PanelToggleIcon";
-import { getProfileByUsername } from "@/lib/data/profile";
+import { getProfileByUsername, getUserProfileByUsername } from "@/lib/data/profile";
 import { useCurrentUser } from "@/lib/data/auth";
 import { getMyInterests, leaveMyInterest } from "@/lib/data/interests";
 import { setPendingConv } from "@/lib/data/messages";
-import type { ProfileInterest } from "@/lib/types";
+import type { ProfileInterest, User } from "@/lib/types";
 
 interface ProfilePageProps {
   params: Promise<{ username: string }>;
@@ -23,15 +23,53 @@ export default function ProfilePage({ params }: ProfilePageProps) {
   const router = useRouter();
   const { user: currentUser } = useCurrentUser();
 
-  const profile = currentUser ? getProfileByUsername(username, currentUser) : null;
-
-  if (currentUser && !profile) notFound();
-
   const [showPanel, setShowPanel] = useState(true);
   const [interests, setInterests] = useState<ProfileInterest[]>([]);
   const [showPicker, setShowPicker] = useState(false);
   const [selectedInterest, setSelectedInterest] = useState<ProfileInterest | null>(null);
   const [interestsLoading, setInterestsLoading] = useState(false);
+  const [viewedUser, setViewedUser] = useState<User | null | undefined>(undefined);
+  const isCurrentUserProfile =
+    currentUser &&
+    normalizeProfileKey(username) === normalizeProfileKey(currentUser.username);
+  const profile = currentUser && viewedUser
+    ? isCurrentUserProfile
+      ? getProfileByUsername(username, currentUser)
+      : {
+          user: viewedUser,
+          isSelf: false as const,
+          interests: [],
+          friends: [],
+          activity: [],
+          socials: [],
+          currentProjects: [],
+        }
+    : null;
+
+  useEffect(() => {
+    if (!currentUser) return;
+
+    if (isCurrentUserProfile) {
+      setViewedUser(currentUser);
+      return;
+    }
+
+    let active = true;
+
+    getUserProfileByUsername(username)
+      .then((user) => {
+        if (active) setViewedUser(user);
+      })
+      .catch(() => {
+        if (active) setViewedUser(null);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [currentUser, isCurrentUserProfile, username]);
+
+  if (currentUser && viewedUser === null) notFound();
 
   useEffect(() => {
     if (!profile?.isSelf) {
@@ -375,6 +413,10 @@ function InterestDetailModal({
       </div>
     </div>
   );
+}
+
+function normalizeProfileKey(value: string): string {
+  return decodeURIComponent(value).trim().toLowerCase();
 }
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {

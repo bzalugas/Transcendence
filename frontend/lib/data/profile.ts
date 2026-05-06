@@ -7,6 +7,8 @@ import {
 import { getFriends } from "@/lib/data/friends";
 import type { User } from "@/lib/types";
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
+
 // Backend swap point: replace with `fetch('/api/profile/:username')`.
 
 export function getMyProfile() {
@@ -49,6 +51,21 @@ export function getProfileByUsername(username: string, currentUser: User) {
     socials: [],
     currentProjects: [],
   };
+}
+
+// Loads one user profile from the database-backed API.
+export async function getUserProfileByUsername(username: string): Promise<User | null> {
+  const response = await fetch(`${API_BASE_URL}/profiles/${encodeURIComponent(username)}`, {
+    credentials: "include",
+  });
+
+  if (response.status === 404) return null;
+
+  if (!response.ok) {
+    throw new Error(`GET /profiles/${username} failed with ${response.status}`);
+  }
+
+  return response.json();
 }
 
 function normalizeProfileKey(value: string): string {

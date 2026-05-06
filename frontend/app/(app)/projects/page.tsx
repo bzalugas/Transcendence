@@ -3,10 +3,10 @@
 import { useState } from "react";
 import Link from "next/link";
 import Avatar from "@/components/Avatar";
+import CohortStatsPanel from "@/components/CohortStatsPanel";
 import PanelToggleIcon from "@/components/icons/PanelToggleIcon";
 import { getLfgPosts, getAllProjects, getTrendingProjects } from "@/lib/data/projects";
 import type { LfgPost } from "@/lib/mocks/projects";
-import { getCohortStats } from "@/lib/data/friends";
 import { useCurrentUser } from "@/lib/data/auth";
 
 export default function ProjectsPage() {
@@ -274,7 +274,6 @@ function LfgCard({ post, applied, onApply }: { post: LfgPost; applied: boolean; 
 
 function ProjectsPanel() {
   const trendingProjects = getTrendingProjects();
-  const cohortStats = getCohortStats();
   return (
     <aside className="flex w-full flex-col overflow-y-auto border-l border-border-default bg-bg-secondary px-[18px] py-6">
       <div className="mb-3 text-[10.5px] font-semibold uppercase tracking-wider text-text-muted">
@@ -295,17 +294,7 @@ function ProjectsPanel() {
 
       <div className="mt-auto">
         <div className="my-4 h-px bg-border-default" />
-        <div className="mb-3 text-[10.5px] font-semibold uppercase tracking-wider text-text-muted">
-          Cohort stats
-        </div>
-        <div className="flex flex-col gap-2">
-          {cohortStats.map((s) => (
-            <div key={s.label} className="flex items-center justify-between text-[12.5px]">
-              <span className="text-text-muted">{s.label}</span>
-              <span className="font-medium text-text-primary">{s.value}</span>
-            </div>
-          ))}
-        </div>
+        <CohortStatsPanel />
       </div>
     </aside>
   );

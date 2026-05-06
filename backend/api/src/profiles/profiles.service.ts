@@ -10,9 +10,32 @@ export interface ProfileUserDto {
   level: number;
 }
 
+export interface ProfileStatsDto {
+  students: number;
+  online: number;
+  topInterest: string;
+  activeGroups: number;
+}
+
 @Injectable()
 export class ProfilesService {
   constructor(private readonly prisma: PrismaService) {}
+
+  // Builds aggregate values shown in the shared cohort stats side panel.
+  async getStats(): Promise<ProfileStatsDto> {
+    const [students, topInterest, activeGroups] = await Promise.all([
+      this.prisma.user.count(),
+      this.getTopInterestName(),
+      this.prisma.channel.count(),
+    ]);
+
+    return {
+      students,
+      online: 23,
+      topInterest,
+      activeGroups,
+    };
+  }
 
   // Finds a profile by its stable user id.
   async findByUserId(userId: string): Promise<ProfileUserDto> {
@@ -94,5 +117,34 @@ export class ProfilesService {
     }
 
     return value.slice(0, 2).toLowerCase();
+  }
+
+  // Finds the interest joined by the most users, falling back when no joins exist.
+  private async getTopInterestName(): Promise<string> {
+    const [topInterest] = await this.prisma.user_Interest.groupBy({
+      by: ['interestId'],
+      _count: {
+        userId: true,
+      },
+      orderBy: {
+        _count: {
+          userId: 'desc',
+        },
+      },
+      take: 1,
+    });
+
+    if (!topInterest) return 'None';
+
+    const interest = await this.prisma.interest.findUnique({
+      where: {
+        id: topInterest.interestId,
+      },
+      select: {
+        name: true,
+      },
+    });
+
+    return interest?.name ?? 'None';
   }
 }

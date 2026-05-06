@@ -1,5 +1,4 @@
-import { cohortStats } from "@/lib/mocks/friends";
-import type { CohortStat, Friend } from "@/lib/types";
+import type { Friend } from "@/lib/types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
 
@@ -18,11 +17,6 @@ export async function removeFriend(name: string): Promise<void> {
   await request(`/friendships/me/${encodeURIComponent(name)}`, {
     method: "DELETE",
   });
-}
-
-// Returns static cohort stats until the backend exposes real cohort analytics.
-export function getCohortStats(): CohortStat[] {
-  return cohortStats;
 }
 
 // Sends an authenticated request to the backend friendship API.

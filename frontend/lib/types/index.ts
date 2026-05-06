@@ -169,11 +169,6 @@ export interface Friend {
   level: number;
 }
 
-export interface CohortStat {
-  label: string;
-  value: string;
-}
-
 export interface NavBadges {
   suggestions: number;
   messages: number;

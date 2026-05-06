@@ -22,6 +22,7 @@ interface FortyTwoUserInfo {
     link?: string | null;
   } | null;
   cursus_users?: Array<{
+    grade?: string | null;
     level?: number | null;
   }>;
 }
@@ -39,6 +40,19 @@ async function fetchFortyTwoMe(accessToken: string): Promise<FortyTwoUserInfo | 
   return response.json();
 }
 
+// Selects the Cadet cursus level first, then falls back to any available level.
+function selectFortyTwoLevel(cursusUsers?: FortyTwoUserInfo["cursus_users"]): number {
+  const cadetCursus = cursusUsers?.find(
+    (cursusUser) => cursusUser.grade?.toLowerCase() === "cadet",
+  );
+
+  return (
+    cadetCursus?.level ??
+    cursusUsers?.find((cursusUser) => cursusUser.level != null)?.level ??
+    0
+  );
+}
+
 // Synchronizes 42 OAuth profile fields into the local User and Profile tables.
 async function syncFortyTwoProfile(userId: string, accessToken?: string | null) {
   if (!accessToken) return;
@@ -52,7 +66,7 @@ async function syncFortyTwoProfile(userId: string, accessToken?: string | null) 
     data.displayname ||
     [data.first_name, data.last_name].filter(Boolean).join(" ") ||
     data.login;
-  const level = data.cursus_users?.[0]?.level ?? 0;
+  const level = selectFortyTwoLevel(data.cursus_users);
 
   await prisma.user.update({
     where: { id: userId },

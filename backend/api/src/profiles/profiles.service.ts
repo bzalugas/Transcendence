@@ -12,7 +12,6 @@ export interface ProfileUserDto {
 
 export interface ProfileStatsDto {
   students: number;
-  online: number;
   topInterest: string;
   activeGroups: number;
 }
@@ -31,7 +30,6 @@ export class ProfilesService {
 
     return {
       students,
-      online: 23,
       topInterest,
       activeGroups,
     };

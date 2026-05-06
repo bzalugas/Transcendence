@@ -7,7 +7,6 @@ export default function CohortStatsPanel() {
   const [stats, setStats] = useState<CohortStats | null>(null);
   const rows = [
     { label: "Students", value: stats ? stats.students.toLocaleString() : "..." },
-    { label: "Online", value: stats ? stats.online.toLocaleString() : "..." },
     { label: "Top interest", value: stats?.topInterest ?? "..." },
     { label: "Active groups", value: stats ? stats.activeGroups.toLocaleString() : "..." },
   ];

@@ -6,6 +6,8 @@ import Logo42 from "@/components/Logo42";
 import TermsAcceptanceModal from "@/components/TermsAcceptanceModal";
 import { authClient } from "@/lib/auth-client";
 
+const FRONTEND_BASE_URL = process.env.NEXT_PUBLIC_FRONTEND_URL ?? "http://localhost:8080";
+
 const features = [
   {
     title: "Channels",
@@ -47,7 +49,8 @@ export default function LoginPage() {
 
     const { error } = await authClient.signIn.social({
       provider: "42school",
-      callbackURL: "/",
+      callbackURL: FRONTEND_BASE_URL,
+      newUserCallbackURL: FRONTEND_BASE_URL,
     });
 
     setLoading(false);

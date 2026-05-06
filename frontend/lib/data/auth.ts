@@ -1,7 +1,10 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { authClient } from "@/lib/auth-client";
 import type { User } from "@/lib/types";
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
 
 type BetterAuthSessionUser = {
   id?: string;
@@ -27,7 +30,37 @@ export function useCurrentUser(): {
 } {
   const session = authClient.useSession();
   const sessionUser = session.data?.user as BetterAuthSessionUser | undefined;
-  const user = sessionUser ? toAppUser(sessionUser) : null;
+  const [profileUser, setProfileUser] = useState<User | null>(null);
+  const fallbackUser = sessionUser ? toAppUser(sessionUser) : null;
+
+  useEffect(() => {
+    if (!sessionUser) {
+      setProfileUser(null);
+      return;
+    }
+
+    let active = true;
+
+    fetch(`${API_BASE_URL}/profiles/me`, {
+      credentials: "include",
+    })
+      .then((response) => {
+        if (!response.ok) throw new Error(`GET /profiles/me failed with ${response.status}`);
+        return response.json();
+      })
+      .then((user: User) => {
+        if (active) setProfileUser(user);
+      })
+      .catch(() => {
+        if (active) setProfileUser(null);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [sessionUser?.id]);
+
+  const user = profileUser ?? fallbackUser;
 
   return {
     user,

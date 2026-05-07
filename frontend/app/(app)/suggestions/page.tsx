@@ -176,7 +176,7 @@ export default function SuggestionsPage() {
             >
               <div className="flex items-start gap-3">
                 <div className="relative">
-                  <Avatar initials={s.initials} size="lg" />
+                  <Avatar initials={s.initials} avatarUrl={s.avatarUrl} size="lg" />
                   {s.online && (
                     <div className="absolute bottom-[1px] right-[1px] h-[9px] w-[9px] rounded-full border-2 border-bg-secondary bg-accent-green" />
                   )}

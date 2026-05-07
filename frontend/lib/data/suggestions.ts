@@ -4,6 +4,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
 
 export interface SuggestionProfile {
   initials: string;
+  avatarUrl?: string;
   name: string;
   level: number;
   online: boolean;

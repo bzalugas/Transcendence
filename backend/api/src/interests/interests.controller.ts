@@ -17,7 +17,8 @@ export class InterestsController {
 
   // Returns the complete interest catalog used by the frontend picker.
   @Get()
-  findAll() {
+  async findAll(@Req() req: Request) {
+    await getSessionUserId(req);
     return this.interestsService.findAll();
   }
 
@@ -30,7 +31,8 @@ export class InterestsController {
 
   // Returns interests joined by the public profile identified by username.
   @Get(':username')
-  findByUsername(@Param('username') username: string) {
+  async findByUsername(@Req() req: Request, @Param('username') username: string) {
+    await getSessionUserId(req);
     return this.interestsService.findForUsername(username);
   }
 

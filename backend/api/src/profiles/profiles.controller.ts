@@ -23,13 +23,15 @@ export class ProfilesController {
 
   // Returns real aggregate profile stats for shared frontend side panels.
   @Get('stats')
-  getStats() {
+  async getStats(@Req() req: Request) {
+    await getSessionUserId(req);
     return this.profilesService.getStats();
   }
 
   // Returns one profile by login, display name, or email-derived username.
   @Get(':username')
-  findOne(@Param('username') username: string) {
+  async findOne(@Req() req: Request, @Param('username') username: string) {
+    await getSessionUserId(req);
     return this.profilesService.findByUsername(username);
   }
 }

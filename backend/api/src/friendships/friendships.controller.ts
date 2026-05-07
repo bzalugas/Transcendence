@@ -72,7 +72,8 @@ export class FriendshipsController {
 
   // Returns accepted friends for the public profile identified by username.
   @Get(':username')
-  findByUsername(@Param('username') username: string) {
+  async findByUsername(@Req() req: Request, @Param('username') username: string) {
+    await getSessionUserId(req);
     return this.friendshipsService.findAcceptedByUsername(username);
   }
 }

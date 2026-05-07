@@ -18,7 +18,8 @@ export class ChannelsController {
 
   // Returns every channel backed by an Interest row.
   @Get()
-  findAll() {
+  async findAll(@Req() req: Request) {
+    await getSessionUserId(req);
     return this.channelsService.findAll();
   }
 
@@ -31,7 +32,8 @@ export class ChannelsController {
 
   // Returns one channel by its interest-name slug.
   @Get(':slug')
-  findOne(@Param('slug') slug: string) {
+  async findOne(@Req() req: Request, @Param('slug') slug: string) {
+    await getSessionUserId(req);
     return this.channelsService.findBySlug(slug);
   }
 
@@ -44,7 +46,8 @@ export class ChannelsController {
 
   // Returns the persisted post feed for one channel.
   @Get(':slug/feed')
-  findFeed(@Param('slug') slug: string) {
+  async findFeed(@Req() req: Request, @Param('slug') slug: string) {
+    await getSessionUserId(req);
     return this.channelsService.findFeedBySlug(slug);
   }
 

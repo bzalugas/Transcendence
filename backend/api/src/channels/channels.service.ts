@@ -209,6 +209,10 @@ export class ChannelsService {
       throw new NotFoundException('Post not found');
     }
 
+    if (parentPost.parentId !== null) {
+      throw new BadRequestException('Cannot reply to a reply');
+    }
+
     const reply = await this.prisma.post.create({
       data: {
         authorId: userId,

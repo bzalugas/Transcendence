@@ -29,6 +29,19 @@ export async function getMyInterests(): Promise<ProfileInterest[]> {
   return response.json();
 }
 
+// Loads interests joined by a public profile username.
+export async function getProfileInterests(username: string): Promise<ProfileInterest[]> {
+  const response = await fetch(`${API_BASE_URL}/interests/${encodeURIComponent(username)}`, {
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error(`GET /interests/${username} failed with ${response.status}`);
+  }
+
+  return response.json();
+}
+
 // Adds an interest to the authenticated user's profile and returns it.
 export async function joinMyInterest(
   interest: AvailableInterest,

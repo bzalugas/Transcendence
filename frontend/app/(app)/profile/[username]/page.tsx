@@ -11,7 +11,7 @@ import PanelToggleIcon from "@/components/icons/PanelToggleIcon";
 import { getProfileByUsername, getUserProfileByUsername } from "@/lib/data/profile";
 import { useCurrentUser } from "@/lib/data/auth";
 import { getProfileFriends } from "@/lib/data/friends";
-import { getMyInterests, leaveMyInterest } from "@/lib/data/interests";
+import { getMyInterests, getProfileInterests, leaveMyInterest } from "@/lib/data/interests";
 import { setPendingConv } from "@/lib/data/messages";
 import { sendFriendRequest } from "@/lib/data/suggestions";
 import type { Friend, ProfileInterest, User } from "@/lib/types";
@@ -33,15 +33,16 @@ export default function ProfilePage({ params }: ProfilePageProps) {
   const [viewedUser, setViewedUser] = useState<User | null | undefined>(undefined);
   const [profileFriends, setProfileFriends] = useState<Friend[]>([]);
   const [friendRequestSent, setFriendRequestSent] = useState(false);
-  const viewedUsername = viewedUser?.username;
   const isCurrentUserProfile =
     currentUser &&
     normalizeProfileKey(username) === normalizeProfileKey(currentUser.username);
-  const profile = currentUser && viewedUser
+  const effectiveViewedUser = isCurrentUserProfile ? currentUser : viewedUser;
+  const viewedUsername = effectiveViewedUser?.username;
+  const profile = currentUser && effectiveViewedUser
     ? isCurrentUserProfile
       ? getProfileByUsername(username, currentUser)
       : {
-          user: viewedUser,
+          user: effectiveViewedUser,
           isSelf: false as const,
           interests: [],
           friends: [],
@@ -53,11 +54,7 @@ export default function ProfilePage({ params }: ProfilePageProps) {
 
   useEffect(() => {
     if (!currentUser) return;
-
-    if (isCurrentUserProfile) {
-      setViewedUser(currentUser);
-      return;
-    }
+    if (isCurrentUserProfile) return;
 
     let active = true;
 
@@ -74,7 +71,7 @@ export default function ProfilePage({ params }: ProfilePageProps) {
     };
   }, [currentUser, isCurrentUserProfile, username]);
 
-  if (currentUser && viewedUser === null) notFound();
+  if (currentUser && !isCurrentUserProfile && viewedUser === null) notFound();
 
   useEffect(() => {
     if (!viewedUsername) return;
@@ -95,15 +92,18 @@ export default function ProfilePage({ params }: ProfilePageProps) {
   }, [viewedUsername]);
 
   useEffect(() => {
-    if (!profile?.isSelf) {
-      setInterests(profile?.interests ?? []);
-      return;
-    }
+    if (!viewedUsername) return;
 
     let active = true;
-    setInterestsLoading(true);
+    queueMicrotask(() => {
+      if (active) setInterestsLoading(true);
+    });
 
-    getMyInterests()
+    const interestsRequest = profile?.isSelf
+      ? getMyInterests()
+      : getProfileInterests(viewedUsername);
+
+    interestsRequest
       .then((items) => {
         if (active) setInterests(items);
       })
@@ -117,7 +117,7 @@ export default function ProfilePage({ params }: ProfilePageProps) {
     return () => {
       active = false;
     };
-  }, [profile?.isSelf, username, currentUser?.username]);
+  }, [profile?.isSelf, viewedUsername]);
 
   if (!profile) return null;
 

@@ -53,6 +53,12 @@ export class InterestsService {
       .sort((a, b) => a.name.localeCompare(b.name));
   }
 
+  // Reads interests joined by the user matching a public profile username.
+  async findForUsername(username: string): Promise<InterestDto[]> {
+    const user = await this.findUserByUsername(username);
+    return this.findForUser(user.id);
+  }
+
   // Creates the user-interest relation, joins the matching channel, and returns the interest.
   async joinForUser(userId: string, interestId: number): Promise<InterestDto> {
     const interest = await this.prisma.interest.findUnique({
@@ -158,5 +164,32 @@ export class InterestsService {
       desc: '',
       members: interest._count.interestedUsers,
     };
+  }
+
+  // Finds one user by login, name, or email-derived username.
+  private async findUserByUsername(username: string) {
+    const normalizedUsername = decodeURIComponent(username).trim().toLowerCase();
+    const users = await this.prisma.user.findMany();
+    const user = users.find((candidate) => {
+      const displayName = this.userDisplayName(candidate).toLowerCase();
+      const emailName = candidate.email.split('@')[0].toLowerCase();
+
+      return displayName === normalizedUsername || emailName === normalizedUsername;
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    return user;
+  }
+
+  // Chooses the best public display name for a user.
+  private userDisplayName(user: {
+    login: string | null;
+    name: string | null;
+    email: string;
+  }): string {
+    return user.login ?? user.name ?? user.email.split('@')[0];
   }
 }

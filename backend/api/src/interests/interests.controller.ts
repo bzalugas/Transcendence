@@ -28,6 +28,12 @@ export class InterestsController {
     return this.interestsService.findForUser(userId);
   }
 
+  // Returns interests joined by the public profile identified by username.
+  @Get(':username')
+  findByUsername(@Param('username') username: string) {
+    return this.interestsService.findForUsername(username);
+  }
+
   // Adds one interest to the current better-auth session user.
   @Post('me/:interestId')
   async joinMine(

@@ -18,6 +18,7 @@ import { getJoinedChannels } from "@/lib/data/channels";
 import { listenForChannelsUpdated } from "@/lib/data/channel-events";
 import { useCurrentUser } from "@/lib/data/auth";
 import { getNavBadges } from "@/lib/data/nav";
+import { listenForNavBadgesUpdated } from "@/lib/data/nav-events";
 import type { Channel, NavBadges } from "@/lib/types";
 
 const navItems = [
@@ -62,16 +63,23 @@ export default function Sidebar() {
   useEffect(() => {
     let active = true;
 
-    getNavBadges()
-      .then((badges) => {
-        if (active) setNavBadges(badges);
-      })
-      .catch(() => {
-        if (active) setNavBadges({ suggestions: 0, messages: 0 });
-      });
+    // Refreshes sidebar badges from API-backed notification counts.
+    function loadNavBadges() {
+      getNavBadges()
+        .then((badges) => {
+          if (active) setNavBadges(badges);
+        })
+        .catch(() => {
+          if (active) setNavBadges({ suggestions: 0, messages: 0 });
+        });
+    }
+
+    loadNavBadges();
+    const stopListening = listenForNavBadgesUpdated(loadNavBadges);
 
     return () => {
       active = false;
+      stopListening();
     };
   }, []);
 

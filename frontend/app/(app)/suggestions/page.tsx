@@ -17,6 +17,7 @@ import {
   type SuggestionProfile,
 } from "@/lib/data/suggestions";
 import { getFriends } from "@/lib/data/friends";
+import { notifyNavBadgesUpdated } from "@/lib/data/nav-events";
 import type { Friend } from "@/lib/types";
 
 export default function SuggestionsPage() {
@@ -108,12 +109,14 @@ export default function SuggestionsPage() {
       prev.some((item) => item.name === friend.name) ? prev : [...prev, friend],
     );
     setPendingRequests((prev) => prev.filter((r) => r.id !== request.id));
+    notifyNavBadgesUpdated();
   }
 
   // Rejects a received request and removes it from the pending list.
   async function rejectRequest(request: FriendRequest) {
     await rejectFriendRequest(request.id);
     setPendingRequests((prev) => prev.filter((r) => r.id !== request.id));
+    notifyNavBadgesUpdated();
   }
 
   const filteredSuggestions = suggestions.filter((s) => {

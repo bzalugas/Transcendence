@@ -6,12 +6,42 @@ const prisma = new PrismaClient();
 const sharedPassword = '123456ABCdef!';
 
 const users = [
-  { firstName: 'Alice', lastName: 'Martin', email: 'alice.martin@example.com' },
-  { firstName: 'Ben', lastName: 'Durand', email: 'ben.durand@example.com' },
-  { firstName: 'Clara', lastName: 'Moreau', email: 'clara.moreau@example.com' },
-  { firstName: 'David', lastName: 'Bernard', email: 'david.bernard@example.com' },
-  { firstName: 'Emma', lastName: 'Robert', email: 'emma.robert@example.com' },
-  { firstName: 'Louis', lastName: 'Petit', email: 'louis.petit@example.com' },
+  {
+    firstName: 'Alice',
+    lastName: 'Martin',
+    email: 'alice.martin@example.com',
+    interests: ['Cycling', 'Photography'],
+  },
+  {
+    firstName: 'Ben',
+    lastName: 'Durand',
+    email: 'ben.durand@example.com',
+    interests: ['Gaming', 'Chess'],
+  },
+  {
+    firstName: 'Clara',
+    lastName: 'Moreau',
+    email: 'clara.moreau@example.com',
+    interests: ['Photography', 'Aviation', 'Chess'],
+  },
+  {
+    firstName: 'David',
+    lastName: 'Bernard',
+    email: 'david.bernard@example.com',
+    interests: ['Chess'],
+  },
+  {
+    firstName: 'Emma',
+    lastName: 'Robert',
+    email: 'emma.robert@example.com',
+    interests: ['Sport', 'Photography'],
+  },
+  {
+    firstName: 'Louis',
+    lastName: 'Petit',
+    email: 'louis.petit@example.com',
+    interests: ['Aviation', 'Cycling', 'Gaming'],
+  },
 ];
 
 const interests = [
@@ -82,6 +112,10 @@ async function main() {
 
   for (const seedInterest of interests) {
     await upsertInterestWithChannel(seedInterest);
+  }
+
+  for (const seedUser of users) {
+    await seedJoinedInterests(seedUser);
   }
 
   await seedChannelPosts();
@@ -180,6 +214,55 @@ async function upsertInterestWithChannel(
     },
     update: {},
   });
+}
+
+// Joins a seeded user to 1-3 interests and their matching channels.
+async function seedJoinedInterests(seedUser: (typeof users)[number]) {
+  const user = await prisma.user.findUnique({
+    where: { email: seedUser.email },
+  });
+
+  if (!user) return;
+
+  for (const interestName of seedUser.interests) {
+    const interest = await prisma.interest.findUnique({
+      where: { name: interestName },
+      include: { channel: true },
+    });
+
+    if (!interest) continue;
+
+    await prisma.user_Interest.upsert({
+      where: {
+        userId_interestId: {
+          userId: user.id,
+          interestId: interest.id,
+        },
+      },
+      create: {
+        userId: user.id,
+        interestId: interest.id,
+      },
+      update: {},
+    });
+
+    if (!interest.channel) continue;
+
+    await prisma.user_Channel.upsert({
+      where: {
+        userId_channelId: {
+          userId: user.id,
+          channelId: interest.channel.id,
+        },
+      },
+      create: {
+        userId: user.id,
+        channelId: interest.channel.id,
+        isFavorite: false,
+      },
+      update: {},
+    });
+  }
 }
 
 // Creates sample persisted posts and comments for the seeded interest channels.

@@ -19,6 +19,8 @@ export default function EditProfilePage() {
   const [bio, setBio] = useState("");
   const [avatarPreview, setAvatarPreview] = useState("");
   const [socials, setSocials] = useState<ProfileSocial[]>(profileData.socials);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   /* ── new-social input ── */
   const [newPlatform, setNewPlatform] = useState("");
@@ -26,9 +28,12 @@ export default function EditProfilePage() {
 
   useEffect(() => {
     if (!currentUser) return;
-    setUsername(currentUser.username);
-    setBio(currentUser.bio ?? "");
-    setAvatarPreview(currentUser.avatarUrl ?? "");
+
+    queueMicrotask(() => {
+      setUsername(currentUser.username);
+      setBio(currentUser.bio ?? "");
+      setAvatarPreview(currentUser.avatarUrl ?? "");
+    });
   }, [currentUser]);
 
   /* ── avatar upload handler ── */
@@ -56,8 +61,18 @@ export default function EditProfilePage() {
   async function handleSave() {
     const trimmed = username.trim();
     if (!trimmed || !currentUser) return;
-    await updateCurrentUser({ username: trimmed, bio: bio.trim() || undefined });
-    router.push(`/profile/${trimmed}`);
+
+    setSaving(true);
+    setSaveError(null);
+
+    try {
+      await updateCurrentUser({ username: trimmed, bio: bio.trim() || undefined });
+      router.push(`/profile/${trimmed}`);
+    } catch {
+      setSaveError("Could not save your profile. Please check that the API is running.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   if (!currentUser) return null;
@@ -70,6 +85,11 @@ export default function EditProfilePage() {
         <p className="mt-1 text-[13px] text-text-muted">
           Update your public profile information.
         </p>
+        {saveError && (
+          <p className="mt-3 text-[13px] text-danger">
+            {saveError}
+          </p>
+        )}
       </div>
 
       {/* Form body */}
@@ -209,10 +229,11 @@ export default function EditProfilePage() {
           </button>
           <button
             type="button"
+            disabled={saving}
             onClick={handleSave}
-            className="rounded-[7px] bg-btn-primary-bg px-[18px] py-[8px] text-[13px] font-medium text-btn-primary-text transition-opacity hover:opacity-90"
+            className="rounded-[7px] bg-btn-primary-bg px-[18px] py-[8px] text-[13px] font-medium text-btn-primary-text transition-opacity hover:opacity-90 disabled:cursor-default disabled:opacity-60"
           >
-            Save changes
+            {saving ? "Saving..." : "Save changes"}
           </button>
         </div>
       </div>

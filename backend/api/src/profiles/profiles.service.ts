@@ -49,6 +49,40 @@ export class ProfilesService {
     return this.toDto(user);
   }
 
+  // Updates editable profile fields and returns the refreshed public user shape.
+  async updateByUserId(
+    userId: string,
+    updates: { bio?: string | null },
+  ): Promise<ProfileUserDto> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Profile not found');
+    }
+
+    const bio = updates.bio?.trim() || null;
+    const updatedUser = await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        profile: {
+          upsert: {
+            create: {
+              bio,
+            },
+            update: {
+              bio,
+            },
+          },
+        },
+      },
+      include: { profile: true },
+    });
+
+    return this.toDto(updatedUser);
+  }
+
   // Finds a profile by login, name, or email-derived username.
   async findByUsername(username: string): Promise<ProfileUserDto> {
     const normalizedUsername = decodeURIComponent(username).trim().toLowerCase();

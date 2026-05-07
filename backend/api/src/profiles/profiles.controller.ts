@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Req } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Req } from '@nestjs/common';
 import type { Request } from 'express';
 import { getSessionUserId } from '../auth/session';
 import { ProfilesService } from './profiles.service';
@@ -12,6 +12,13 @@ export class ProfilesController {
   async findMine(@Req() req: Request) {
     const userId = await getSessionUserId(req);
     return this.profilesService.findByUserId(userId);
+  }
+
+  // Updates editable profile fields for the current better-auth session user.
+  @Patch('me')
+  async updateMine(@Req() req: Request, @Body() body: { bio?: string | null }) {
+    const userId = await getSessionUserId(req);
+    return this.profilesService.updateByUserId(userId, body);
   }
 
   // Returns real aggregate profile stats for shared frontend side panels.

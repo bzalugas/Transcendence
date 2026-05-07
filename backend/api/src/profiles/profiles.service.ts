@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 export interface ProfileUserDto {
@@ -52,7 +52,7 @@ export class ProfilesService {
   // Updates editable profile fields and returns the refreshed public user shape.
   async updateByUserId(
     userId: string,
-    updates: { bio?: string | null },
+    updates: { bio?: string | null } = {},
   ): Promise<ProfileUserDto> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -62,21 +62,31 @@ export class ProfilesService {
       throw new NotFoundException('Profile not found');
     }
 
-    const bio = updates.bio?.trim() || null;
-    const updatedUser = await this.prisma.user.update({
-      where: { id: userId },
-      data: {
-        profile: {
-          upsert: {
-            create: {
-              bio,
-            },
-            update: {
-              bio,
+    const shouldUpdateBio = Object.prototype.hasOwnProperty.call(updates, 'bio');
+
+    if (shouldUpdateBio && updates.bio !== null && typeof updates.bio !== 'string') {
+      throw new BadRequestException('Bio must be a string or null');
+    }
+
+    const bio = typeof updates.bio === 'string' ? updates.bio.trim() || null : null;
+    const profileData = shouldUpdateBio
+      ? {
+          profile: {
+            upsert: {
+              create: {
+                bio,
+              },
+              update: {
+                bio,
+              },
             },
           },
-        },
-      },
+        }
+      : {};
+
+    const updatedUser = await this.prisma.user.update({
+      where: { id: userId },
+      data: profileData,
       include: { profile: true },
     });
 

@@ -53,6 +53,7 @@ model FriendRequest {
   id         Int                 @id @default(autoincrement())
   senderId   String
   receiverId String
+  pairKey    String              @unique
   sender     User                @relation(name: "sent", fields: [senderId], references: [id])
   receiver   User                @relation(name: "received", fields: [receiverId], references: [id])
   status     FriendRequestStatus

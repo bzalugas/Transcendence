@@ -89,43 +89,15 @@ export class FriendshipsService {
       throw new BadRequestException('Cannot send a friend request to yourself');
     }
 
-    const existing = await this.prisma.friendRequest.findFirst({
-      where: {
-        OR: [
-          {
-            senderId: userId,
-            receiverId: receiver.id,
-          },
-          {
-            senderId: receiver.id,
-            receiverId: userId,
-          },
-        ],
-      },
-      orderBy: {
-        UpdatedAt: 'desc',
-      },
-      include: {
-        sender: {
-          include: {
-            profile: true,
-            interests: true,
-          },
-        },
-        receiver: {
-          include: {
-            profile: true,
-            interests: true,
-          },
-        },
-      },
-    });
+    const pairKey = this.friendPairKey(userId, receiver.id);
+    const currentInterestIds = await this.getInterestIds(userId);
+    const existing = await this.findRequestByPairKey(pairKey);
 
     if (existing) {
       if (existing.status === 'Rejected') {
         const request = await this.prisma.friendRequest.update({
           where: {
-            id: existing.id,
+            pairKey,
           },
           data: {
             senderId: userId,
@@ -145,7 +117,7 @@ export class FriendshipsService {
         return this.toFriendRequestDto(
           request.id,
           request.receiver,
-          await this.getInterestIds(userId),
+          currentInterestIds,
         );
       }
 
@@ -154,31 +126,52 @@ export class FriendshipsService {
       return this.toFriendRequestDto(
         existing.id,
         requestUser,
-        await this.getInterestIds(userId),
+        currentInterestIds,
       );
     }
 
-    const request = await this.prisma.friendRequest.create({
-      data: {
-        senderId: userId,
-        receiverId: receiver.id,
-        status: 'Pending',
-      },
-      include: {
-        receiver: {
-          include: {
-            profile: true,
-            interests: true,
+    try {
+      const request = await this.prisma.friendRequest.create({
+        data: {
+          senderId: userId,
+          receiverId: receiver.id,
+          pairKey,
+          status: 'Pending',
+        },
+        include: {
+          receiver: {
+            include: {
+              profile: true,
+              interests: true,
+            },
           },
         },
-      },
-    });
+      });
 
-    return this.toFriendRequestDto(
-      request.id,
-      request.receiver,
-      await this.getInterestIds(userId),
-    );
+      return this.toFriendRequestDto(
+        request.id,
+        request.receiver,
+        currentInterestIds,
+      );
+    } catch (error) {
+      if (!this.isUniqueConstraintError(error)) {
+        throw error;
+      }
+
+      const request = await this.findRequestByPairKey(pairKey);
+
+      if (!request) {
+        throw error;
+      }
+
+      const requestUser = request.senderId === userId ? request.receiver : request.sender;
+
+      return this.toFriendRequestDto(
+        request.id,
+        requestUser,
+        currentInterestIds,
+      );
+    }
   }
 
   // Marks a pending request as accepted when it belongs to the current user.
@@ -318,6 +311,43 @@ export class FriendshipsService {
       friendRequest.senderId === userId
         ? friendRequest.receiverId
         : friendRequest.senderId,
+    );
+  }
+
+  // Builds the stable key used to store one friendship row for a user pair.
+  private friendPairKey(firstUserId: string, secondUserId: string): string {
+    return [firstUserId, secondUserId].sort().join(':');
+  }
+
+  // Finds the friendship row shared by both directions of one user pair.
+  private async findRequestByPairKey(pairKey: string) {
+    return this.prisma.friendRequest.findUnique({
+      where: {
+        pairKey,
+      },
+      include: {
+        sender: {
+          include: {
+            profile: true,
+            interests: true,
+          },
+        },
+        receiver: {
+          include: {
+            profile: true,
+            interests: true,
+          },
+        },
+      },
+    });
+  }
+
+  // Detects Prisma unique constraint errors caused by concurrent request creation.
+  private isUniqueConstraintError(error: unknown): boolean {
+    return (
+      typeof error === 'object' &&
+      error !== null &&
+      (error as { code?: unknown }).code === 'P2002'
     );
   }
 

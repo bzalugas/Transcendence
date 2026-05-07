@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Query, Req } from '@nestjs/common';
+import { Controller, Get, Query, Req } from '@nestjs/common';
 import type { Request } from 'express';
 import { getSessionUserId } from '../auth/session';
 import { JaccardService } from './jaccard.service';
@@ -18,15 +18,4 @@ export class JaccardController {
     );
   }
 
-  // Returns Jaccard-based profile suggestions for a specific user id.
-  @Get(':userId')
-  getSuggestions(
-    @Param('userId') userId: string,
-    @Query('limit') limit?: string,
-  ) {
-    return this.jaccardService.getSuggestions(
-      userId,
-      limit ? Number(limit) : undefined,
-    );
-  }
 }

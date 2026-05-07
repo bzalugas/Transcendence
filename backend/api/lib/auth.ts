@@ -40,13 +40,23 @@ async function fetchFortyTwoMe(accessToken: string): Promise<FortyTwoUserInfo | 
   return response.json();
 }
 
-// Selects the Cadet cursus level first, then falls back to any available level.
+// Selects the Alumni cursus level first, then Transcender, then Cadet, then falls back to any available level.
 function selectFortyTwoLevel(cursusUsers?: FortyTwoUserInfo["cursus_users"]): number {
+  const alumniCursus = cursusUsers?.find(
+    (cursusUser) => cursusUser.grade?.toLowerCase() === "alumni",
+  );
+  
+  const transcenderCursus = cursusUsers?.find(
+    (cursusUser) => cursusUser.grade?.toLowerCase() === "transcender",
+  );
+  
   const cadetCursus = cursusUsers?.find(
     (cursusUser) => cursusUser.grade?.toLowerCase() === "cadet",
   );
 
   return (
+    alumniCursus?.level ??
+    transcenderCursus?.level ??
     cadetCursus?.level ??
     cursusUsers?.find((cursusUser) => cursusUser.level != null)?.level ??
     0

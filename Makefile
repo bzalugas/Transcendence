@@ -16,6 +16,7 @@ up-d:
 	$(COMPOSE) -f $(COMPOSE_FILE) -f $(COMPOSE_DEV) --env-file $(ENV_FILE) up -d
 
 db-setup:
+	docker exec $(API_CONTAINER) bunx prisma generate
 	docker exec $(API_CONTAINER) bunx prisma migrate deploy
 	docker exec $(API_CONTAINER) bunx prisma db seed
 
@@ -82,6 +83,7 @@ migrate-generate:
 
 # Apply pending migrations inside the container
 migrate:
+	docker exec $(API_CONTAINER) bunx prisma generate
 	docker exec $(API_CONTAINER) bunx exec prisma migrate deploy
 
 # Reset DB and restart fresh

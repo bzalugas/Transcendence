@@ -59,6 +59,17 @@ CREATE TABLE "Profile" (
 );
 
 -- CreateTable
+CREATE TABLE "ProfileSocial" (
+    "id" SERIAL NOT NULL,
+    "platform" TEXT NOT NULL,
+    "label" TEXT NOT NULL,
+    "url" TEXT NOT NULL,
+    "profileId" INTEGER NOT NULL,
+
+    CONSTRAINT "ProfileSocial_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "FriendRequest" (
     "id" SERIAL NOT NULL,
     "senderId" TEXT NOT NULL,
@@ -305,6 +316,9 @@ CREATE INDEX "_ChatToUser_B_index" ON "_ChatToUser"("B");
 
 -- AddForeignKey
 ALTER TABLE "Profile" ADD CONSTRAINT "Profile_userId_fkey" FOREIGN KEY ("userId") REFERENCES "user"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ProfileSocial" ADD CONSTRAINT "ProfileSocial_profileId_fkey" FOREIGN KEY ("profileId") REFERENCES "Profile"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "FriendRequest" ADD CONSTRAINT "FriendRequest_senderId_fkey" FOREIGN KEY ("senderId") REFERENCES "user"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { authClient } from "@/lib/auth-client";
-import type { User } from "@/lib/types";
+import type { ProfileSocial, User } from "@/lib/types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
 
@@ -19,7 +19,9 @@ type BetterAuthSessionUser = {
     bio?: string | null;
     level?: number | null;
     avatarUri?: string | null;
+    socials?: ProfileSocial[] | null;
   } | null;
+  socials?: ProfileSocial[] | null;
 };
 
 // Reads the better-auth session and exposes the logged-in user in the app's User shape.
@@ -86,12 +88,13 @@ export function toAppUser(sessionUser: BetterAuthSessionUser): User {
     avatarUrl: sessionUser.profile?.avatarUri ?? sessionUser.image ?? undefined,
     bio: sessionUser.profile?.bio ?? sessionUser.bio ?? undefined,
     level: sessionUser.profile?.level ?? sessionUser.level ?? 0,
+    socials: sessionUser.profile?.socials ?? sessionUser.socials ?? [],
   };
 }
 
 // Updates the better-auth user record and persisted profile fields supported by the API.
 export async function updateCurrentUser(
-  updates: Partial<Pick<User, "username" | "bio" | "initials">>,
+  updates: Partial<Pick<User, "username" | "bio" | "initials" | "socials">>,
 ): Promise<User | null> {
   const client = authClient as typeof authClient & {
     updateUser?: (data: { name?: string | null }) => Promise<unknown>;
@@ -101,14 +104,17 @@ export async function updateCurrentUser(
     await client.updateUser?.({ name: updates.username });
   }
 
-  if ("bio" in updates) {
+  if ("bio" in updates || "socials" in updates) {
     const response = await fetch(`${API_BASE_URL}/profiles/me`, {
       method: "PATCH",
       credentials: "include",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ bio: updates.bio ?? null }),
+      body: JSON.stringify({
+        ...("bio" in updates ? { bio: updates.bio ?? null } : {}),
+        ...("socials" in updates ? { socials: updates.socials ?? [] } : {}),
+      }),
     });
 
     if (!response.ok) {

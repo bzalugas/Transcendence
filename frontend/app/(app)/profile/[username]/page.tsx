@@ -47,7 +47,7 @@ export default function ProfilePage({ params }: ProfilePageProps) {
           interests: [],
           friends: [],
           activity: [],
-          socials: [],
+          socials: effectiveViewedUser.socials ?? [],
           currentProjects: [],
         }
     : null;
@@ -188,8 +188,11 @@ export default function ProfilePage({ params }: ProfilePageProps) {
                 {socials.length > 0 && (
                   <div className="mt-3 flex flex-wrap gap-1.5">
                     {socials.map((s) => (
-                      <div
-                        key={s.platform}
+                      <a
+                        key={`${s.platform}-${s.url}`}
+                        href={s.url}
+                        target="_blank"
+                        rel="noreferrer"
                         className="group relative flex h-[30px] w-[30px] items-center justify-center rounded-[7px] border border-border-default bg-bg-hover transition-colors hover:border-border-strong hover:bg-social-hover"
                         title={s.label}
                       >
@@ -197,7 +200,7 @@ export default function ProfilePage({ params }: ProfilePageProps) {
                         <span className="pointer-events-none absolute bottom-[calc(100%+6px)] left-1/2 hidden -translate-x-1/2 whitespace-nowrap rounded-md border border-border-default bg-bg-hover px-[9px] py-1 text-[11px] text-text-primary group-hover:block">
                           {s.label}
                         </span>
-                      </div>
+                      </a>
                     ))}
                   </div>
                 )}

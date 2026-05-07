@@ -16,7 +16,7 @@ export class ProfilesController {
 
   // Updates editable profile fields for the current better-auth session user.
   @Patch('me')
-  async updateMine(@Req() req: Request, @Body() body: { bio?: string | null }) {
+  async updateMine(@Req() req: Request, @Body() body: { bio?: string | null; socials?: unknown }) {
     const userId = await getSessionUserId(req);
     return this.profilesService.updateByUserId(userId, body);
   }

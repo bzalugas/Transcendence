@@ -37,16 +37,26 @@ model User {
 }
 
 model Profile {
-  id            Int        @id @default(autoincrement())
-  firstname     String?
-  lastname      String?
-  pseudo        String?
-  birthdate     DateTime?
-  avatarUri     String?
-  level         Float?     @default(0)
-  bio           String?
-  userId        String        @unique
-  user          User       @relation(fields: [userId], references: [id])
+  id        Int             @id @default(autoincrement())
+  firstname String?
+  lastname  String?
+  pseudo    String?
+  birthdate DateTime?
+  avatarUri String?
+  level     Float?          @default(0)
+  bio       String?
+  userId    String          @unique
+  user      User            @relation(fields: [userId], references: [id])
+  socials   ProfileSocial[]
+}
+
+model ProfileSocial {
+  id        Int     @id @default(autoincrement())
+  platform  String
+  label     String
+  url       String
+  profileId Int
+  profile   Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
 }
 
 model FriendRequest {
@@ -68,7 +78,7 @@ model Interest {
   name            String          @unique
   color           String? // couleur d'affichage d'un interet et de ses enfants 
   imageUri        String?
-  parentId        Int?             /// catégorie parente (interet de niveau supérieur)
+  parentId        Int? /// catégorie parente (interet de niveau supérieur)
   parent          Interest?       @relation(name: "tree", fields: [parentId], references: [id])
   children        Interest[]      @relation(name: "tree")
   channel         Channel?        @relation(name: "mainInterest")
@@ -83,6 +93,7 @@ model User_Interest {
   user        User          @relation(fields: [userId], references: [id])
   interest    Interest      @relation(fields: [interestId], references: [id])
   interestLvl InterestLevel @default(High)
+
   //skillLvl      SkillLevel     @default(Confirmed)   //supprimé
   @@id([userId, interestId])
 }

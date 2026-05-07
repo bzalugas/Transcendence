@@ -27,7 +27,7 @@ services:
         condition: service_healthy
     networks:
       - transcendence-net
-    command: sh -c "bunx prisma migrate deploy && bun run start:dev"
+    command: sh -c "bunx prisma generate && bunx prisma migrate deploy && bun run start:dev"
 
   db:
     ports:

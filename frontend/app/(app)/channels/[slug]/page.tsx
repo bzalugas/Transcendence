@@ -14,6 +14,8 @@ import {
   getChannelMembers,
   createChannelPost,
   createChannelReply,
+  updateChannelPost,
+  deleteChannelPost,
   leaveChannel,
 } from "@/lib/data/channels";
 import { useCurrentUser } from "@/lib/data/auth";
@@ -74,10 +76,28 @@ export default function ChannelPage({ params }: ChannelPageProps) {
   }
 
   // Persists a new channel post and prepends the returned DB-backed post to the feed.
-  async function handlePost(body: string) {
+  async function handlePost(body: string, attachmentIds: number[]) {
     if (!currentUser) return;
-    const post = await createChannelPost(slug, body, currentUser);
+    const post = await createChannelPost(slug, body, currentUser, attachmentIds);
     setFeed((items) => [{ kind: "post", post }, ...items]);
+  }
+
+  async function handleDeletePost(postId: string) {
+    await deleteChannelPost(slug, postId);
+    setFeed((items) =>
+      items.filter((item) => item.kind !== "post" || item.post.id !== postId),
+    );
+  }
+
+  async function handleUpdatePost(postId: string, body: string, attachmentIds: number[]) {
+    const post = await updateChannelPost(slug, postId, body, attachmentIds);
+    setFeed((items) =>
+      items.map((item) =>
+        item.kind === "post" && item.post.id === postId
+          ? { kind: "post", post }
+          : item,
+      ),
+    );
   }
 
   return (
@@ -106,6 +126,8 @@ export default function ChannelPage({ params }: ChannelPageProps) {
                   onReply={(postId, replyBody) =>
                     createChannelReply(slug, postId, replyBody)
                   }
+                  onUpdate={handleUpdatePost}
+                  onDelete={handleDeletePost}
                 />
               ) : (
                 <ChannelSystemEvent

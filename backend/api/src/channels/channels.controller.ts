@@ -5,6 +5,7 @@ import {
   Get,
   Param,
   ParseIntPipe,
+  Patch,
   Post,
   Req,
 } from '@nestjs/common';
@@ -56,10 +57,15 @@ export class ChannelsController {
   async createPost(
     @Req() req: Request,
     @Param('slug') slug: string,
-    @Body() body: { content?: string },
+    @Body() body: { content?: string; attachmentIds?: number[] },
   ) {
     const userId = await getSessionUserId(req);
-    return this.channelsService.createPostBySlug(userId, slug, body.content);
+    return this.channelsService.createPostBySlug(
+      userId,
+      slug,
+      body.content,
+      body.attachmentIds,
+    );
   }
 
   // Creates a persisted reply attached to one channel post.
@@ -77,6 +83,35 @@ export class ChannelsController {
       postId,
       body.content,
     );
+  }
+
+  // Updates a persisted root post and its attached files when the current user is its author.
+  @Patch(':slug/posts/:postId')
+  async updatePost(
+    @Req() req: Request,
+    @Param('slug') slug: string,
+    @Param('postId', ParseIntPipe) postId: number,
+    @Body() body: { content?: string; attachmentIds?: number[] },
+  ) {
+    const userId = await getSessionUserId(req);
+    return this.channelsService.updatePostBySlug(
+      userId,
+      slug,
+      postId,
+      body.content,
+      body.attachmentIds,
+    );
+  }
+
+  // Removes a persisted root post when the current user is its author.
+  @Delete(':slug/posts/:postId')
+  async deletePost(
+    @Req() req: Request,
+    @Param('slug') slug: string,
+    @Param('postId', ParseIntPipe) postId: number,
+  ) {
+    const userId = await getSessionUserId(req);
+    return this.channelsService.deletePostBySlug(userId, slug, postId);
   }
 
   // Joins a channel and its matching interest for the current user.

@@ -109,6 +109,22 @@ export async function createChannelPost(
   });
 }
 
+// Replaces a persisted post's content and attached files for its author.
+export async function updateChannelPost(
+  slug: string,
+  postId: string,
+  body: string,
+  attachmentIds: number[] = [],
+): Promise<Post> {
+  return request<Post>(`/channels/${slug}/posts/${postId}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ content: body, attachmentIds }),
+  });
+}
+
 // Removes a persisted post owned by the current authenticated user.
 export async function deleteChannelPost(slug: string, postId: string): Promise<void> {
   await request(`/channels/${slug}/posts/${postId}`, { method: "DELETE" });

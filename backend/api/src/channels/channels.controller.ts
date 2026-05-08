@@ -5,6 +5,7 @@ import {
   Get,
   Param,
   ParseIntPipe,
+  Patch,
   Post,
   Req,
 } from '@nestjs/common';
@@ -81,6 +82,24 @@ export class ChannelsController {
       slug,
       postId,
       body.content,
+    );
+  }
+
+  // Updates a persisted root post and its attached files when the current user is its author.
+  @Patch(':slug/posts/:postId')
+  async updatePost(
+    @Req() req: Request,
+    @Param('slug') slug: string,
+    @Param('postId', ParseIntPipe) postId: number,
+    @Body() body: { content?: string; attachmentIds?: number[] },
+  ) {
+    const userId = await getSessionUserId(req);
+    return this.channelsService.updatePostBySlug(
+      userId,
+      slug,
+      postId,
+      body.content,
+      body.attachmentIds,
     );
   }
 

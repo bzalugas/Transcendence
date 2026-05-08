@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 export interface ProfileUserDto {
@@ -8,6 +8,14 @@ export interface ProfileUserDto {
   avatarUrl?: string;
   bio?: string;
   level: number;
+  socials: ProfileSocialDto[];
+}
+
+export interface ProfileSocialDto {
+  id: number;
+  platform: string;
+  label: string;
+  url: string;
 }
 
 export interface ProfileStatsDto {
@@ -39,7 +47,7 @@ export class ProfilesService {
   async findByUserId(userId: string): Promise<ProfileUserDto> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      include: { profile: true },
+      include: this.userProfileInclude(),
     });
 
     if (!user) {
@@ -49,11 +57,63 @@ export class ProfilesService {
     return this.toDto(user);
   }
 
+  // Updates editable profile fields and returns the refreshed public user shape.
+  async updateByUserId(
+    userId: string,
+    updates: { bio?: string | null; socials?: unknown } = {},
+  ): Promise<ProfileUserDto> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Profile not found');
+    }
+
+    const shouldUpdateBio = Object.prototype.hasOwnProperty.call(updates, 'bio');
+    const shouldUpdateSocials = Object.prototype.hasOwnProperty.call(updates, 'socials');
+
+    if (shouldUpdateBio && updates.bio !== null && typeof updates.bio !== 'string') {
+      throw new BadRequestException('Bio must be a string or null');
+    }
+
+    if (!shouldUpdateBio && !shouldUpdateSocials) {
+      return this.findByUserId(userId);
+    }
+
+    const bio = typeof updates.bio === 'string' ? updates.bio.trim() || null : null;
+    const socials = shouldUpdateSocials
+      ? this.normalizeSocials(updates.socials)
+      : undefined;
+
+    await this.prisma.profile.upsert({
+      where: { userId },
+      create: {
+        userId,
+        ...(shouldUpdateBio ? { bio } : {}),
+        ...(socials && socials.length > 0 ? { socials: { create: socials } } : {}),
+      },
+      update: {
+        ...(shouldUpdateBio ? { bio } : {}),
+        ...(socials
+          ? {
+              socials: {
+                deleteMany: {},
+                ...(socials.length > 0 ? { create: socials } : {}),
+              },
+            }
+          : {}),
+      },
+    });
+
+    return this.findByUserId(userId);
+  }
+
   // Finds a profile by login, name, or email-derived username.
   async findByUsername(username: string): Promise<ProfileUserDto> {
     const normalizedUsername = decodeURIComponent(username).trim().toLowerCase();
     const users = await this.prisma.user.findMany({
-      include: { profile: true },
+      include: this.userProfileInclude(),
     });
     const user = users.find((candidate) => {
       const displayName = this.userDisplayName(candidate).toLowerCase();
@@ -80,6 +140,12 @@ export class ProfilesService {
       avatarUri: string | null;
       bio: string | null;
       level: number | null;
+      socials: {
+        id: number;
+        platform: string;
+        label: string;
+        url: string;
+      }[];
     } | null;
   }): ProfileUserDto {
     const username = this.userDisplayName(user);
@@ -91,7 +157,74 @@ export class ProfilesService {
       avatarUrl: user.profile?.avatarUri ?? user.image ?? undefined,
       bio: user.profile?.bio ?? undefined,
       level: user.profile?.level ?? 0,
+      socials: user.profile?.socials ?? [],
     };
+  }
+
+  // Builds the shared include used when returning public profile data.
+  private userProfileInclude() {
+    return {
+      profile: {
+        include: {
+          socials: {
+            orderBy: {
+              id: 'asc' as const,
+            },
+          },
+        },
+      },
+    };
+  }
+
+  // Validates and normalizes the full social link list submitted by the frontend.
+  private normalizeSocials(value: unknown) {
+    if (!Array.isArray(value)) {
+      throw new BadRequestException('Socials must be an array');
+    }
+
+    return value.map((social) => {
+      if (!social || typeof social !== 'object') {
+        throw new BadRequestException('Each social link must be an object');
+      }
+
+      const item = social as {
+        platform?: unknown;
+        label?: unknown;
+        url?: unknown;
+      };
+
+      if (
+        typeof item.platform !== 'string' ||
+        typeof item.label !== 'string' ||
+        typeof item.url !== 'string'
+      ) {
+        throw new BadRequestException('Social platform, label, and url are required');
+      }
+
+      const platform = item.platform.trim().toLowerCase();
+      const label = item.label.trim();
+      const url = item.url.trim();
+
+      if (!platform || !label || !this.isHttpUrl(url)) {
+        throw new BadRequestException('Social links need a platform, label, and valid URL');
+      }
+
+      return {
+        platform,
+        label,
+        url,
+      };
+    });
+  }
+
+  // Checks that a profile social URL can be opened safely as an external link.
+  private isHttpUrl(value: string): boolean {
+    try {
+      const url = new URL(value);
+      return url.protocol === 'http:' || url.protocol === 'https:';
+    } catch {
+      return false;
+    }
   }
 
   // Chooses the best public display name for a user.

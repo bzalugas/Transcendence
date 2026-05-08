@@ -5,11 +5,14 @@ export interface User {
   avatarUrl?: string;
   bio?: string;
   level: number;
+  socials?: ProfileSocial[];
 }
 
 export interface ProfileSocial {
+  id?: number;
   platform: string;
   label: string;
+  url: string;
 }
 
 export interface ProfileInterest {

@@ -17,6 +17,7 @@ import {
   type SuggestionProfile,
 } from "@/lib/data/suggestions";
 import { getFriends } from "@/lib/data/friends";
+import { notifyNavBadgesUpdated } from "@/lib/data/nav-events";
 import type { Friend } from "@/lib/types";
 
 export default function SuggestionsPage() {
@@ -108,12 +109,14 @@ export default function SuggestionsPage() {
       prev.some((item) => item.name === friend.name) ? prev : [...prev, friend],
     );
     setPendingRequests((prev) => prev.filter((r) => r.id !== request.id));
+    notifyNavBadgesUpdated();
   }
 
   // Rejects a received request and removes it from the pending list.
   async function rejectRequest(request: FriendRequest) {
     await rejectFriendRequest(request.id);
     setPendingRequests((prev) => prev.filter((r) => r.id !== request.id));
+    notifyNavBadgesUpdated();
   }
 
   const filteredSuggestions = suggestions.filter((s) => {
@@ -173,7 +176,7 @@ export default function SuggestionsPage() {
             >
               <div className="flex items-start gap-3">
                 <div className="relative">
-                  <Avatar initials={s.initials} size="lg" />
+                  <Avatar initials={s.initials} avatarUrl={s.avatarUrl} size="lg" />
                   {s.online && (
                     <div className="absolute bottom-[1px] right-[1px] h-[9px] w-[9px] rounded-full border-2 border-bg-secondary bg-accent-green" />
                   )}

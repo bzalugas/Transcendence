@@ -5,22 +5,23 @@ Suggère des utilisateurs compatibles en comparant leurs centres d'intérêt via
 ## Endpoint
 
 ```
-GET /suggestions/:userId?limit=10
+GET /suggestions/me?limit=10
 ```
 
-- `userId` : l'utilisateur pour lequel on calcule les suggestions
+- session better-auth : l'utilisateur courant pour lequel on calcule les suggestions
 - `limit` : nombre de suggestions (défaut: 10, max: 50)
 
 ```json
 [
   {
-    "userId": 11,
-    "login": "henry",
+    "name": "henry",
+    "initials": "he",
+    "avatarUrl": "https://example.com/avatar.png",
+    "level": 8.42,
+    "online": false,
     "score": 0.69,
-    "commonInterests": [
-      { "id": 32, "name": "Sport" },
-      { "id": 29, "name": "Musique" }
-    ]
+    "sharedTags": ["Sport", "Musique"],
+    "otherTags": ["Gaming"]
   }
 ]
 ```
@@ -32,7 +33,7 @@ score = |intersection| / |union|
 ```
 
 1. Récupère les intérêts du user courant
-2. Exclut ses amis existants (FriendRequest `Accepted`) et lui-même
+2. Exclut ses amis existants (FriendRequest `Accepted`), ses demandes reçues en attente et lui-même
 3. Pré-filtre en DB les candidats ayant au moins 1 intérêt en commun
 4. Calcule le score Jaccard pour chaque candidat
 5. Retourne les `limit` meilleurs résultats triés par score décroissant

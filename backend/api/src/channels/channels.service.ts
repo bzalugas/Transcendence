@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 export interface ChannelDto {
@@ -163,6 +168,8 @@ export class ChannelsService {
     }
 
     const channel = await this.findChannelBySlug(slug);
+    await this.assertChannelMembership(userId, channel.id);
+
     const post = await this.prisma.post.create({
       data: {
         authorId: userId,
@@ -189,6 +196,8 @@ export class ChannelsService {
     }
 
     const channel = await this.findChannelBySlug(slug);
+    await this.assertChannelMembership(userId, channel.id);
+
     const parentPost = await this.prisma.post.findFirst({
       where: {
         id: postId,
@@ -198,6 +207,10 @@ export class ChannelsService {
 
     if (!parentPost) {
       throw new NotFoundException('Post not found');
+    }
+
+    if (parentPost.parentId !== null) {
+      throw new BadRequestException('Cannot reply to a reply');
     }
 
     const reply = await this.prisma.post.create({
@@ -277,6 +290,22 @@ export class ChannelsService {
     });
 
     return { left: true };
+  }
+
+  // Ensures a user joined a channel before allowing write actions.
+  private async assertChannelMembership(userId: string, channelId: number): Promise<void> {
+    const membership = await this.prisma.user_Channel.findUnique({
+      where: {
+        userId_channelId: {
+          userId,
+          channelId,
+        },
+      },
+    });
+
+    if (!membership) {
+      throw new ForbiddenException('Join the channel before posting');
+    }
   }
 
   // Finds a channel by comparing the requested slug to each interest-name slug.

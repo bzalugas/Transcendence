@@ -10,19 +10,21 @@ all: up
 
 # --- DEV PART ---
 up:
-	$(COMPOSE) -f $(COMPOSE_FILE) -f $(COMPOSE_DEV) --env-file $(ENV_FILE) up --build
-	# $(MAKE) db-setup
-	# $(COMPOSE) -f $(COMPOSE_FILE) -f $(COMPOSE_DEV) --env-file $(ENV_FILE) logs -f
+	$(COMPOSE) -f $(COMPOSE_FILE) -f $(COMPOSE_DEV) --env-file $(ENV_FILE) up
 
 up-d:
-	$(COMPOSE) -f $(COMPOSE_FILE) -f $(COMPOSE_DEV) --env-file $(ENV_FILE) up -d --build
+	$(COMPOSE) -f $(COMPOSE_FILE) -f $(COMPOSE_DEV) --env-file $(ENV_FILE) up -d
 
 db-setup:
-	docker exec $(API_CONTAINER) bunx prisma db push
+	docker exec $(API_CONTAINER) bunx prisma generate
+	docker exec $(API_CONTAINER) bunx prisma migrate deploy
 	docker exec $(API_CONTAINER) bunx prisma db seed
 
 build:
 	$(COMPOSE) -f $(COMPOSE_FILE) -f $(COMPOSE_DEV) --env-file $(ENV_FILE) build
+
+rebuild:
+	$(COMPOSE) -f $(COMPOSE_FILE) -f $(COMPOSE_DEV) --env-file $(ENV_FILE) up -d --build 
 
 logs:
 	$(COMPOSE) -f $(COMPOSE_FILE) -f $(COMPOSE_DEV) --env-file $(ENV_FILE) logs -f
@@ -75,13 +77,14 @@ prod-restart:
 	$(COMPOSE) -f $(COMPOSE_FILE) -f $(COMPOSE_DEV) restart
 
 #--- UTILS ---
-# Generate Better Auth schema + create migration locally
+# Generate prisma schema + create migration locally
 migrate-generate:
-	docker exec $(API_CONTAINER) ./node_modules/.bin/prisma migrate dev --name better_auth_schema
+	docker exec -it $(API_CONTAINER) bunx prisma migrate dev --name $(name)
 
 # Apply pending migrations inside the container
 migrate:
-	docker exec $(API_CONTAINER) bun exec prisma migrate deploy
+	docker exec $(API_CONTAINER) bunx prisma generate
+	docker exec $(API_CONTAINER) bunx exec prisma migrate deploy
 
 # Reset DB and restart fresh
 migrate-reset: down-v

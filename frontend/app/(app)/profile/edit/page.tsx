@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { updateCurrentUser, useCurrentUser } from "@/lib/data/auth";
-import { getMyProfile } from "@/lib/data/profile";
 import type { ProfileSocial } from "@/lib/types";
 
 
@@ -11,24 +10,30 @@ import type { ProfileSocial } from "@/lib/types";
 export default function EditProfilePage() {
   const router = useRouter();
   const { user: currentUser } = useCurrentUser();
-  const profileData = getMyProfile();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   /* ── form state ── */
   const [username, setUsername] = useState("");
   const [bio, setBio] = useState("");
   const [avatarPreview, setAvatarPreview] = useState("");
-  const [socials, setSocials] = useState<ProfileSocial[]>(profileData.socials);
+  const [socials, setSocials] = useState<ProfileSocial[]>([]);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   /* ── new-social input ── */
   const [newPlatform, setNewPlatform] = useState("");
   const [newLabel, setNewLabel] = useState("");
+  const [newUrl, setNewUrl] = useState("");
 
   useEffect(() => {
     if (!currentUser) return;
-    setUsername(currentUser.username);
-    setBio(currentUser.bio ?? "");
-    setAvatarPreview(currentUser.avatarUrl ?? "");
+
+    queueMicrotask(() => {
+      setUsername(currentUser.username);
+      setBio(currentUser.bio ?? "");
+      setAvatarPreview(currentUser.avatarUrl ?? "");
+      setSocials(currentUser.socials ?? []);
+    });
   }, [currentUser]);
 
   /* ── avatar upload handler ── */
@@ -40,10 +45,16 @@ export default function EditProfilePage() {
 
   /* ── socials helpers ── */
   function addSocial() {
-    if (!newPlatform.trim() || !newLabel.trim()) return;
-    setSocials((prev) => [...prev, { platform: newPlatform.trim().toLowerCase(), label: newLabel.trim() }]);
+    const platform = newPlatform.trim().toLowerCase();
+    const label = newLabel.trim();
+    const url = normalizeSocialUrl(newUrl);
+
+    if (!platform || !label || !url) return;
+
+    setSocials((prev) => [...prev, { platform, label, url }]);
     setNewPlatform("");
     setNewLabel("");
+    setNewUrl("");
   }
 
   function removeSocial(idx: number) {
@@ -56,8 +67,22 @@ export default function EditProfilePage() {
   async function handleSave() {
     const trimmed = username.trim();
     if (!trimmed || !currentUser) return;
-    await updateCurrentUser({ username: trimmed, bio: bio.trim() || undefined });
-    router.push(`/profile/${trimmed}`);
+
+    setSaving(true);
+    setSaveError(null);
+
+    try {
+      await updateCurrentUser({
+        username: trimmed,
+        bio: bio.trim() || undefined,
+        socials,
+      });
+      router.push(`/profile/${trimmed}`);
+    } catch {
+      setSaveError("Could not save your profile. Please check that the API is running.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   if (!currentUser) return null;
@@ -70,6 +95,11 @@ export default function EditProfilePage() {
         <p className="mt-1 text-[13px] text-text-muted">
           Update your public profile information.
         </p>
+        {saveError && (
+          <p className="mt-3 text-[13px] text-danger">
+            {saveError}
+          </p>
+        )}
       </div>
 
       {/* Form body */}
@@ -152,7 +182,10 @@ export default function EditProfilePage() {
                 <span className="min-w-[70px] text-[12px] font-medium capitalize text-text-muted">
                   {s.platform}
                 </span>
-                <span className="flex-1 text-[13px] text-text-secondary">{s.label}</span>
+                <div className="flex min-w-0 flex-1 flex-col">
+                  <span className="truncate text-[13px] text-text-secondary">{s.label}</span>
+                  <span className="truncate text-[11.5px] text-text-dimmed">{s.url}</span>
+                </div>
                 <button
                   type="button"
                   onClick={() => removeSocial(idx)}
@@ -175,12 +208,21 @@ export default function EditProfilePage() {
                   className="w-full rounded-[6px] border border-border-default bg-bg-hover px-3 py-[7px] text-[12.5px] text-text-primary outline-none placeholder:text-text-dimmed focus:border-border-strong"
                 />
               </FieldGroup>
-              <FieldGroup label="Handle / URL" compact>
+              <FieldGroup label="Label" compact>
                 <input
                   type="text"
                   value={newLabel}
                   onChange={(e) => setNewLabel(e.target.value)}
                   placeholder="e.g. @username"
+                  className="w-full rounded-[6px] border border-border-default bg-bg-hover px-3 py-[7px] text-[12.5px] text-text-primary outline-none placeholder:text-text-dimmed focus:border-border-strong"
+                />
+              </FieldGroup>
+              <FieldGroup label="URL" compact>
+                <input
+                  type="url"
+                  value={newUrl}
+                  onChange={(e) => setNewUrl(e.target.value)}
+                  placeholder="https://..."
                   onKeyDown={(e) => { if (e.key === "Enter") addSocial(); }}
                   className="w-full rounded-[6px] border border-border-default bg-bg-hover px-3 py-[7px] text-[12.5px] text-text-primary outline-none placeholder:text-text-dimmed focus:border-border-strong"
                 />
@@ -209,15 +251,31 @@ export default function EditProfilePage() {
           </button>
           <button
             type="button"
+            disabled={saving}
             onClick={handleSave}
-            className="rounded-[7px] bg-btn-primary-bg px-[18px] py-[8px] text-[13px] font-medium text-btn-primary-text transition-opacity hover:opacity-90"
+            className="rounded-[7px] bg-btn-primary-bg px-[18px] py-[8px] text-[13px] font-medium text-btn-primary-text transition-opacity hover:opacity-90 disabled:cursor-default disabled:opacity-60"
           >
-            Save changes
+            {saving ? "Saving..." : "Save changes"}
           </button>
         </div>
       </div>
     </div>
   );
+}
+
+// Normalizes social URLs so saved links are clickable and accepted by the API.
+function normalizeSocialUrl(value: string): string | null {
+  const trimmed = value.trim();
+  const url = trimmed.startsWith("http://") || trimmed.startsWith("https://")
+    ? trimmed
+    : `https://${trimmed}`;
+
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "http:" || parsed.protocol === "https:" ? parsed.toString() : null;
+  } catch {
+    return null;
+  }
 }
 
 /* ── Section card ── */

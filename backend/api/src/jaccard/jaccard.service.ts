@@ -70,6 +70,7 @@ export class JaccardService {
       return {
         name: displayName,
         initials: displayName.substring(0, 2),
+        avatarUrl: user.profile?.avatarUri ?? user.image ?? undefined,
         level: user.profile?.level ?? 0,
         online: false,
         score,

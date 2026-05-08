@@ -17,7 +17,8 @@ export class InterestsController {
 
   // Returns the complete interest catalog used by the frontend picker.
   @Get()
-  findAll() {
+  async findAll(@Req() req: Request) {
+    await getSessionUserId(req);
     return this.interestsService.findAll();
   }
 
@@ -26,6 +27,13 @@ export class InterestsController {
   async findMine(@Req() req: Request) {
     const userId = await getSessionUserId(req);
     return this.interestsService.findForUser(userId);
+  }
+
+  // Returns interests joined by the public profile identified by username.
+  @Get(':username')
+  async findByUsername(@Req() req: Request, @Param('username') username: string) {
+    await getSessionUserId(req);
+    return this.interestsService.findForUsername(username);
   }
 
   // Adds one interest to the current better-auth session user.

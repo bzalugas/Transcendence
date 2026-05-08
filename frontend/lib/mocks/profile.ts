@@ -1,5 +1,3 @@
-import type { ProfileSocial } from "@/lib/types";
-
 export const profileFriends = [
   { initials: "pd", name: "mtellal", level: 15, online: true },
   { initials: "sv", name: "bazaluga", level: 11, online: true },
@@ -12,16 +10,6 @@ export const profileActivity = [
   { emoji: "🤝", text: "New friend: svidal", time: "1 day ago" },
   { emoji: "⬆️", text: "Reached level 12", time: "3 days ago" },
   { emoji: "🚴", text: "Joined the Campus cycling event", time: "5 days ago" },
-];
-
-export const profileSocials: ProfileSocial[] = [
-  { platform: "github", label: "github.com/abestaev" },
-  { platform: "linkedin", label: "aleko-bestaev" },
-  { platform: "instagram", label: "@aleko.b" },
-  { platform: "spotify", label: "abestaev_music" },
-  { platform: "strava", label: "abestaev" },
-  { platform: "steam", label: "abestaev" },
-  { platform: "portfolio", label: "abestaev.dev" },
 ];
 
 export const currentProjects = [

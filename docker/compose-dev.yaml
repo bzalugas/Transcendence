@@ -6,7 +6,7 @@ services:
       - "8080:8080"
     volumes:
       - ../frontend/:/app
-      - /app/node_modules
+      - frontend-node-modules:/app/node_modules
     networks:
       - transcendence-net
     command: bun run dev
@@ -21,13 +21,13 @@ services:
       - "3000:3000"
     volumes:
       - ../backend/api:/api
-      - /api/node_modules
+      - api-node-modules:/api/node_modules
     depends_on:
       db:
         condition: service_healthy
     networks:
       - transcendence-net
-    command: sh -c "bunx prisma db push && bun run start:dev"
+    command: sh -c "bunx prisma generate && bunx prisma migrate deploy && bun run start:dev"
 
   db:
     ports:
@@ -48,3 +48,9 @@ networks:
   transcendence-net:
     name: transcendence-net
     driver: bridge
+
+volumes:
+  frontend-node-modules:
+    name: transcendence-frontend-node-modules
+  api-node-modules:
+    name: transcendence-api-node-modules

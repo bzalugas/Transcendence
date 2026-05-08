@@ -1,6 +1,5 @@
 import {
   profileActivity,
-  profileSocials,
   currentProjects,
 } from "@/lib/mocks/profile";
 import type { User } from "@/lib/types";
@@ -9,12 +8,12 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
 
 // Backend swap point: replace with `fetch('/api/profile/:username')`.
 
-export function getMyProfile() {
+export function getMyProfile(user?: User) {
   return {
     interests: [],
     friends: [],
     activity: profileActivity,
-    socials: profileSocials,
+    socials: user?.socials ?? [],
     currentProjects,
   };
 }
@@ -26,7 +25,7 @@ export function getProfileByUsername(username: string, currentUser: User) {
     return {
       user: currentUser,
       isSelf: true as const,
-      ...getMyProfile(),
+      ...getMyProfile(currentUser),
     };
   }
 

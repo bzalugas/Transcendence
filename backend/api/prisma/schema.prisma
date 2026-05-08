@@ -32,6 +32,7 @@ model User {
   updatedAt      DateTime        @updatedAt
   sessions       Session[]
   accounts       Account[]
+  files          FileAsset[]
 
   @@map("user")
 }
@@ -147,12 +148,37 @@ model Reaction {
   post   Post   @relation(fields: [postId], references: [id])
 }
 
+model FileAsset {
+  id             Int            @id @default(autoincrement())
+  ownerId        String
+  storageKey     String         @unique
+  originalName   String
+  mimeType       String
+  sizeBytes      Int
+  category       FileCategory
+  attachmentType AttachmentType
+  status         FileStatus     @default(uploaded)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  owner          User           @relation(fields: [ownerId], references: [id])
+  attachments    Attachment[]
+
+  @@index([ownerId])
+}
+
 model Attachment {
-  id     Int            @id @default(autoincrement())
-  uri    String
-  type   AttachmentType
-  postId Int
-  post   Post           @relation(fields: [postId], references: [id])
+  id        Int            @id @default(autoincrement())
+  type      AttachmentType
+  fileId    Int
+  postId    Int?
+  messageId Int?
+  file      FileAsset      @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  post      Post?          @relation(fields: [postId], references: [id], onDelete: Cascade)
+  message   Message?       @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([fileId])
+  @@index([postId])
+  @@index([messageId])
 }
 
 model Chat {
@@ -173,6 +199,7 @@ model Message {
   sender    User           @relation(fields: [senderId], references: [id])
   chat      Chat           @relation(fields: [chatId], references: [id])
   notifs    Notification[]
+  attachments Attachment[]
 }
 
 model Notification {
@@ -243,6 +270,19 @@ enum AttachmentType {
   archive
   word_document
   open_document
+}
+
+enum FileCategory {
+  image
+  document
+  archive
+  other
+}
+
+enum FileStatus {
+  uploaded
+  attached
+  deleted
 }
 
 enum ChatType {

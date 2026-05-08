@@ -4,6 +4,8 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import type { AttachmentType, FileCategory } from '@prisma/client';
+import { FilesService } from '../files/files.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 export interface ChannelDto {
@@ -42,7 +44,20 @@ export interface ChannelPostDto {
   body: string;
   likeCount: number;
   liked: boolean;
+  attachments: ChannelPostAttachmentDto[];
   comments: ChannelCommentDto[];
+}
+
+export interface ChannelPostAttachmentDto {
+  id: string;
+  fileId: number;
+  originalName: string;
+  mimeType: string;
+  sizeBytes: number;
+  category: FileCategory;
+  type: AttachmentType;
+  previewUrl: string;
+  downloadUrl: string;
 }
 
 export interface ChannelCommentDto {
@@ -58,7 +73,10 @@ export type ChannelFeedItemDto = { kind: 'post'; post: ChannelPostDto };
 
 @Injectable()
 export class ChannelsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly filesService: FilesService,
+  ) {}
 
   // Reads all channels with their interest metadata and root post counts.
   async findAll(): Promise<ChannelDto[]> {
@@ -161,23 +179,50 @@ export class ChannelsService {
     userId: string,
     slug: string,
     content?: string,
+    attachmentIds?: number[],
   ): Promise<ChannelPostDto> {
     const trimmedContent = content?.trim();
+    const fileAssets = await this.findAttachableFiles(userId, attachmentIds);
 
-    if (!trimmedContent) {
-      throw new BadRequestException('Post content is required');
+    if (!trimmedContent && fileAssets.length === 0) {
+      throw new BadRequestException('Post content or attachment is required');
     }
 
     const channel = await this.findChannelBySlug(slug);
     await this.assertChannelMembership(userId, channel.id);
 
-    const post = await this.prisma.post.create({
-      data: {
-        authorId: userId,
-        channelId: channel.id,
-        content: trimmedContent,
-      },
-      include: this.postInclude(),
+    const post = await this.prisma.$transaction(async (tx) => {
+      const createdPost = await tx.post.create({
+        data: {
+          authorId: userId,
+          channelId: channel.id,
+          content: trimmedContent ?? '',
+          attachments: fileAssets.length
+            ? {
+                create: fileAssets.map((file) => ({
+                  fileId: file.id,
+                  type: file.attachmentType,
+                })),
+              }
+            : undefined,
+        },
+        include: this.postInclude(),
+      });
+
+      if (fileAssets.length > 0) {
+        await tx.fileAsset.updateMany({
+          where: {
+            id: {
+              in: fileAssets.map((file) => file.id),
+            },
+          },
+          data: {
+            status: 'attached',
+          },
+        });
+      }
+
+      return createdPost;
     });
 
     return this.toPostDto(post, channel);
@@ -254,6 +299,16 @@ export class ChannelsService {
             id: true,
           },
         },
+        attachments: {
+          select: {
+            fileId: true,
+            file: {
+              select: {
+                storageKey: true,
+              },
+            },
+          },
+        },
       },
     });
 
@@ -270,6 +325,8 @@ export class ChannelsService {
     }
 
     const postIds = [post.id, ...post.children.map((child) => child.id)];
+    const storageKeys = post.attachments.map((attachment) => attachment.file.storageKey);
+    const fileIds = post.attachments.map((attachment) => attachment.fileId);
 
     await this.prisma.$transaction([
       this.prisma.reaction.deleteMany({
@@ -279,10 +336,10 @@ export class ChannelsService {
           },
         },
       }),
-      this.prisma.attachment.deleteMany({
+      this.prisma.fileAsset.deleteMany({
         where: {
-          postId: {
-            in: postIds,
+          id: {
+            in: fileIds,
           },
         },
       }),
@@ -306,6 +363,7 @@ export class ChannelsService {
         },
       }),
     ]);
+    await this.filesService.deleteStorageKeys(storageKeys);
 
     return { deleted: true };
   }
@@ -480,6 +538,11 @@ export class ChannelsService {
         },
       },
       reactions: true,
+      attachments: {
+        include: {
+          file: true,
+        },
+      },
       children: {
         include: {
           author: {
@@ -532,6 +595,19 @@ export class ChannelsService {
       createdAt: Date;
       content: string;
       authorId: string;
+      attachments: Array<{
+        id: number;
+        type: AttachmentType;
+        fileId: number;
+        file: {
+          id: number;
+          originalName: string;
+          mimeType: string;
+          sizeBytes: number;
+          category: FileCategory;
+          attachmentType: AttachmentType;
+        };
+      }>;
       author: {
         login: string | null;
         name: string | null;
@@ -577,6 +653,17 @@ export class ChannelsService {
       body: post.content,
       likeCount: post.reactions.length,
       liked: false,
+      attachments: post.attachments.map((attachment) => ({
+        id: String(attachment.id),
+        fileId: attachment.fileId,
+        originalName: attachment.file.originalName,
+        mimeType: attachment.file.mimeType,
+        sizeBytes: attachment.file.sizeBytes,
+        category: attachment.file.category,
+        type: attachment.type,
+        previewUrl: `/files/${attachment.file.id}/preview`,
+        downloadUrl: `/files/${attachment.file.id}/download`,
+      })),
       comments: post.children.map((comment) => {
         return this.toCommentDto(comment);
       }),
@@ -642,6 +729,41 @@ export class ChannelsService {
     }
 
     return value.slice(0, 2).toLowerCase();
+  }
+
+  // Verifies uploaded files belong to the author and are not already attached elsewhere.
+  private async findAttachableFiles(userId: string, attachmentIds?: number[]) {
+    if (!attachmentIds) return [];
+    if (!Array.isArray(attachmentIds)) {
+      throw new BadRequestException('Post attachment ids must be a list');
+    }
+    if (attachmentIds.length > 4) {
+      throw new BadRequestException('Only four post attachments are supported');
+    }
+
+    const uniqueIds = Array.from(new Set(attachmentIds));
+    if (uniqueIds.some((id) => !Number.isInteger(id) || id <= 0)) {
+      throw new BadRequestException('Post attachment ids are invalid');
+    }
+
+    const files = await this.prisma.fileAsset.findMany({
+      where: {
+        id: {
+          in: uniqueIds,
+        },
+        ownerId: userId,
+        status: 'uploaded',
+      },
+      include: {
+        attachments: true,
+      },
+    });
+
+    if (files.length !== uniqueIds.length || files.some((file) => file.attachments.length > 0)) {
+      throw new BadRequestException('One or more files cannot be attached');
+    }
+
+    return files;
   }
 
   // Formats a creation date into a compact relative label for feed cards.

@@ -4,3 +4,4 @@
 .next
 node_modules
 subject.pdf
+backend/api/uploads

@@ -94,13 +94,18 @@ export async function getChannelFeed(slug: string): Promise<ChannelFeedItem[]> {
 }
 
 // Creates a persisted post in one channel for the current authenticated user.
-export async function createChannelPost(slug: string, body: string, _user: User): Promise<Post> {
+export async function createChannelPost(
+  slug: string,
+  body: string,
+  _user: User,
+  attachmentIds: number[] = [],
+): Promise<Post> {
   return request<Post>(`/channels/${slug}/posts`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ content: body }),
+    body: JSON.stringify({ content: body, attachmentIds }),
   });
 }
 

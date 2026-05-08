@@ -7,6 +7,7 @@ import { InterestsModule } from './interests/interests.module';
 import { ChannelsModule } from './channels/channels.module';
 import { ProfilesModule } from './profiles/profiles.module';
 import { FriendshipsModule } from './friendships/friendships.module';
+import { FilesModule } from './files/files.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { FriendshipsModule } from './friendships/friendships.module';
     ChannelsModule,
     ProfilesModule,
     FriendshipsModule,
+    FilesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

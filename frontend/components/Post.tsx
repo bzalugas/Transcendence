@@ -5,6 +5,7 @@ import Link from "next/link";
 import Avatar from "@/components/Avatar";
 import type { Comment, Post as PostType } from "@/lib/types";
 import { useCurrentUser } from "@/lib/data/auth";
+import { fileUrl, formatFileSize } from "@/lib/data/files";
 
 type PostProps = PostType & {
   onReply?: (postId: string, body: string) => Promise<Comment>;
@@ -23,6 +24,7 @@ export default function Post({
   image,
   imageGrid,
   event,
+  attachments,
   likeCount,
   liked,
   comments,
@@ -130,9 +132,56 @@ export default function Post({
       </div>
 
       {/* Body */}
-      <div className="px-4 pb-3 text-[13.5px] leading-relaxed text-text-secondary">
-        {body}
-      </div>
+      {body && (
+        <div className="px-4 pb-3 text-[13.5px] leading-relaxed text-text-secondary">
+          {body}
+        </div>
+      )}
+
+      {attachments?.map((attachment) =>
+        attachment.category === "image" ? (
+          <div key={attachment.id} className="mx-4 mb-3 overflow-hidden rounded-lg border border-border-subtle bg-bg-tertiary">
+            <img
+              src={fileUrl(attachment.previewUrl)}
+              alt=""
+              className="max-h-[520px] w-full object-contain"
+              loading="lazy"
+            />
+          </div>
+        ) : (
+          <div key={attachment.id} className="mx-4 mb-3 rounded-lg border border-border-subtle bg-bg-tertiary p-3">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-border-subtle bg-bg-secondary text-[11px] font-semibold uppercase text-text-muted">
+                {attachment.type === "pdf" ? "PDF" : "FILE"}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-[13px] font-medium text-text-primary">
+                  {attachment.originalName}
+                </div>
+                <div className="text-[11.5px] text-text-muted">
+                  {formatFileSize(attachment.sizeBytes)}
+                </div>
+              </div>
+              {(attachment.type === "pdf" || attachment.type === "text_document") && (
+                <a
+                  href={fileUrl(attachment.previewUrl)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="rounded-[7px] px-2.5 py-1.5 text-[12px] font-medium text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary"
+                >
+                  Preview
+                </a>
+              )}
+              <a
+                href={fileUrl(attachment.downloadUrl)}
+                className="rounded-[7px] px-2.5 py-1.5 text-[12px] font-medium text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary"
+              >
+                Download
+              </a>
+            </div>
+          </div>
+        ),
+      )}
 
       {/* Single image */}
       {image && (

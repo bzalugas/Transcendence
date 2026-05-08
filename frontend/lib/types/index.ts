@@ -77,6 +77,38 @@ export interface PostEvent {
   goingCount: number;
 }
 
+export type FileCategory = "image" | "document" | "archive" | "other";
+export type AttachmentType =
+  | "image"
+  | "pdf"
+  | "text_document"
+  | "archive"
+  | "word_document"
+  | "open_document";
+
+export interface FileAsset {
+  id: number;
+  originalName: string;
+  mimeType: string;
+  sizeBytes: number;
+  category: FileCategory;
+  attachmentType: AttachmentType;
+  previewUrl: string;
+  downloadUrl: string;
+}
+
+export interface PostAttachment {
+  id: string;
+  fileId: number;
+  originalName: string;
+  mimeType: string;
+  sizeBytes: number;
+  category: FileCategory;
+  type: AttachmentType;
+  previewUrl: string;
+  downloadUrl: string;
+}
+
 export interface Post {
   id: string;
   authorId?: string;
@@ -90,6 +122,7 @@ export interface Post {
   image?: { emoji: string; label: string };
   imageGrid?: string[];
   event?: PostEvent;
+  attachments?: PostAttachment[];
   likeCount: number;
   liked?: boolean;
   comments: Comment[];

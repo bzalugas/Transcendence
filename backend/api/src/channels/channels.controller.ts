@@ -56,10 +56,15 @@ export class ChannelsController {
   async createPost(
     @Req() req: Request,
     @Param('slug') slug: string,
-    @Body() body: { content?: string },
+    @Body() body: { content?: string; attachmentIds?: number[] },
   ) {
     const userId = await getSessionUserId(req);
-    return this.channelsService.createPostBySlug(userId, slug, body.content);
+    return this.channelsService.createPostBySlug(
+      userId,
+      slug,
+      body.content,
+      body.attachmentIds,
+    );
   }
 
   // Creates a persisted reply attached to one channel post.

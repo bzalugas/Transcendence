@@ -75,9 +75,9 @@ export default function ChannelPage({ params }: ChannelPageProps) {
   }
 
   // Persists a new channel post and prepends the returned DB-backed post to the feed.
-  async function handlePost(body: string) {
+  async function handlePost(body: string, attachmentIds: number[]) {
     if (!currentUser) return;
-    const post = await createChannelPost(slug, body, currentUser);
+    const post = await createChannelPost(slug, body, currentUser, attachmentIds);
     setFeed((items) => [{ kind: "post", post }, ...items]);
   }
 

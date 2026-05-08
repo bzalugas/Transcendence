@@ -14,6 +14,12 @@ CREATE TYPE "InterestLevel" AS ENUM ('Moderate', 'High', 'VeryHigh');
 CREATE TYPE "AttachmentType" AS ENUM ('image', 'pdf', 'text_document', 'archive', 'word_document', 'open_document');
 
 -- CreateEnum
+CREATE TYPE "FileCategory" AS ENUM ('image', 'document', 'archive', 'other');
+
+-- CreateEnum
+CREATE TYPE "FileStatus" AS ENUM ('uploaded', 'attached', 'deleted');
+
+-- CreateEnum
 CREATE TYPE "ChatType" AS ENUM ('Interest', 'Group', 'Private');
 
 -- CreateEnum
@@ -144,11 +150,29 @@ CREATE TABLE "Reaction" (
 );
 
 -- CreateTable
+CREATE TABLE "FileAsset" (
+    "id" SERIAL NOT NULL,
+    "ownerId" TEXT NOT NULL,
+    "storageKey" TEXT NOT NULL,
+    "originalName" TEXT NOT NULL,
+    "mimeType" TEXT NOT NULL,
+    "sizeBytes" INTEGER NOT NULL,
+    "category" "FileCategory" NOT NULL,
+    "attachmentType" "AttachmentType" NOT NULL,
+    "status" "FileStatus" NOT NULL DEFAULT 'uploaded',
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "FileAsset_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "Attachment" (
     "id" SERIAL NOT NULL,
-    "uri" TEXT NOT NULL,
     "type" "AttachmentType" NOT NULL,
-    "postId" INTEGER NOT NULL,
+    "fileId" INTEGER NOT NULL,
+    "postId" INTEGER,
+    "messageId" INTEGER,
 
     CONSTRAINT "Attachment_pkey" PRIMARY KEY ("id")
 );
@@ -297,6 +321,21 @@ CREATE UNIQUE INDEX "Interest_name_key" ON "Interest"("name");
 CREATE UNIQUE INDEX "Channel_interestId_key" ON "Channel"("interestId");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "FileAsset_storageKey_key" ON "FileAsset"("storageKey");
+
+-- CreateIndex
+CREATE INDEX "FileAsset_ownerId_idx" ON "FileAsset"("ownerId");
+
+-- CreateIndex
+CREATE INDEX "Attachment_fileId_idx" ON "Attachment"("fileId");
+
+-- CreateIndex
+CREATE INDEX "Attachment_postId_idx" ON "Attachment"("postId");
+
+-- CreateIndex
+CREATE INDEX "Attachment_messageId_idx" ON "Attachment"("messageId");
+
+-- CreateIndex
 CREATE INDEX "session_userId_idx" ON "session"("userId");
 
 -- CreateIndex
@@ -360,7 +399,16 @@ ALTER TABLE "Reaction" ADD CONSTRAINT "Reaction_userId_fkey" FOREIGN KEY ("userI
 ALTER TABLE "Reaction" ADD CONSTRAINT "Reaction_postId_fkey" FOREIGN KEY ("postId") REFERENCES "Post"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Attachment" ADD CONSTRAINT "Attachment_postId_fkey" FOREIGN KEY ("postId") REFERENCES "Post"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "FileAsset" ADD CONSTRAINT "FileAsset_ownerId_fkey" FOREIGN KEY ("ownerId") REFERENCES "user"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Attachment" ADD CONSTRAINT "Attachment_fileId_fkey" FOREIGN KEY ("fileId") REFERENCES "FileAsset"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Attachment" ADD CONSTRAINT "Attachment_postId_fkey" FOREIGN KEY ("postId") REFERENCES "Post"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Attachment" ADD CONSTRAINT "Attachment_messageId_fkey" FOREIGN KEY ("messageId") REFERENCES "Message"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Message" ADD CONSTRAINT "Message_senderId_fkey" FOREIGN KEY ("senderId") REFERENCES "user"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -403,4 +451,3 @@ ALTER TABLE "_ChatToUser" ADD CONSTRAINT "_ChatToUser_A_fkey" FOREIGN KEY ("A") 
 
 -- AddForeignKey
 ALTER TABLE "_ChatToUser" ADD CONSTRAINT "_ChatToUser_B_fkey" FOREIGN KEY ("B") REFERENCES "user"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-

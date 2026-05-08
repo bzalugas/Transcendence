@@ -8,6 +8,7 @@ import { ChannelsModule } from './channels/channels.module';
 import { ProfilesModule } from './profiles/profiles.module';
 import { FriendshipsModule } from './friendships/friendships.module';
 import { FilesModule } from './files/files.module';
+import { PrivacyModule } from './privacy/privacy.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { FilesModule } from './files/files.module';
     ProfilesModule,
     FriendshipsModule,
     FilesModule,
+    PrivacyModule,
   ],
   controllers: [AppController],
   providers: [AppService],

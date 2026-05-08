@@ -104,6 +104,11 @@ export async function createChannelPost(slug: string, body: string, _user: User)
   });
 }
 
+// Removes a persisted post owned by the current authenticated user.
+export async function deleteChannelPost(slug: string, postId: string): Promise<void> {
+  await request(`/channels/${slug}/posts/${postId}`, { method: "DELETE" });
+}
+
 // Creates a persisted reply attached to one post in a channel.
 export async function createChannelReply(
   slug: string,

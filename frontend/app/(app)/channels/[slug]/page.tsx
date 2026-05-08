@@ -14,6 +14,7 @@ import {
   getChannelMembers,
   createChannelPost,
   createChannelReply,
+  deleteChannelPost,
   leaveChannel,
 } from "@/lib/data/channels";
 import { useCurrentUser } from "@/lib/data/auth";
@@ -80,6 +81,13 @@ export default function ChannelPage({ params }: ChannelPageProps) {
     setFeed((items) => [{ kind: "post", post }, ...items]);
   }
 
+  async function handleDeletePost(postId: string) {
+    await deleteChannelPost(slug, postId);
+    setFeed((items) =>
+      items.filter((item) => item.kind !== "post" || item.post.id !== postId),
+    );
+  }
+
   return (
     <>
       <div className="flex flex-1 flex-col overflow-y-auto bg-bg-tertiary">
@@ -106,6 +114,7 @@ export default function ChannelPage({ params }: ChannelPageProps) {
                   onReply={(postId, replyBody) =>
                     createChannelReply(slug, postId, replyBody)
                   }
+                  onDelete={handleDeletePost}
                 />
               ) : (
                 <ChannelSystemEvent

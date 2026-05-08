@@ -79,6 +79,17 @@ export class ChannelsController {
     );
   }
 
+  // Removes a persisted root post when the current user is its author.
+  @Delete(':slug/posts/:postId')
+  async deletePost(
+    @Req() req: Request,
+    @Param('slug') slug: string,
+    @Param('postId', ParseIntPipe) postId: number,
+  ) {
+    const userId = await getSessionUserId(req);
+    return this.channelsService.deletePostBySlug(userId, slug, postId);
+  }
+
   // Joins a channel and its matching interest for the current user.
   @Post(':slug/join')
   async join(@Req() req: Request, @Param('slug') slug: string) {

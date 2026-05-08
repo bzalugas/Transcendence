@@ -32,6 +32,7 @@ export interface ChannelMemberDto {
 
 export interface ChannelPostDto {
   id: string;
+  authorId: string;
   initials: string;
   avatarUrl?: string;
   author: string;
@@ -230,6 +231,83 @@ export class ChannelsService {
     });
 
     return this.toCommentDto(reply);
+  }
+
+  // Deletes a root post and its comments when requested by the original author.
+  async deletePostBySlug(
+    userId: string,
+    slug: string,
+    postId: number,
+  ): Promise<{ deleted: true }> {
+    const channel = await this.findChannelBySlug(slug);
+    const post = await this.prisma.post.findFirst({
+      where: {
+        id: postId,
+        channelId: channel.id,
+      },
+      select: {
+        id: true,
+        authorId: true,
+        parentId: true,
+        children: {
+          select: {
+            id: true,
+          },
+        },
+      },
+    });
+
+    if (!post) {
+      throw new NotFoundException('Post not found');
+    }
+
+    if (post.parentId !== null) {
+      throw new BadRequestException('Cannot remove a reply from this endpoint');
+    }
+
+    if (post.authorId !== userId) {
+      throw new ForbiddenException('Only the post author can remove it');
+    }
+
+    const postIds = [post.id, ...post.children.map((child) => child.id)];
+
+    await this.prisma.$transaction([
+      this.prisma.reaction.deleteMany({
+        where: {
+          postId: {
+            in: postIds,
+          },
+        },
+      }),
+      this.prisma.attachment.deleteMany({
+        where: {
+          postId: {
+            in: postIds,
+          },
+        },
+      }),
+      this.prisma.notification.deleteMany({
+        where: {
+          postId: {
+            in: postIds,
+          },
+        },
+      }),
+      this.prisma.post.deleteMany({
+        where: {
+          id: {
+            in: post.children.map((child) => child.id),
+          },
+        },
+      }),
+      this.prisma.post.delete({
+        where: {
+          id: post.id,
+        },
+      }),
+    ]);
+
+    return { deleted: true };
   }
 
   // Joins both the channel and its owning interest for one user.
@@ -453,6 +531,7 @@ export class ChannelsService {
       id: number;
       createdAt: Date;
       content: string;
+      authorId: string;
       author: {
         login: string | null;
         name: string | null;
@@ -488,6 +567,7 @@ export class ChannelsService {
 
     return {
       id: String(post.id),
+      authorId: post.authorId,
       initials: this.initials(author),
       avatarUrl: post.author.profile?.avatarUri ?? post.author.image ?? undefined,
       author,

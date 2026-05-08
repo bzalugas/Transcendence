@@ -8,10 +8,12 @@ import { useCurrentUser } from "@/lib/data/auth";
 
 type PostProps = PostType & {
   onReply?: (postId: string, body: string) => Promise<Comment>;
+  onDelete?: (postId: string) => Promise<void>;
 };
 
 export default function Post({
   id,
+  authorId,
   initials,
   avatarUrl,
   author,
@@ -25,12 +27,20 @@ export default function Post({
   liked,
   comments,
   onReply,
+  onDelete,
 }: PostProps) {
   const { user: currentUser } = useCurrentUser();
   const [isLiked, setIsLiked] = useState(liked ?? false);
   const [count, setCount] = useState(likeCount);
   const [localComments, setLocalComments] = useState<Comment[]>([...comments]);
   const [commentText, setCommentText] = useState("");
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const canDelete = Boolean(
+    onDelete &&
+      currentUser &&
+      (authorId ? currentUser.id === authorId : currentUser.username === author),
+  );
 
   // Persists a reply when possible, then adds it to the displayed comments.
   async function submitComment() {
@@ -57,6 +67,18 @@ export default function Post({
     setCount(newLiked ? count + 1 : count - 1);
   }
 
+  async function deletePost() {
+    if (!onDelete || isDeleting) return;
+
+    setIsDeleting(true);
+    try {
+      await onDelete(id);
+      setMenuOpen(false);
+    } finally {
+      setIsDeleting(false);
+    }
+  }
+
   return (
     <div className="rounded-xl border border-border-subtle bg-bg-secondary transition-colors hover:border-border-strong">
       {/* Header */}
@@ -73,12 +95,38 @@ export default function Post({
             {time} · <span className="text-text-tertiary">{channelLabel}</span>
           </div>
         </div>
-        <button
-          type="button"
-          className="px-1 text-text-muted transition-colors hover:text-text-primary"
-        >
-          ···
-        </button>
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => {
+              if (canDelete) setMenuOpen((open) => !open);
+            }}
+            className={`px-1 text-text-muted transition-colors ${
+              canDelete ? "hover:text-text-primary" : "cursor-default"
+            }`}
+            aria-haspopup="menu"
+            aria-expanded={menuOpen && canDelete}
+            aria-label="Post options"
+          >
+            ···
+          </button>
+          {menuOpen && canDelete && (
+            <div
+              role="menu"
+              className="absolute right-0 top-6 z-20 min-w-[132px] rounded-lg border border-border-subtle bg-bg-secondary py-1 shadow-lg"
+            >
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => { void deletePost(); }}
+                disabled={isDeleting}
+                className="w-full px-3 py-2 text-left text-[12.5px] font-medium text-red-500 transition-colors hover:bg-bg-hover disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isDeleting ? "Removing..." : "Remove post"}
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Body */}

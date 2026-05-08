@@ -33,6 +33,7 @@ model User {
   sessions       Session[]
   accounts       Account[]
   files          FileAsset[]
+  dataRequests   DataRequest[]
 
   @@map("user")
 }
@@ -213,6 +214,27 @@ model Notification {
   message   Message?  @relation(fields: [messageId], references: [id])
 }
 
+model DataRequest {
+  id                    Int               @id @default(autoincrement())
+  userId                String
+  type                  DataRequestType
+  status                DataRequestStatus @default(pending)
+  confirmationTokenHash String?           @unique
+  confirmationExpiresAt DateTime?
+  exportStorageKey      String?
+  exportMimeType        String?
+  exportSizeBytes       Int?
+  requestedAt           DateTime          @default(now())
+  confirmedAt           DateTime?
+  completedAt           DateTime?
+  cancelledAt           DateTime?
+  updatedAt             DateTime          @updatedAt
+  user                  User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([type, status])
+}
+
 // Jeux
 
 model Game {
@@ -283,6 +305,20 @@ enum FileStatus {
   uploaded
   attached
   deleted
+}
+
+enum DataRequestType {
+  export
+  deletion
+}
+
+enum DataRequestStatus {
+  pending
+  confirmed
+  processing
+  completed
+  cancelled
+  expired
 }
 
 enum ChatType {

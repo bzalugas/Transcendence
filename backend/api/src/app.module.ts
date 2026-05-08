@@ -9,10 +9,12 @@ import { ProfilesModule } from './profiles/profiles.module';
 import { FriendshipsModule } from './friendships/friendships.module';
 import { FilesModule } from './files/files.module';
 import { PrivacyModule } from './privacy/privacy.module';
+import { EmailModule } from './email/email.module';
 
 @Module({
   imports: [
     PrismaModule,
+    EmailModule,
     JaccardModule,
     InterestsModule,
     ChannelsModule,

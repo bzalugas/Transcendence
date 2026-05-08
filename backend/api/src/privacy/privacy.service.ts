@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { createHash, randomBytes } from 'crypto';
+import { EmailService } from '../email/email.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 export interface PrivacyRequestDto {
@@ -18,10 +19,22 @@ export interface ExportPreviewDto {
 
 @Injectable()
 export class PrivacyService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly emailService: EmailService,
+  ) {}
 
   async requestExport(userId: string): Promise<PrivacyRequestDto> {
-    const request = await this.createDataRequest(userId, 'export');
+    const { request, confirmationToken, userEmail } = await this.createDataRequest(
+      userId,
+      'export',
+    );
+    await this.sendDataOperationEmail({
+      to: userEmail,
+      title: 'Confirm your data export request',
+      body: 'We received a request to export your 42 Connect data. Confirm this request to continue.',
+      confirmationToken,
+    });
 
     return {
       requestId: String(request.id),
@@ -31,7 +44,16 @@ export class PrivacyService {
   }
 
   async requestDeletion(userId: string): Promise<PrivacyRequestDto> {
-    const request = await this.createDataRequest(userId, 'deletion');
+    const { request, confirmationToken, userEmail } = await this.createDataRequest(
+      userId,
+      'deletion',
+    );
+    await this.sendDataOperationEmail({
+      to: userEmail,
+      title: 'Confirm your data deletion request',
+      body: 'We received a request to delete your 42 Connect data. Confirm this request only if you want deletion to continue.',
+      confirmationToken,
+    });
 
     return {
       requestId: String(request.id),
@@ -60,20 +82,57 @@ export class PrivacyService {
   }
 
   private async createDataRequest(userId: string, type: 'export' | 'deletion') {
+    const user = await this.prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: { email: true },
+    });
     const confirmationToken = randomBytes(32).toString('hex');
     const confirmationTokenHash = createHash('sha256')
       .update(confirmationToken)
       .digest('hex');
     const confirmationExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
-    // Placeholder: the raw token will be sent by email in the next implementation step.
-    return this.prisma.dataRequest.create({
+    const request = await this.prisma.dataRequest.create({
       data: {
         userId,
         type,
         confirmationTokenHash,
         confirmationExpiresAt,
       },
+    });
+
+    return {
+      request,
+      confirmationToken,
+      userEmail: user.email,
+    };
+  }
+
+  private async sendDataOperationEmail(input: {
+    to: string;
+    title: string;
+    body: string;
+    confirmationToken: string;
+  }): Promise<void> {
+    const frontendUrl = process.env.NEXT_PUBLIC_FRONTEND_URL ?? 'http://localhost:8080';
+    const confirmationLink = `${frontendUrl}/settings/privacy?token=${input.confirmationToken}`;
+
+    await this.emailService.send({
+      to: input.to,
+      subject: input.title,
+      text: `${input.body}\n\nConfirmation link: ${confirmationLink}\n\nThis link expires in 24 hours.`,
+      html: `
+        <div style="font-family: Arial, sans-serif; line-height: 1.5;">
+          <h2>${input.title}</h2>
+          <p>${input.body}</p>
+          <p>
+            <a href="${confirmationLink}" style="display:inline-block;padding:10px 14px;background:#111827;color:#ffffff;text-decoration:none;border-radius:6px;">
+              Confirm request
+            </a>
+          </p>
+          <p style="color:#6b7280;font-size:13px;">This link expires in 24 hours.</p>
+        </div>
+      `,
     });
   }
 }

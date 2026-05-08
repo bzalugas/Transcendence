@@ -6,6 +6,7 @@ import Avatar from "@/components/Avatar";
 import type { Comment, Post as PostType } from "@/lib/types";
 import { useCurrentUser } from "@/lib/data/auth";
 import { fileUrl, formatFileSize } from "@/lib/data/files";
+import type { PostAttachment } from "@/lib/types";
 
 type PostProps = PostType & {
   onReply?: (postId: string, body: string) => Promise<Comment>;
@@ -38,6 +39,12 @@ export default function Post({
   const [commentText, setCommentText] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [previewAttachment, setPreviewAttachment] = useState<PostAttachment | null>(null);
+  const imageAttachments = attachments?.filter((attachment) => attachment.category === "image") ?? [];
+  const previewImageIndex = previewAttachment?.category === "image"
+    ? imageAttachments.findIndex((attachment) => attachment.id === previewAttachment.id)
+    : -1;
+  const canNavigateImages = previewImageIndex >= 0 && imageAttachments.length > 1;
   const canDelete = Boolean(
     onDelete &&
       currentUser &&
@@ -79,6 +86,17 @@ export default function Post({
     } finally {
       setIsDeleting(false);
     }
+  }
+
+  function showAdjacentImage(direction: -1 | 1) {
+    if (!canNavigateImages) return;
+    const nextIndex =
+      (previewImageIndex + direction + imageAttachments.length) % imageAttachments.length;
+    setPreviewAttachment(imageAttachments[nextIndex]);
+  }
+
+  function canPreviewAttachment(attachment: PostAttachment): boolean {
+    return attachment.category === "image" || attachment.type === "pdf" || attachment.type === "text_document";
   }
 
   return (
@@ -138,49 +156,62 @@ export default function Post({
         </div>
       )}
 
-      {attachments?.map((attachment) =>
-        attachment.category === "image" ? (
-          <div key={attachment.id} className="mx-4 mb-3 overflow-hidden rounded-lg border border-border-subtle bg-bg-tertiary">
-            <img
-              src={fileUrl(attachment.previewUrl)}
-              alt=""
-              className="max-h-[520px] w-full object-contain"
-              loading="lazy"
-            />
-          </div>
-        ) : (
-          <div key={attachment.id} className="mx-4 mb-3 rounded-lg border border-border-subtle bg-bg-tertiary p-3">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-border-subtle bg-bg-secondary text-[11px] font-semibold uppercase text-text-muted">
-                {attachment.type === "pdf" ? "PDF" : "FILE"}
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-[13px] font-medium text-text-primary">
-                  {attachment.originalName}
-                </div>
-                <div className="text-[11.5px] text-text-muted">
-                  {formatFileSize(attachment.sizeBytes)}
-                </div>
-              </div>
-              {(attachment.type === "pdf" || attachment.type === "text_document") && (
-                <a
-                  href={fileUrl(attachment.previewUrl)}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="rounded-[7px] px-2.5 py-1.5 text-[12px] font-medium text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary"
-                >
-                  Preview
-                </a>
-              )}
+      {attachments && attachments.length > 0 && (
+        <div className="mx-4 mb-3 flex flex-wrap gap-2">
+          {attachments.map((attachment) => (
+            <div
+              key={attachment.id}
+              className="group relative h-[100px] w-[100px] overflow-hidden rounded-lg border border-border-subtle bg-bg-tertiary text-left transition-opacity hover:opacity-95"
+            >
+              <button
+                type="button"
+                onClick={() => setPreviewAttachment(attachment)}
+                className="h-full w-full text-left"
+                aria-label={`Preview ${attachment.originalName}`}
+              >
+                {attachment.category === "image" ? (
+                  <img
+                    src={fileUrl(attachment.previewUrl)}
+                    alt=""
+                    className="h-full w-full object-cover"
+                    loading="lazy"
+                  />
+                ) : (
+                  <div className="flex h-full w-full flex-col items-center justify-center gap-1 px-2">
+                    <div className="rounded-md border border-border-subtle bg-bg-secondary px-2 py-1 text-[10px] font-semibold uppercase text-text-muted">
+                      {attachment.type === "pdf" ? "PDF" : attachment.type === "archive" ? "ZIP" : "FILE"}
+                    </div>
+                    <div className="line-clamp-2 max-w-full text-center text-[10px] font-medium leading-tight text-text-secondary">
+                      {attachment.originalName}
+                    </div>
+                  </div>
+                )}
+              </button>
+              <span className="pointer-events-none absolute inset-x-0 bottom-0 bg-black/45 px-1.5 py-1 text-[10px] font-medium text-white opacity-0 transition-opacity group-hover:opacity-100">
+                {canPreviewAttachment(attachment) ? "Preview" : formatFileSize(attachment.sizeBytes)}
+              </span>
               <a
                 href={fileUrl(attachment.downloadUrl)}
-                className="rounded-[7px] px-2.5 py-1.5 text-[12px] font-medium text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary"
+                className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/55 text-white opacity-90 transition-colors hover:bg-black/75"
+                aria-label={`Download ${attachment.originalName}`}
               >
-                Download
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="h-3.5 w-3.5"
+                >
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
               </a>
             </div>
-          </div>
-        ),
+          ))}
+        </div>
       )}
 
       {/* Single image */}
@@ -299,6 +330,86 @@ export default function Post({
           </button>
         )}
       </div>
+
+      {previewAttachment && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label={previewAttachment.originalName}
+          onClick={() => setPreviewAttachment(null)}
+        >
+          <button
+            type="button"
+            onClick={() => setPreviewAttachment(null)}
+            className="absolute right-4 top-4 rounded-full bg-black/45 px-3 py-1.5 text-[13px] font-medium text-white transition-colors hover:bg-black/70"
+          >
+            Close
+          </button>
+          {canNavigateImages && (
+            <>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  showAdjacentImage(-1);
+                }}
+                className="absolute left-4 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/45 text-2xl text-white transition-colors hover:bg-black/70"
+                aria-label="Previous image"
+              >
+                ‹
+              </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  showAdjacentImage(1);
+                }}
+                className="absolute right-4 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/45 text-2xl text-white transition-colors hover:bg-black/70"
+                aria-label="Next image"
+              >
+                ›
+              </button>
+            </>
+          )}
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="max-h-[88vh] max-w-[92vw] overflow-hidden rounded-lg bg-bg-secondary shadow-2xl"
+          >
+            {previewAttachment.category === "image" ? (
+              <img
+                src={fileUrl(previewAttachment.previewUrl)}
+                alt=""
+                className="max-h-[88vh] max-w-[92vw] object-contain"
+              />
+            ) : canPreviewAttachment(previewAttachment) ? (
+              <iframe
+                src={fileUrl(previewAttachment.previewUrl)}
+                title={previewAttachment.originalName}
+                className="h-[80vh] w-[80vw] bg-white"
+              />
+            ) : (
+              <div className="flex w-[320px] flex-col items-center gap-3 px-6 py-7 text-center">
+                <div className="rounded-md border border-border-subtle bg-bg-tertiary px-3 py-2 text-[12px] font-semibold uppercase text-text-muted">
+                  {previewAttachment.type === "archive" ? "ZIP" : "FILE"}
+                </div>
+                <div className="max-w-full truncate text-[14px] font-medium text-text-primary">
+                  {previewAttachment.originalName}
+                </div>
+                <div className="text-[12px] text-text-muted">
+                  {formatFileSize(previewAttachment.sizeBytes)}
+                </div>
+                <a
+                  href={fileUrl(previewAttachment.downloadUrl)}
+                  className="rounded-[7px] bg-text-primary px-3.5 py-2 text-[12.5px] font-semibold text-bg-primary transition-opacity hover:opacity-90"
+                >
+                  Download
+                </a>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

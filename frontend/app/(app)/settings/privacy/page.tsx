@@ -89,10 +89,10 @@ export default function PrivacySettingsPage() {
 
         <Section
           title="Data export"
-          description="Get a readable archive of your account data, including JSON records, CSV summaries, and uploaded files where available."
+          description="Get one readable JSON file with your account data, including profile details, posts, messages, and uploaded file information."
         >
           <div className="grid gap-3 sm:grid-cols-2">
-            <InfoTile label="Format" value="JSON archive + CSV summaries" />
+            <InfoTile label="Format" value="Single JSON file" />
             <InfoTile label="Delivery" value="Confirmation email" />
           </div>
 

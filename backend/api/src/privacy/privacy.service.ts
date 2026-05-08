@@ -32,14 +32,14 @@ export class PrivacyService {
     await this.sendDataOperationEmail({
       to: userEmail,
       title: 'Confirm your data export request',
-      body: 'We received a request to export your 42 Connect data. Confirm this request to continue.',
+      body: 'We received a request to export your 42 Connect data as one readable JSON file. Confirm this request to continue.',
       confirmationToken,
     });
 
     return {
       requestId: String(request.id),
       status: request.status,
-      message: 'Your export request was received. We will email you when your download is ready.',
+      message: 'Your export request was received. We will email you when your JSON file is ready.',
     };
   }
 

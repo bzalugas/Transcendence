@@ -22,7 +22,7 @@ export async function requestDataExport(): Promise<DataOperationResult> {
   return {
     requestId: `export-${Date.now()}`,
     status: "pending",
-    message: "Your export request was received. We will email you when your download is ready.",
+    message: "Your export request was received. We will email you when your JSON file is ready.",
   };
 }
 

@@ -12,8 +12,18 @@ export interface DataOperationResult {
   message: string;
 }
 
+export interface DataConfirmationResult extends DataOperationResult {
+  type: "export" | "deletion";
+}
+
 export interface ExportPreview {
   generatedAt: string;
+  latestExport: {
+    requestId: string;
+    completedAt: string | null;
+    sizeBytes: number;
+    downloadUrl: string;
+  } | null;
   sections: Array<{
     label: string;
     count: number;
@@ -34,9 +44,19 @@ export async function requestDataDeletion(): Promise<DataOperationResult> {
   return request<DataOperationResult>("/privacy/delete-request", { method: "POST" });
 }
 
-// Placeholder: replace with GET /privacy/export/:requestId/download later.
-export function latestExportDownloadUrl(): string {
-  return "#";
+export async function confirmDataRequest(token: string): Promise<DataConfirmationResult> {
+  return request<DataConfirmationResult>("/privacy/requests/confirm", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ token }),
+  });
+}
+
+export function exportDownloadUrl(path?: string | null): string {
+  if (!path) return "#";
+  return path.startsWith("http") ? path : `${API_BASE_URL}${path}`;
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {

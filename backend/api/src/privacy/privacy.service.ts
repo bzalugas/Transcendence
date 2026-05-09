@@ -23,6 +23,12 @@ export interface PrivacyConfirmationDto extends PrivacyRequestDto {
 
 export interface ExportPreviewDto {
   generatedAt: string;
+  latestExport: {
+    requestId: string;
+    completedAt: string | null;
+    sizeBytes: number;
+    downloadUrl: string;
+  } | null;
   sections: Array<{
     label: string;
     count: number;
@@ -147,15 +153,38 @@ export class PrivacyService {
   }
 
   async getLatestExportPreview(userId: string): Promise<ExportPreviewDto> {
-    const [profileCount, postCount, messageCount, fileCount] = await Promise.all([
-      this.prisma.profile.count({ where: { userId } }),
-      this.prisma.post.count({ where: { authorId: userId } }),
-      this.prisma.message.count({ where: { senderId: userId } }),
-      this.prisma.fileAsset.count({ where: { ownerId: userId } }),
-    ]);
+    const [profileCount, postCount, messageCount, fileCount, latestExport] =
+      await Promise.all([
+        this.prisma.profile.count({ where: { userId } }),
+        this.prisma.post.count({ where: { authorId: userId } }),
+        this.prisma.message.count({ where: { senderId: userId } }),
+        this.prisma.fileAsset.count({ where: { ownerId: userId } }),
+        this.prisma.dataRequest.findFirst({
+          where: {
+            userId,
+            type: 'export',
+            status: 'completed',
+            exportStorageKey: { not: null },
+          },
+          select: {
+            id: true,
+            completedAt: true,
+            exportSizeBytes: true,
+          },
+          orderBy: { completedAt: 'desc' },
+        }),
+      ]);
 
     return {
       generatedAt: new Date().toISOString(),
+      latestExport: latestExport
+        ? {
+            requestId: String(latestExport.id),
+            completedAt: latestExport.completedAt?.toISOString() ?? null,
+            sizeBytes: latestExport.exportSizeBytes ?? 0,
+            downloadUrl: `/privacy/export/${latestExport.id}/download`,
+          }
+        : null,
       sections: [
         { label: 'Profile', count: profileCount },
         { label: 'Posts', count: postCount },

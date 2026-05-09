@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
+  confirmDataRequest,
+  exportDownloadUrl,
   getLatestExportPreview,
-  latestExportDownloadUrl,
   requestDataDeletion,
   requestDataExport,
   type DataOperationResult,
@@ -13,12 +15,24 @@ import {
 type OperationState = "idle" | "loading" | "success" | "error";
 
 export default function PrivacySettingsPage() {
+  const searchParams = useSearchParams();
+  const confirmationToken = searchParams.get("token");
   const [exportPreview, setExportPreview] = useState<ExportPreview | null>(null);
   const [exportState, setExportState] = useState<OperationState>("idle");
   const [deleteState, setDeleteState] = useState<OperationState>("idle");
+  const [confirmState, setConfirmState] = useState<OperationState>("idle");
   const [lastResult, setLastResult] = useState<DataOperationResult | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
+
+  async function refreshExportPreview() {
+    try {
+      const preview = await getLatestExportPreview();
+      setExportPreview(preview);
+    } catch {
+      setExportPreview(null);
+    }
+  }
 
   useEffect(() => {
     let active = true;
@@ -36,6 +50,30 @@ export default function PrivacySettingsPage() {
     };
   }, []);
 
+  async function handleConfirmRequest() {
+    if (!confirmationToken) return;
+
+    setConfirmState("loading");
+    setLastResult(null);
+
+    try {
+      const result = await confirmDataRequest(confirmationToken);
+      setLastResult(result);
+      setConfirmState("success");
+
+      if (result.type === "deletion" && result.status === "completed") {
+        window.location.href = "/login";
+        return;
+      }
+
+      if (result.type === "export") {
+        await refreshExportPreview();
+      }
+    } catch {
+      setConfirmState("error");
+    }
+  }
+
   async function handleExportRequest() {
     setExportState("loading");
     setLastResult(null);
@@ -44,6 +82,7 @@ export default function PrivacySettingsPage() {
       const result = await requestDataExport();
       setLastResult(result);
       setExportState("success");
+      await refreshExportPreview();
     } catch {
       setExportState("error");
     }
@@ -79,11 +118,35 @@ export default function PrivacySettingsPage() {
         {lastResult && (
           <div className="rounded-lg border border-border-subtle bg-bg-secondary px-4 py-3">
             <div className="text-[13px] font-medium text-text-primary">
-              Request queued
+              {lastResult.status === "completed" ? "Request completed" : "Request queued"}
             </div>
             <div className="mt-1 text-[12.5px] text-text-muted">
               {lastResult.message}
             </div>
+          </div>
+        )}
+
+        {confirmationToken && (
+          <div className="rounded-lg border border-border-subtle bg-bg-secondary px-4 py-3">
+            <div className="text-[13px] font-medium text-text-primary">
+              Confirm privacy request
+            </div>
+            <p className="mt-1 text-[12.5px] leading-relaxed text-text-muted">
+              Confirm the request from your email. Export requests will prepare your JSON file. Deletion requests will permanently remove your account data.
+            </p>
+            <button
+              type="button"
+              onClick={() => { void handleConfirmRequest(); }}
+              disabled={confirmState === "loading" || confirmState === "success"}
+              className="mt-3 rounded-[7px] bg-text-primary px-3.5 py-2 text-[12.5px] font-semibold text-bg-primary transition-opacity hover:opacity-90 disabled:opacity-40"
+            >
+              {confirmState === "loading" ? "Confirming..." : "Confirm request"}
+            </button>
+            {confirmState === "error" && (
+              <p className="mt-3 text-[12.5px] text-danger">
+                Could not confirm this request. The link may be expired or already used.
+              </p>
+            )}
           </div>
         )}
 
@@ -112,6 +175,14 @@ export default function PrivacySettingsPage() {
                   </div>
                 ))}
               </div>
+              {exportPreview.latestExport && (
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-md bg-bg-secondary px-3 py-2 text-[12.5px]">
+                  <span className="text-text-muted">Latest JSON file is ready</span>
+                  <span className="font-medium text-text-primary">
+                    {formatBytes(exportPreview.latestExport.sizeBytes)}
+                  </span>
+                </div>
+              )}
             </div>
           )}
 
@@ -125,9 +196,12 @@ export default function PrivacySettingsPage() {
               {exportState === "loading" ? "Requesting..." : "Request my data"}
             </button>
             <a
-              href={latestExportDownloadUrl()}
-              onClick={(event) => event.preventDefault()}
-              className="rounded-[7px] border border-border-default px-3.5 py-2 text-[12.5px] font-medium text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary"
+              href={exportDownloadUrl(exportPreview?.latestExport?.downloadUrl)}
+              aria-disabled={!exportPreview?.latestExport}
+              onClick={(event) => {
+                if (!exportPreview?.latestExport) event.preventDefault();
+              }}
+              className="rounded-[7px] border border-border-default px-3.5 py-2 text-[12.5px] font-medium text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary aria-disabled:pointer-events-none aria-disabled:opacity-40"
             >
               Download latest copy
             </a>
@@ -210,6 +284,12 @@ export default function PrivacySettingsPage() {
       )}
     </div>
   );
+}
+
+function formatBytes(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
 function Section({

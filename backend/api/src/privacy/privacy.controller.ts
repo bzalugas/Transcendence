@@ -1,5 +1,15 @@
-import { Body, Controller, Get, Post, Req } from '@nestjs/common';
-import type { Request } from 'express';
+import {
+  Body,
+  Controller,
+  Get,
+  Header,
+  Param,
+  ParseIntPipe,
+  Post,
+  Req,
+  Res,
+} from '@nestjs/common';
+import type { Request, Response } from 'express';
 import { getSessionUserId } from '../auth/session';
 import { PrivacyService } from './privacy.service';
 
@@ -33,5 +43,31 @@ export class PrivacyController {
   async latestExportPreview(@Req() req: Request) {
     const userId = await getSessionUserId(req);
     return this.privacyService.getLatestExportPreview(userId);
+  }
+
+  // Streams a completed export JSON file for its owner.
+  @Get('export/:requestId/download')
+  @Header('X-Content-Type-Options', 'nosniff')
+  async downloadExport(
+    @Req() req: Request,
+    @Res() res: Response,
+    @Param('requestId', ParseIntPipe) requestId: number,
+  ) {
+    const userId = await getSessionUserId(req);
+    const exportFile = await this.privacyService.openExportForUser(
+      userId,
+      requestId,
+    );
+    const encodedName = encodeURIComponent(exportFile.fileName);
+
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Content-Type', exportFile.mimeType);
+    res.setHeader('Content-Length', String(exportFile.sizeBytes));
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${exportFile.fileName}"; filename*=UTF-8''${encodedName}`,
+    );
+
+    return exportFile.stream.pipe(res);
   }
 }

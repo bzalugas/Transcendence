@@ -1,7 +1,13 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { createHash, randomBytes, randomUUID } from 'crypto';
-import { mkdir, writeFile } from 'fs/promises';
-import { join } from 'path';
+import { createReadStream } from 'fs';
+import { access, mkdir, writeFile } from 'fs/promises';
+import { basename, join } from 'path';
 import { EmailService } from '../email/email.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -21,6 +27,13 @@ export interface ExportPreviewDto {
     label: string;
     count: number;
   }>;
+}
+
+export interface ExportDownloadDto {
+  stream: ReturnType<typeof createReadStream>;
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
 }
 
 @Injectable()
@@ -157,6 +170,47 @@ export class PrivacyService {
     };
   }
 
+  async openExportForUser(
+    userId: string,
+    requestId: number,
+  ): Promise<ExportDownloadDto> {
+    const request = await this.prisma.dataRequest.findUnique({
+      where: { id: requestId },
+    });
+
+    if (!request || request.type !== 'export') {
+      throw new NotFoundException('Export not found');
+    }
+
+    if (request.userId !== userId) {
+      throw new ForbiddenException('You cannot download this export');
+    }
+
+    if (
+      request.status !== 'completed' ||
+      !request.exportStorageKey ||
+      !request.exportMimeType ||
+      !request.exportSizeBytes
+    ) {
+      throw new BadRequestException('Export is not ready yet');
+    }
+
+    const storagePath = this.exportStoragePath(request.exportStorageKey);
+
+    try {
+      await access(storagePath);
+    } catch {
+      throw new NotFoundException('Export file not found');
+    }
+
+    return {
+      stream: createReadStream(storagePath),
+      fileName: `42-connect-data-export-${request.id}.json`,
+      mimeType: request.exportMimeType,
+      sizeBytes: request.exportSizeBytes,
+    };
+  }
+
   private async createDataRequest(userId: string, type: 'export' | 'deletion') {
     const user = await this.prisma.user.findUniqueOrThrow({
       where: { id: userId },
@@ -193,7 +247,7 @@ export class PrivacyService {
     const exportData = await this.buildExportData(userId, requestedAt);
     const storageKey = `data-export-${requestId}-${randomUUID()}.json`;
     const content = JSON.stringify(exportData, null, 2);
-    const filePath = join(this.exportStorageDir, storageKey);
+    const filePath = this.exportStoragePath(storageKey);
 
     await mkdir(this.exportStorageDir, { recursive: true });
     await writeFile(filePath, content, { flag: 'wx' });
@@ -478,6 +532,10 @@ export class PrivacyService {
 
   private hashConfirmationToken(token: string): string {
     return createHash('sha256').update(token).digest('hex');
+  }
+
+  private exportStoragePath(storageKey: string): string {
+    return join(this.exportStorageDir, basename(storageKey));
   }
 
   private getAlreadyHandledMessage(

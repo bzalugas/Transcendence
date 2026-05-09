@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Req } from '@nestjs/common';
+import { Body, Controller, Get, Post, Req } from '@nestjs/common';
 import type { Request } from 'express';
 import { getSessionUserId } from '../auth/session';
 import { PrivacyService } from './privacy.service';
@@ -19,6 +19,13 @@ export class PrivacyController {
   async requestDeletion(@Req() req: Request) {
     const userId = await getSessionUserId(req);
     return this.privacyService.requestDeletion(userId);
+  }
+
+  // Confirms an export or deletion request using the emailed token.
+  @Post('requests/confirm')
+  async confirmRequest(@Req() req: Request, @Body('token') token: unknown) {
+    const userId = await getSessionUserId(req);
+    return this.privacyService.confirmRequest(userId, token);
   }
 
   // Returns lightweight counts for the current export preview UI.

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { createHash, randomBytes } from 'crypto';
 import { EmailService } from '../email/email.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -7,6 +7,10 @@ export interface PrivacyRequestDto {
   requestId: string;
   status: string;
   message: string;
+}
+
+export interface PrivacyConfirmationDto extends PrivacyRequestDto {
+  type: 'export' | 'deletion';
 }
 
 export interface ExportPreviewDto {
@@ -62,6 +66,62 @@ export class PrivacyService {
     };
   }
 
+  async confirmRequest(
+    userId: string,
+    token: unknown,
+  ): Promise<PrivacyConfirmationDto> {
+    const confirmationToken = this.normalizeConfirmationToken(token);
+    const confirmationTokenHash = this.hashConfirmationToken(confirmationToken);
+    const request = await this.prisma.dataRequest.findFirst({
+      where: {
+        userId,
+        confirmationTokenHash,
+      },
+    });
+
+    if (!request) {
+      throw new BadRequestException('Confirmation link is invalid or expired.');
+    }
+
+    if (request.status !== 'pending') {
+      return {
+        requestId: String(request.id),
+        type: request.type,
+        status: request.status,
+        message: this.getAlreadyHandledMessage(request.type, request.status),
+      };
+    }
+
+    if (
+      !request.confirmationExpiresAt ||
+      request.confirmationExpiresAt.getTime() < Date.now()
+    ) {
+      await this.prisma.dataRequest.update({
+        where: { id: request.id },
+        data: { status: 'expired' },
+      });
+      throw new BadRequestException('Confirmation link is invalid or expired.');
+    }
+
+    const confirmedRequest = await this.prisma.dataRequest.update({
+      where: { id: request.id },
+      data: {
+        status: 'confirmed',
+        confirmedAt: new Date(),
+      },
+    });
+
+    return {
+      requestId: String(confirmedRequest.id),
+      type: confirmedRequest.type,
+      status: confirmedRequest.status,
+      message:
+        confirmedRequest.type === 'export'
+          ? 'Your data export request is confirmed.'
+          : 'Your data deletion request is confirmed.',
+    };
+  }
+
   async getLatestExportPreview(userId: string): Promise<ExportPreviewDto> {
     const [profileCount, postCount, messageCount, fileCount] = await Promise.all([
       this.prisma.profile.count({ where: { userId } }),
@@ -87,9 +147,7 @@ export class PrivacyService {
       select: { email: true },
     });
     const confirmationToken = randomBytes(32).toString('hex');
-    const confirmationTokenHash = createHash('sha256')
-      .update(confirmationToken)
-      .digest('hex');
+    const confirmationTokenHash = this.hashConfirmationToken(confirmationToken);
     const confirmationExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
     const request = await this.prisma.dataRequest.create({
@@ -134,5 +192,50 @@ export class PrivacyService {
         </div>
       `,
     });
+  }
+
+  private normalizeConfirmationToken(token: unknown): string {
+    if (typeof token !== 'string') {
+      throw new BadRequestException('Confirmation token is required.');
+    }
+
+    const normalizedToken = token.trim();
+
+    if (!normalizedToken || normalizedToken.length > 256) {
+      throw new BadRequestException('Confirmation token is invalid.');
+    }
+
+    return normalizedToken;
+  }
+
+  private hashConfirmationToken(token: string): string {
+    return createHash('sha256').update(token).digest('hex');
+  }
+
+  private getAlreadyHandledMessage(
+    type: 'export' | 'deletion',
+    status: string,
+  ): string {
+    if (status === 'confirmed') {
+      return type === 'export'
+        ? 'Your data export request is already confirmed.'
+        : 'Your data deletion request is already confirmed.';
+    }
+
+    if (status === 'completed') {
+      return type === 'export'
+        ? 'Your data export request is already completed.'
+        : 'Your data deletion request is already completed.';
+    }
+
+    if (status === 'expired') {
+      return 'This confirmation link has expired.';
+    }
+
+    if (status === 'cancelled') {
+      return 'This request has been cancelled.';
+    }
+
+    return 'This request is already being processed.';
   }
 }

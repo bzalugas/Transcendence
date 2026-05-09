@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { createHash, randomBytes, randomUUID } from 'crypto';
 import { createReadStream } from 'fs';
-import { access, mkdir, writeFile } from 'fs/promises';
+import { access, mkdir, unlink, writeFile } from 'fs/promises';
 import { basename, join } from 'path';
 import { EmailService } from '../email/email.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -143,12 +143,7 @@ export class PrivacyService {
       };
     }
 
-    return {
-      requestId: String(confirmedRequest.id),
-      type: confirmedRequest.type,
-      status: confirmedRequest.status,
-      message: 'Your data deletion request is confirmed.',
-    };
+    return this.completeDeletionRequest(userId, confirmedRequest.id);
   }
 
   async getLatestExportPreview(userId: string): Promise<ExportPreviewDto> {
@@ -262,6 +257,122 @@ export class PrivacyService {
         completedAt: new Date(),
       },
     });
+  }
+
+  private async completeDeletionRequest(
+    userId: string,
+    requestId: number,
+  ): Promise<PrivacyConfirmationDto> {
+    const storageKeys = await this.collectUserStorageKeys(userId);
+
+    await this.prisma.$transaction(async (tx) => {
+      const [posts, messages] = await Promise.all([
+        tx.post.findMany({
+          where: { authorId: userId },
+          select: { id: true },
+        }),
+        tx.message.findMany({
+          where: { senderId: userId },
+          select: { id: true },
+        }),
+      ]);
+      const postIds = posts.map((post) => post.id);
+      const messageIds = messages.map((message) => message.id);
+
+      if (postIds.length > 0) {
+        await tx.post.updateMany({
+          where: { parentId: { in: postIds } },
+          data: { parentId: null },
+        });
+        await tx.notification.deleteMany({
+          where: { postId: { in: postIds } },
+        });
+        await tx.reaction.deleteMany({
+          where: { postId: { in: postIds } },
+        });
+        await tx.attachment.deleteMany({
+          where: { postId: { in: postIds } },
+        });
+      }
+
+      if (messageIds.length > 0) {
+        await tx.notification.deleteMany({
+          where: { messageId: { in: messageIds } },
+        });
+        await tx.attachment.deleteMany({
+          where: { messageId: { in: messageIds } },
+        });
+      }
+
+      await tx.notification.deleteMany({ where: { userId } });
+      await tx.reaction.deleteMany({ where: { userId } });
+      await tx.friendRequest.deleteMany({
+        where: {
+          OR: [{ senderId: userId }, { receiverId: userId }],
+        },
+      });
+      await tx.user_Interest.deleteMany({ where: { userId } });
+      await tx.user_Channel.deleteMany({ where: { userId } });
+      await tx.player.deleteMany({ where: { userId } });
+      await tx.message.deleteMany({ where: { senderId: userId } });
+      await tx.post.deleteMany({ where: { authorId: userId } });
+      await tx.fileAsset.deleteMany({ where: { ownerId: userId } });
+      await tx.profile.deleteMany({ where: { userId } });
+      await tx.session.deleteMany({ where: { userId } });
+      await tx.account.deleteMany({ where: { userId } });
+      await tx.dataRequest.update({
+        where: { id: requestId },
+        data: {
+          status: 'completed',
+          completedAt: new Date(),
+        },
+      });
+      await tx.user.delete({ where: { id: userId } });
+    });
+
+    await this.deleteStorageKeys(storageKeys);
+
+    return {
+      requestId: String(requestId),
+      type: 'deletion',
+      status: 'completed',
+      message: 'Your account data has been deleted.',
+    };
+  }
+
+  private async collectUserStorageKeys(userId: string): Promise<string[]> {
+    const [files, exports] = await Promise.all([
+      this.prisma.fileAsset.findMany({
+        where: { ownerId: userId },
+        select: { storageKey: true },
+      }),
+      this.prisma.dataRequest.findMany({
+        where: {
+          userId,
+          exportStorageKey: { not: null },
+        },
+        select: { exportStorageKey: true },
+      }),
+    ]);
+
+    return [
+      ...files.map((file) => file.storageKey),
+      ...exports
+        .map((request) => request.exportStorageKey)
+        .filter((storageKey): storageKey is string => Boolean(storageKey)),
+    ];
+  }
+
+  private async deleteStorageKeys(storageKeys: string[]): Promise<void> {
+    await Promise.all(
+      storageKeys.map(async (storageKey) => {
+        try {
+          await unlink(this.exportStoragePath(storageKey));
+        } catch {
+          // Missing files should not block a completed account deletion.
+        }
+      }),
+    );
   }
 
   private async buildExportData(userId: string, generatedAt: Date) {

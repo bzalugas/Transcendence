@@ -4,43 +4,278 @@ import { randomUUID } from 'node:crypto';
 
 const prisma = new PrismaClient();
 const sharedPassword = '123456ABCdef!';
+const maxFriendsPerUser = 10;
+const maxRootPostsPerChannel = 5;
 
-const users = [
+type SeedUser = {
+  firstName: string;
+  lastName: string;
+  email: string;
+  interests: string[];
+};
+
+type SeedPost = {
+  channelName: string;
+  authorEmail: string;
+  content: string;
+  comments: Array<{
+    authorEmail: string;
+    content: string;
+  }>;
+};
+
+const users: SeedUser[] = [
   {
     firstName: 'Alice',
     lastName: 'Martin',
-    email: 'alice.martin@example.com',
+    email: 'amartin@example.com',
     interests: ['Cycling', 'Photography'],
   },
   {
     firstName: 'Ben',
     lastName: 'Durand',
-    email: 'ben.durand@example.com',
+    email: 'bdurand@example.com',
     interests: ['Gaming', 'Chess'],
   },
   {
     firstName: 'Clara',
     lastName: 'Moreau',
-    email: 'clara.moreau@example.com',
+    email: 'cmoreau@example.com',
     interests: ['Photography', 'Aviation', 'Chess'],
   },
   {
     firstName: 'David',
     lastName: 'Bernard',
-    email: 'david.bernard@example.com',
+    email: 'dbernard@example.com',
     interests: ['Chess'],
   },
   {
     firstName: 'Emma',
     lastName: 'Robert',
-    email: 'emma.robert@example.com',
+    email: 'erobert@example.com',
     interests: ['Sport', 'Photography'],
   },
   {
     firstName: 'Louis',
     lastName: 'Petit',
-    email: 'louis.petit@example.com',
+    email: 'lpetit@example.com',
     interests: ['Aviation', 'Cycling', 'Gaming'],
+  },
+  {
+    firstName: 'Nina',
+    lastName: 'Laurent',
+    email: 'nlaurent@example.com',
+    interests: ['Music', 'Design'],
+  },
+  {
+    firstName: 'Omar',
+    lastName: 'Garcia',
+    email: 'ogarcia@example.com',
+    interests: ['Cooking', 'Hiking'],
+  },
+  {
+    firstName: 'Sofia',
+    lastName: 'Renaud',
+    email: 'srenaud@example.com',
+    interests: ['Robotics', 'AI'],
+  },
+  {
+    firstName: 'Hugo',
+    lastName: 'Lambert',
+    email: 'hlambert@example.com',
+    interests: ['Web Dev', 'Gaming'],
+  },
+  {
+    firstName: 'Lea',
+    lastName: 'Fournier',
+    email: 'lfournier@example.com',
+    interests: ['Cinema', 'Literature'],
+  },
+  {
+    firstName: 'Noah',
+    lastName: 'Girard',
+    email: 'ngirard@example.com',
+    interests: ['Climbing', 'Sport'],
+  },
+  {
+    firstName: 'Maya',
+    lastName: 'Blanc',
+    email: 'mblanc@example.com',
+    interests: ['Music', 'Photography'],
+  },
+  {
+    firstName: 'Theo',
+    lastName: 'Garnier',
+    email: 'tgarnier@example.com',
+    interests: ['Robotics', 'Web Dev', 'AI'],
+  },
+  {
+    firstName: 'Ines',
+    lastName: 'Chevalier',
+    email: 'ichevalier@example.com',
+    interests: ['Cooking', 'Design'],
+  },
+  {
+    firstName: 'Gabriel',
+    lastName: 'Muller',
+    email: 'gmuller@example.com',
+    interests: ['Hiking', 'Cycling'],
+  },
+  {
+    firstName: 'Chloe',
+    lastName: 'Perrin',
+    email: 'cperrin@example.com',
+    interests: ['Cinema', 'Music'],
+  },
+  {
+    firstName: 'Adam',
+    lastName: 'Faure',
+    email: 'afaure@example.com',
+    interests: ['AI', 'Chess'],
+  },
+  {
+    firstName: 'Julie',
+    lastName: 'Andre',
+    email: 'jandre@example.com',
+    interests: ['Climbing', 'Hiking', 'Sport'],
+  },
+  {
+    firstName: 'Rayan',
+    lastName: 'Mercier',
+    email: 'rmercier@example.com',
+    interests: ['Web Dev', 'Design'],
+  },
+  {
+    firstName: 'Camille',
+    lastName: 'Dupont',
+    email: 'cdupont@example.com',
+    interests: ['Literature', 'Photography'],
+  },
+  {
+    firstName: 'Nathan',
+    lastName: 'Henry',
+    email: 'nhenry@example.com',
+    interests: ['Gaming', 'Robotics'],
+  },
+  {
+    firstName: 'Sarah',
+    lastName: 'Roche',
+    email: 'sroche@example.com',
+    interests: ['Aviation', 'AI'],
+  },
+  {
+    firstName: 'Tom',
+    lastName: 'Roy',
+    email: 'troy@example.com',
+    interests: ['Sport', 'Cycling'],
+  },
+  {
+    firstName: 'Eva',
+    lastName: 'Colin',
+    email: 'ecolin@example.com',
+    interests: ['Cooking', 'Music'],
+  },
+  {
+    firstName: 'Maxime',
+    lastName: 'Renard',
+    email: 'mrenard@example.com',
+    interests: ['Design', 'Cinema'],
+  },
+  {
+    firstName: 'Lina',
+    lastName: 'Gauthier',
+    email: 'lgauthier@example.com',
+    interests: ['Hiking', 'Photography'],
+  },
+  {
+    firstName: 'Paul',
+    lastName: 'Marchand',
+    email: 'pmarchand@example.com',
+    interests: ['Chess', 'Web Dev'],
+  },
+  {
+    firstName: 'Zoe',
+    lastName: 'Schmitt',
+    email: 'zschmitt@example.com',
+    interests: ['Climbing', 'Cycling'],
+  },
+  {
+    firstName: 'Yanis',
+    lastName: 'Noel',
+    email: 'ynoel@example.com',
+    interests: ['Gaming', 'AI'],
+  },
+  {
+    firstName: 'Manon',
+    lastName: 'Dufour',
+    email: 'mdufour@example.com',
+    interests: ['Literature', 'Cinema'],
+  },
+  {
+    firstName: 'Ethan',
+    lastName: 'Caron',
+    email: 'ecaron@example.com',
+    interests: ['Robotics', 'Aviation'],
+  },
+  {
+    firstName: 'Jade',
+    lastName: 'Lemoine',
+    email: 'jlemoine@example.com',
+    interests: ['Sport', 'Cooking'],
+  },
+  {
+    firstName: 'Leo',
+    lastName: 'Aubry',
+    email: 'laubry@example.com',
+    interests: ['Music', 'Web Dev'],
+  },
+  {
+    firstName: 'Ambre',
+    lastName: 'Vidal',
+    email: 'avidal@example.com',
+    interests: ['Design', 'Photography'],
+  },
+  {
+    firstName: 'Ilyes',
+    lastName: 'Arnaud',
+    email: 'iarnaud@example.com',
+    interests: ['Hiking', 'Climbing'],
+  },
+  {
+    firstName: 'Rose',
+    lastName: 'Picard',
+    email: 'rpicard@example.com',
+    interests: ['Chess', 'Gaming'],
+  },
+  {
+    firstName: 'Victor',
+    lastName: 'Leclerc',
+    email: 'vleclerc@example.com',
+    interests: ['Aviation', 'Cycling'],
+  },
+  {
+    firstName: 'Nora',
+    lastName: 'Boucher',
+    email: 'nboucher@example.com',
+    interests: ['AI', 'Robotics'],
+  },
+  {
+    firstName: 'Enzo',
+    lastName: 'Payet',
+    email: 'epayet@example.com',
+    interests: ['Cinema', 'Sport'],
+  },
+  {
+    firstName: 'Lola',
+    lastName: 'Meyer',
+    email: 'lmeyer@example.com',
+    interests: ['Cooking', 'Literature'],
+  },
+  {
+    firstName: 'Samy',
+    lastName: 'Baron',
+    email: 'sbaron@example.com',
+    interests: ['Web Dev', 'AI'],
   },
 ];
 
@@ -51,59 +286,250 @@ const interests = [
   { name: 'Chess', color: '#F97316' },
   { name: 'Sport', color: '#10B981' },
   { name: 'Aviation', color: '#0EA5E9' },
+  { name: 'Music', color: '#EC4899' },
+  { name: 'Cooking', color: '#F59E0B' },
+  { name: 'Robotics', color: '#64748B' },
+  { name: 'Design', color: '#E11D48' },
+  { name: 'Hiking', color: '#84CC16' },
+  { name: 'Cinema', color: '#6366F1' },
+  { name: 'Literature', color: '#A855F7' },
+  { name: 'Web Dev', color: '#14B8A6' },
+  { name: 'AI', color: '#06B6D4' },
+  { name: 'Climbing', color: '#D946EF' },
 ];
 
-const samplePosts = [
+const samplePosts: SeedPost[] = [
   {
     channelName: 'Cycling',
-    authorEmail: 'alice.martin@example.com',
-    content: 'Saturday route is ready: 60km along the river with a coffee stop halfway.',
+    authorEmail: 'amartin@example.com',
+    content:
+      'Saturday route is ready: 60km along the river with a coffee stop halfway.',
     comments: [
       {
-        authorEmail: 'louis.petit@example.com',
+        authorEmail: 'lpetit@example.com',
         content: 'I am in. I can bring tools and a spare tube.',
       },
     ],
   },
   {
+    channelName: 'Cycling',
+    authorEmail: 'gmuller@example.com',
+    content: 'I mapped a beginner-friendly hill session for Thursday evening.',
+    comments: [],
+  },
+  {
     channelName: 'Photography',
-    authorEmail: 'clara.moreau@example.com',
-    content: 'Golden hour around campus was perfect today. Anyone up for a weekend photowalk?',
+    authorEmail: 'cmoreau@example.com',
+    content:
+      'Golden hour around campus was perfect today. Anyone up for a weekend photowalk?',
     comments: [
       {
-        authorEmail: 'emma.robert@example.com',
+        authorEmail: 'erobert@example.com',
         content: 'Yes, I would love to join and practice portraits.',
       },
     ],
   },
   {
+    channelName: 'Photography',
+    authorEmail: 'mblanc@example.com',
+    content:
+      'I can lend two prime lenses for the next photowalk if anyone wants to try them.',
+    comments: [],
+  },
+  {
     channelName: 'Gaming',
-    authorEmail: 'ben.durand@example.com',
-    content: 'Looking for two teammates for a relaxed tournament night this Friday.',
+    authorEmail: 'bdurand@example.com',
+    content:
+      'Looking for two teammates for a relaxed tournament night this Friday.',
+    comments: [],
+  },
+  {
+    channelName: 'Gaming',
+    authorEmail: 'nhenry@example.com',
+    content: 'Retro co-op night is open. Bring controllers if you have spares.',
     comments: [],
   },
   {
     channelName: 'Chess',
-    authorEmail: 'david.bernard@example.com',
-    content: 'I booked a table for blitz games after lunch. All levels welcome.',
+    authorEmail: 'dbernard@example.com',
+    content:
+      'I booked a table for blitz games after lunch. All levels welcome.',
+    comments: [],
+  },
+  {
+    channelName: 'Chess',
+    authorEmail: 'rpicard@example.com',
+    content: 'I will run through two endgame positions before the blitz games.',
     comments: [],
   },
   {
     channelName: 'Sport',
-    authorEmail: 'emma.robert@example.com',
-    content: 'Running group starts at 18:30 near the entrance. Easy pace today.',
+    authorEmail: 'erobert@example.com',
+    content:
+      'Running group starts at 18:30 near the entrance. Easy pace today.',
+    comments: [],
+  },
+  {
+    channelName: 'Sport',
+    authorEmail: 'troy@example.com',
+    content: 'Anyone up for a recovery stretching session after the run?',
     comments: [],
   },
   {
     channelName: 'Aviation',
-    authorEmail: 'louis.petit@example.com',
-    content: 'There is a great documentary about flight control systems tonight in the media room.',
+    authorEmail: 'lpetit@example.com',
+    content:
+      'There is a great documentary about flight control systems tonight in the media room.',
+    comments: [],
+  },
+  {
+    channelName: 'Aviation',
+    authorEmail: 'sroche@example.com',
+    content:
+      'I found a clear simulator checklist for basic radio navigation practice.',
+    comments: [],
+  },
+  {
+    channelName: 'Music',
+    authorEmail: 'nlaurent@example.com',
+    content:
+      'Open jam in the lounge tonight. Acoustic sets first, synths later.',
+    comments: [],
+  },
+  {
+    channelName: 'Music',
+    authorEmail: 'laubry@example.com',
+    content:
+      'I can record the jam and share stems for anyone who wants to mix.',
+    comments: [],
+  },
+  {
+    channelName: 'Cooking',
+    authorEmail: 'ogarcia@example.com',
+    content:
+      'Batch cooking session this Sunday: cheap meals for the whole week.',
+    comments: [],
+  },
+  {
+    channelName: 'Cooking',
+    authorEmail: 'jlemoine@example.com',
+    content:
+      'I am bringing a vegetarian chili recipe that scales well for groups.',
+    comments: [],
+  },
+  {
+    channelName: 'Robotics',
+    authorEmail: 'srenaud@example.com',
+    content:
+      'The line-following robot finally handles sharp turns. Demo after lunch.',
+    comments: [],
+  },
+  {
+    channelName: 'Robotics',
+    authorEmail: 'ecaron@example.com',
+    content: 'I printed extra sensor mounts if another team needs them.',
+    comments: [],
+  },
+  {
+    channelName: 'Design',
+    authorEmail: 'rmercier@example.com',
+    content: 'Quick critique session for portfolio layouts tomorrow morning.',
+    comments: [],
+  },
+  {
+    channelName: 'Design',
+    authorEmail: 'avidal@example.com',
+    content:
+      'I collected a few dashboard references for the design channel board.',
+    comments: [],
+  },
+  {
+    channelName: 'Hiking',
+    authorEmail: 'lgauthier@example.com',
+    content: 'Weather looks good for a short forest hike on Saturday.',
+    comments: [],
+  },
+  {
+    channelName: 'Hiking',
+    authorEmail: 'iarnaud@example.com',
+    content: 'I added a gear checklist for the weekend route.',
+    comments: [],
+  },
+  {
+    channelName: 'Cinema',
+    authorEmail: 'lfournier@example.com',
+    content: 'Screening a short film selection in the common room at 20:00.',
+    comments: [],
+  },
+  {
+    channelName: 'Cinema',
+    authorEmail: 'mrenard@example.com',
+    content:
+      'I can lead a quick discussion after the screening for anyone interested.',
+    comments: [],
+  },
+  {
+    channelName: 'Literature',
+    authorEmail: 'cdupont@example.com',
+    content:
+      'Book swap box is now near the coffee machine. Add your name inside covers.',
+    comments: [],
+  },
+  {
+    channelName: 'Literature',
+    authorEmail: 'lmeyer@example.com',
+    content: 'I am starting a short story reading group next week.',
+    comments: [],
+  },
+  {
+    channelName: 'Web Dev',
+    authorEmail: 'hlambert@example.com',
+    content:
+      'Pair debugging session for frontend routing issues this afternoon.',
+    comments: [],
+  },
+  {
+    channelName: 'Web Dev',
+    authorEmail: 'sbaron@example.com',
+    content:
+      'I wrote a small checklist for reviewing API calls in React pages.',
+    comments: [],
+  },
+  {
+    channelName: 'AI',
+    authorEmail: 'tgarnier@example.com',
+    content: 'I am comparing small local models for code search experiments.',
+    comments: [],
+  },
+  {
+    channelName: 'AI',
+    authorEmail: 'nboucher@example.com',
+    content: 'Prompt evaluation meetup tomorrow: bring one workflow to test.',
+    comments: [],
+  },
+  {
+    channelName: 'Climbing',
+    authorEmail: 'jandre@example.com',
+    content: 'Bouldering group leaves at 18:00. Beginners welcome.',
+    comments: [],
+  },
+  {
+    channelName: 'Climbing',
+    authorEmail: 'zschmitt@example.com',
+    content: 'I reserved two extra rental shoes for first-timers.',
     comments: [],
   },
 ];
 
+const seedUsersWithoutFriends = new Set([
+  'ngirard@example.com',
+  'zschmitt@example.com',
+]);
+const seededFriendships = buildSeededFriendships();
+
 // Seeds the development database with login-ready users, interests, and channels.
 async function main() {
+  validateSeedData();
   const passwordHash = await hashPassword(sharedPassword);
 
   for (const seedUser of users) {
@@ -118,6 +544,7 @@ async function main() {
     await seedJoinedInterests(seedUser);
   }
 
+  await seedFriendships();
   await seedChannelPosts();
 }
 
@@ -263,6 +690,259 @@ async function seedJoinedInterests(seedUser: (typeof users)[number]) {
       update: {},
     });
   }
+}
+
+// Creates accepted friendships only between users who share at least one interest.
+async function seedFriendships() {
+  const seededUsers = await prisma.user.findMany({
+    where: {
+      email: {
+        in: users.map((user) => user.email),
+      },
+    },
+    select: {
+      id: true,
+    },
+  });
+  const seededUserIds = seededUsers.map((user) => user.id);
+
+  await prisma.friendRequest.deleteMany({
+    where: {
+      AND: [
+        { senderId: { in: seededUserIds } },
+        { receiverId: { in: seededUserIds } },
+      ],
+    },
+  });
+
+  for (const [senderEmail, receiverEmail] of seededFriendships) {
+    const sender = await prisma.user.findUnique({
+      where: { email: senderEmail },
+    });
+    const receiver = await prisma.user.findUnique({
+      where: { email: receiverEmail },
+    });
+
+    if (!sender || !receiver) continue;
+    const pairKey = friendPairKey(sender.id, receiver.id);
+
+    await prisma.friendRequest.upsert({
+      where: {
+        pairKey,
+      },
+      create: {
+        senderId: sender.id,
+        receiverId: receiver.id,
+        pairKey,
+        status: 'Accepted',
+      },
+      update: {
+        status: 'Accepted',
+      },
+    });
+  }
+}
+
+function buildSeededFriendships() {
+  const friendships: Array<[string, string]> = [];
+  const friendCounts = new Map(users.map((user) => [user.email, 0]));
+  const userIndexes = new Map(users.map((user, index) => [user.email, index]));
+  const friendshipKeys = new Set<string>();
+
+  for (let index = 0; index < users.length; index += 1) {
+    const user = users[index];
+    const targetCount = desiredSeedFriendCount(user, index);
+
+    while ((friendCounts.get(user.email) ?? 0) < targetCount) {
+      const candidate = users
+        .filter((other) => other.email !== user.email)
+        .filter((other) => {
+          const otherIndex = userIndexes.get(other.email) ?? 0;
+          const otherTargetCount = desiredSeedFriendCount(other, otherIndex);
+
+          return (
+            otherTargetCount > 0 &&
+            (friendCounts.get(other.email) ?? 0) < otherTargetCount
+          );
+        })
+        .filter((other) => sharedInterestCount(user, other) > 0)
+        .filter(
+          (other) => !friendshipKeys.has(emailPairKey(user.email, other.email)),
+        )
+        .sort((first, second) => {
+          const sharedDifference =
+            sharedInterestCount(second, user) -
+            sharedInterestCount(first, user);
+          if (sharedDifference !== 0) return sharedDifference;
+
+          const firstCount = friendCounts.get(first.email) ?? 0;
+          const secondCount = friendCounts.get(second.email) ?? 0;
+          if (firstCount !== secondCount) return firstCount - secondCount;
+
+          return first.email.localeCompare(second.email);
+        })[0];
+
+      if (!candidate) break;
+
+      const key = emailPairKey(user.email, candidate.email);
+      friendshipKeys.add(key);
+      friendships.push([user.email, candidate.email]);
+      friendCounts.set(user.email, (friendCounts.get(user.email) ?? 0) + 1);
+      friendCounts.set(
+        candidate.email,
+        (friendCounts.get(candidate.email) ?? 0) + 1,
+      );
+    }
+  }
+
+  return friendships;
+}
+
+function desiredSeedFriendCount(user: SeedUser, index: number) {
+  if (seedUsersWithoutFriends.has(user.email)) return 0;
+  return 1 + ((index * 7) % maxFriendsPerUser);
+}
+
+function sharedInterestCount(firstUser: SeedUser, secondUser: SeedUser) {
+  return firstUser.interests.filter((interest) =>
+    secondUser.interests.includes(interest),
+  ).length;
+}
+
+function emailPairKey(firstEmail: string, secondEmail: string) {
+  return [firstEmail, secondEmail].sort().join(':');
+}
+
+function validateSeedData() {
+  if (users.length !== 42) {
+    throw new Error(
+      `Seed must contain exactly 42 users, found ${users.length}`,
+    );
+  }
+
+  if (interests.length !== 16) {
+    throw new Error(
+      `Seed must contain exactly 16 interests, found ${interests.length}`,
+    );
+  }
+
+  validateSeededUsers();
+  validateSeededPosts();
+  validateSeededFriendships();
+}
+
+function validateSeededUsers() {
+  const emails = new Set<string>();
+  const logins = new Set<string>();
+  const interestNames = new Set(interests.map((interest) => interest.name));
+
+  for (const user of users) {
+    if (emails.has(user.email)) {
+      throw new Error(`Duplicate seeded user email: ${user.email}`);
+    }
+
+    const login = `${user.firstName[0]}${user.lastName}`.toLowerCase();
+    if (logins.has(login)) {
+      throw new Error(`Duplicate seeded user login: ${login}`);
+    }
+
+    if (user.interests.length === 0 || user.interests.length > 3) {
+      throw new Error(`Seeded user must have 1-3 interests: ${user.email}`);
+    }
+
+    for (const interest of user.interests) {
+      if (!interestNames.has(interest)) {
+        throw new Error(
+          `Unknown interest "${interest}" for seeded user ${user.email}`,
+        );
+      }
+    }
+
+    emails.add(user.email);
+    logins.add(login);
+  }
+}
+
+function validateSeededPosts() {
+  const rootPostCounts = new Map<string, number>();
+  const interestNames = new Set(interests.map((interest) => interest.name));
+
+  for (const samplePost of samplePosts) {
+    if (!interestNames.has(samplePost.channelName)) {
+      throw new Error(
+        `Seeded post references an unknown channel: ${samplePost.channelName}`,
+      );
+    }
+
+    assertUserCanPostInChannel(samplePost.authorEmail, samplePost.channelName);
+
+    rootPostCounts.set(
+      samplePost.channelName,
+      (rootPostCounts.get(samplePost.channelName) ?? 0) + 1,
+    );
+
+    for (const comment of samplePost.comments) {
+      assertUserCanPostInChannel(comment.authorEmail, samplePost.channelName);
+    }
+  }
+
+  for (const [channelName, count] of rootPostCounts) {
+    if (count > maxRootPostsPerChannel) {
+      throw new Error(
+        `Seeded channel has more than 5 root posts: ${channelName}`,
+      );
+    }
+  }
+}
+
+function assertUserCanPostInChannel(email: string, channelName: string) {
+  const user = users.find((seedUser) => seedUser.email === email);
+
+  if (!user) {
+    throw new Error(`Seeded post references an unknown author: ${email}`);
+  }
+
+  if (!user.interests.includes(channelName)) {
+    throw new Error(
+      `Seeded author ${email} is not interested in ${channelName}`,
+    );
+  }
+}
+
+function validateSeededFriendships() {
+  const friendCounts = new Map(users.map((user) => [user.email, 0]));
+
+  for (const [firstEmail, secondEmail] of seededFriendships) {
+    const firstUser = users.find((user) => user.email === firstEmail);
+    const secondUser = users.find((user) => user.email === secondEmail);
+
+    if (!firstUser || !secondUser) {
+      throw new Error(
+        `Seeded friendship references an unknown user: ${firstEmail}, ${secondEmail}`,
+      );
+    }
+
+    if (sharedInterestCount(firstUser, secondUser) === 0) {
+      throw new Error(
+        `Seeded friendship has no shared interest: ${firstEmail}, ${secondEmail}`,
+      );
+    }
+
+    friendCounts.set(firstEmail, (friendCounts.get(firstEmail) ?? 0) + 1);
+    friendCounts.set(secondEmail, (friendCounts.get(secondEmail) ?? 0) + 1);
+  }
+
+  for (const [email, count] of friendCounts) {
+    if (count > maxFriendsPerUser) {
+      throw new Error(
+        `Seeded user has more than ${maxFriendsPerUser} friends: ${email}`,
+      );
+    }
+  }
+}
+
+function friendPairKey(firstUserId: string, secondUserId: string) {
+  return [firstUserId, secondUserId].sort().join(':');
 }
 
 // Creates sample persisted posts and comments for the seeded interest channels.

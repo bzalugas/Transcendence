@@ -1,5 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { createHash, randomBytes } from 'crypto';
+import { createHash, randomBytes, randomUUID } from 'crypto';
+import { mkdir, writeFile } from 'fs/promises';
+import { join } from 'path';
 import { EmailService } from '../email/email.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -23,6 +25,9 @@ export interface ExportPreviewDto {
 
 @Injectable()
 export class PrivacyService {
+  private readonly exportStorageDir =
+    process.env.FILE_STORAGE_DIR ?? join(process.cwd(), 'uploads', 'private');
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly emailService: EmailService,
@@ -111,14 +116,25 @@ export class PrivacyService {
       },
     });
 
+    if (confirmedRequest.type === 'export') {
+      const completedRequest = await this.generateExportFile(
+        userId,
+        confirmedRequest.id,
+      );
+
+      return {
+        requestId: String(completedRequest.id),
+        type: completedRequest.type,
+        status: completedRequest.status,
+        message: 'Your data export request is confirmed and the JSON file is ready.',
+      };
+    }
+
     return {
       requestId: String(confirmedRequest.id),
       type: confirmedRequest.type,
       status: confirmedRequest.status,
-      message:
-        confirmedRequest.type === 'export'
-          ? 'Your data export request is confirmed.'
-          : 'Your data deletion request is confirmed.',
+      message: 'Your data deletion request is confirmed.',
     };
   }
 
@@ -163,6 +179,258 @@ export class PrivacyService {
       request,
       confirmationToken,
       userEmail: user.email,
+    };
+  }
+
+  private async generateExportFile(userId: string, requestId: number) {
+    const requestedAt = new Date();
+
+    await this.prisma.dataRequest.update({
+      where: { id: requestId },
+      data: { status: 'processing' },
+    });
+
+    const exportData = await this.buildExportData(userId, requestedAt);
+    const storageKey = `data-export-${requestId}-${randomUUID()}.json`;
+    const content = JSON.stringify(exportData, null, 2);
+    const filePath = join(this.exportStorageDir, storageKey);
+
+    await mkdir(this.exportStorageDir, { recursive: true });
+    await writeFile(filePath, content, { flag: 'wx' });
+
+    return this.prisma.dataRequest.update({
+      where: { id: requestId },
+      data: {
+        status: 'completed',
+        exportStorageKey: storageKey,
+        exportMimeType: 'application/json',
+        exportSizeBytes: Buffer.byteLength(content),
+        completedAt: new Date(),
+      },
+    });
+  }
+
+  private async buildExportData(userId: string, generatedAt: Date) {
+    const [
+      user,
+      profile,
+      interests,
+      channels,
+      friendRequestsSent,
+      friendRequestsReceived,
+      posts,
+      messages,
+      files,
+      dataRequests,
+    ] = await Promise.all([
+      this.prisma.user.findUniqueOrThrow({
+        where: { id: userId },
+        select: {
+          id: true,
+          email: true,
+          login: true,
+          role: true,
+          name: true,
+          emailVerified: true,
+          image: true,
+          createdAt: true,
+          updatedAt: true,
+          accounts: {
+            select: {
+              providerId: true,
+              accountId: true,
+              createdAt: true,
+              updatedAt: true,
+            },
+          },
+        },
+      }),
+      this.prisma.profile.findUnique({
+        where: { userId },
+        include: {
+          socials: {
+            select: {
+              platform: true,
+              label: true,
+              url: true,
+            },
+          },
+        },
+      }),
+      this.prisma.user_Interest.findMany({
+        where: { userId },
+        select: {
+          interestLvl: true,
+          interest: {
+            select: {
+              id: true,
+              name: true,
+              color: true,
+              imageUri: true,
+              parentId: true,
+            },
+          },
+        },
+        orderBy: { interestId: 'asc' },
+      }),
+      this.prisma.user_Channel.findMany({
+        where: { userId },
+        select: {
+          joinedAt: true,
+          isFavorite: true,
+          channel: {
+            select: {
+              id: true,
+              interest: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: { channelId: 'asc' },
+      }),
+      this.prisma.friendRequest.findMany({
+        where: { senderId: userId },
+        select: {
+          id: true,
+          receiverId: true,
+          status: true,
+          CreatedAt: true,
+          UpdatedAt: true,
+        },
+        orderBy: { id: 'asc' },
+      }),
+      this.prisma.friendRequest.findMany({
+        where: { receiverId: userId },
+        select: {
+          id: true,
+          senderId: true,
+          status: true,
+          CreatedAt: true,
+          UpdatedAt: true,
+        },
+        orderBy: { id: 'asc' },
+      }),
+      this.prisma.post.findMany({
+        where: { authorId: userId },
+        select: {
+          id: true,
+          createdAt: true,
+          content: true,
+          type: true,
+          parentId: true,
+          channelId: true,
+          reactions: {
+            select: {
+              id: true,
+              emoji: true,
+              userId: true,
+            },
+          },
+          attachments: {
+            select: {
+              id: true,
+              type: true,
+              file: {
+                select: {
+                  id: true,
+                  originalName: true,
+                  mimeType: true,
+                  sizeBytes: true,
+                  category: true,
+                  attachmentType: true,
+                  status: true,
+                  createdAt: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: { createdAt: 'asc' },
+      }),
+      this.prisma.message.findMany({
+        where: { senderId: userId },
+        select: {
+          id: true,
+          createdAt: true,
+          content: true,
+          type: true,
+          chatId: true,
+          attachments: {
+            select: {
+              id: true,
+              type: true,
+              file: {
+                select: {
+                  id: true,
+                  originalName: true,
+                  mimeType: true,
+                  sizeBytes: true,
+                  category: true,
+                  attachmentType: true,
+                  status: true,
+                  createdAt: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: { createdAt: 'asc' },
+      }),
+      this.prisma.fileAsset.findMany({
+        where: { ownerId: userId },
+        select: {
+          id: true,
+          originalName: true,
+          mimeType: true,
+          sizeBytes: true,
+          category: true,
+          attachmentType: true,
+          status: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+        orderBy: { createdAt: 'asc' },
+      }),
+      this.prisma.dataRequest.findMany({
+        where: { userId },
+        select: {
+          id: true,
+          type: true,
+          status: true,
+          exportMimeType: true,
+          exportSizeBytes: true,
+          requestedAt: true,
+          confirmedAt: true,
+          completedAt: true,
+          cancelledAt: true,
+        },
+        orderBy: { requestedAt: 'asc' },
+      }),
+    ]);
+
+    return {
+      metadata: {
+        format: '42-connect-gdpr-export',
+        version: 1,
+        generatedAt,
+        requestedByUserId: userId,
+      },
+      user,
+      profile,
+      interests,
+      channels,
+      friendRequests: {
+        sent: friendRequestsSent,
+        received: friendRequestsReceived,
+      },
+      posts,
+      messages,
+      uploadedFiles: files,
+      dataRequests,
     };
   }
 

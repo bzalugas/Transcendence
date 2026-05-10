@@ -20,6 +20,12 @@ CREATE TYPE "FileCategory" AS ENUM ('image', 'document', 'archive', 'other');
 CREATE TYPE "FileStatus" AS ENUM ('uploaded', 'attached', 'deleted');
 
 -- CreateEnum
+CREATE TYPE "DataRequestType" AS ENUM ('export', 'deletion');
+
+-- CreateEnum
+CREATE TYPE "DataRequestStatus" AS ENUM ('pending', 'confirmed', 'processing', 'completed', 'cancelled', 'expired');
+
+-- CreateEnum
 CREATE TYPE "ChatType" AS ENUM ('Interest', 'Group', 'Private');
 
 -- CreateEnum
@@ -210,6 +216,26 @@ CREATE TABLE "Notification" (
 );
 
 -- CreateTable
+CREATE TABLE "DataRequest" (
+    "id" SERIAL NOT NULL,
+    "userId" TEXT NOT NULL,
+    "type" "DataRequestType" NOT NULL,
+    "status" "DataRequestStatus" NOT NULL DEFAULT 'pending',
+    "confirmationTokenHash" TEXT,
+    "confirmationExpiresAt" TIMESTAMP(3),
+    "exportStorageKey" TEXT,
+    "exportMimeType" TEXT,
+    "exportSizeBytes" INTEGER,
+    "requestedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "confirmedAt" TIMESTAMP(3),
+    "completedAt" TIMESTAMP(3),
+    "cancelledAt" TIMESTAMP(3),
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "DataRequest_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "Game" (
     "id" SERIAL NOT NULL,
     "name" TEXT NOT NULL,
@@ -336,6 +362,15 @@ CREATE INDEX "Attachment_postId_idx" ON "Attachment"("postId");
 CREATE INDEX "Attachment_messageId_idx" ON "Attachment"("messageId");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "DataRequest_confirmationTokenHash_key" ON "DataRequest"("confirmationTokenHash");
+
+-- CreateIndex
+CREATE INDEX "DataRequest_userId_idx" ON "DataRequest"("userId");
+
+-- CreateIndex
+CREATE INDEX "DataRequest_type_status_idx" ON "DataRequest"("type", "status");
+
+-- CreateIndex
 CREATE INDEX "session_userId_idx" ON "session"("userId");
 
 -- CreateIndex
@@ -424,6 +459,9 @@ ALTER TABLE "Notification" ADD CONSTRAINT "Notification_postId_fkey" FOREIGN KEY
 
 -- AddForeignKey
 ALTER TABLE "Notification" ADD CONSTRAINT "Notification_messageId_fkey" FOREIGN KEY ("messageId") REFERENCES "Message"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "DataRequest" ADD CONSTRAINT "DataRequest_userId_fkey" FOREIGN KEY ("userId") REFERENCES "user"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "GameSession" ADD CONSTRAINT "GameSession_gameId_fkey" FOREIGN KEY ("gameId") REFERENCES "Game"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

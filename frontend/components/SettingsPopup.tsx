@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import Link from "next/link";
 import { useTheme } from "@/lib/ThemeContext";
 import { authClient } from "@/lib/auth-client";
 
@@ -81,6 +82,18 @@ export default function SettingsPopup({
         <div className="px-2 py-1.5 text-center text-[11.5px] text-text-dimmed">
           No blocked users
         </div>
+      </Section>
+      <Sep />
+
+      {/* Privacy */}
+      <Section label="Privacy">
+        <Link
+          href="/settings/privacy"
+          onClick={onClose}
+          className="flex w-full items-center rounded-[5px] px-2 py-[7px] text-[12.5px] text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary"
+        >
+          Privacy & data
+        </Link>
       </Section>
       <Sep />
 

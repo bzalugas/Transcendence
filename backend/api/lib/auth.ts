@@ -2,6 +2,7 @@ import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { PrismaClient } from "@prisma/client";
 import { genericOAuth } from "better-auth/plugins";
+import { sendSmtpEmail } from "../src/email/smtp";
 
 const prisma = new PrismaClient();
 const apiBaseUrl =
@@ -119,6 +120,38 @@ export const auth = betterAuth({
 
   emailAndPassword: {
     enabled: true,
+    minPasswordLength: 12,
+    resetPasswordTokenExpiresIn: 42 * 60,
+    revokeSessionsOnPasswordReset: true,
+    async sendResetPassword({ user, url }) {
+      const credentialAccount = await prisma.account.findFirst({
+        where: {
+          userId: user.id,
+          providerId: "credential",
+        },
+        select: { id: true },
+      });
+
+      if (!credentialAccount) return;
+
+      await sendSmtpEmail({
+        to: user.email,
+        subject: "Reset your 42 Connect password",
+        text: `We received a request to reset your 42 Connect password.\n\nReset your password: ${url}\n\nThis link expires in 42 minutes. If you did not request this, you can ignore this email.`,
+        html: `
+          <div style="font-family: Arial, sans-serif; line-height: 1.5;">
+            <h2>Reset your 42 Connect password</h2>
+            <p>We received a request to reset your password.</p>
+            <p>
+              <a href="${url}" style="display:inline-block;padding:10px 14px;background:#111827;color:#ffffff;text-decoration:none;border-radius:6px;">
+                Reset password
+              </a>
+            </p>
+            <p style="color:#6b7280;font-size:13px;">This link expires in 1 hour. If you did not request this, you can ignore this email.</p>
+          </div>
+        `,
+      });
+    },
   },
 
   user: {

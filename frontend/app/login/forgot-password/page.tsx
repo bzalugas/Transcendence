@@ -2,22 +2,38 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { requestPasswordReset } from "@/lib/data/password-reset";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    const normalizedEmail = email.trim();
 
-    if (!email) {
+    if (!normalizedEmail) {
       setError("Please enter your email address.");
       return;
     }
 
-    setSent(true);
+    setLoading(true);
+
+    try {
+      await requestPasswordReset(
+        normalizedEmail,
+        `${window.location.origin}/login/reset-password`,
+      );
+      setEmail(normalizedEmail);
+      setSent(true);
+    } catch {
+      setError("Could not send the reset link. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (sent) {
@@ -125,9 +141,10 @@ export default function ForgotPasswordPage() {
 
           <button
             type="submit"
-            className="mt-1 w-full rounded-[14px] bg-btn-primary-bg px-[18px] py-3.5 text-[15px] font-semibold text-btn-primary-text transition-opacity hover:opacity-88"
+            disabled={loading}
+            className="mt-1 w-full rounded-[14px] bg-btn-primary-bg px-[18px] py-3.5 text-[15px] font-semibold text-btn-primary-text transition-opacity hover:opacity-88 disabled:opacity-50"
           >
-            Send reset link
+            {loading ? "Sending..." : "Send reset link"}
           </button>
         </form>
 

@@ -1,6 +1,9 @@
-import { UnauthorizedException } from '@nestjs/common';
+import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import type { Request } from 'express';
+import { PrismaClient } from '@prisma/client';
 import { auth } from '../../lib/auth';
+
+const prisma = new PrismaClient();
 
 // Reads the better-auth session cookie from an Express request and returns its user id.
 export async function getSessionUserId(req: Request): Promise<string> {
@@ -13,6 +16,22 @@ export async function getSessionUserId(req: Request): Promise<string> {
   }
 
   return session.user.id;
+}
+
+// Like getSessionUserId but also enforces ADMIN role.
+export async function getSessionAdmin(req: Request): Promise<string> {
+  const userId = await getSessionUserId(req);
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { role: true },
+  });
+
+  if (user?.role !== 'ADMIN') {
+    throw new ForbiddenException('Admin access required');
+  }
+
+  return userId;
 }
 
 // Converts Express request headers into the standard Headers shape expected by better-auth.

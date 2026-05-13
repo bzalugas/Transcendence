@@ -268,8 +268,8 @@ model Player {
 // Enums
 
 enum UserRole {
+  GUEST
   USER
-  MODERATOR
   ADMIN
 }
 

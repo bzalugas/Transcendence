@@ -10,6 +10,7 @@ import { FriendshipsModule } from './friendships/friendships.module';
 import { FilesModule } from './files/files.module';
 import { PrivacyModule } from './privacy/privacy.module';
 import { EmailModule } from './email/email.module';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { EmailModule } from './email/email.module';
     FriendshipsModule,
     FilesModule,
     PrivacyModule,
+    AdminModule,
   ],
   controllers: [AppController],
   providers: [AppService],

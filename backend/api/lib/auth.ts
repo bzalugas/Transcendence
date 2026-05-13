@@ -5,6 +5,15 @@ import { genericOAuth } from "better-auth/plugins";
 import { sendSmtpEmail } from "../src/email/smtp";
 
 const prisma = new PrismaClient();
+
+const ADMIN_EMAILS = [
+  "licohen@student.42.fr",
+  "ilavillu@student.42.fr",
+  "albestae@student.42.fr",
+  "bazaluga@student.42.fr",
+  "ade-sarr@student.42.fr",
+];
+
 const apiBaseUrl =
   process.env.BETTER_AUTH_URL ??
   process.env.NEXT_PUBLIC_API_URL ??
@@ -173,10 +182,27 @@ export const auth = betterAuth({
   databaseHooks: {
     account: {
       create: {
-        // Populates app profile data when a 42 OAuth account is first linked.
+        // Populates app profile data when a 42 OAuth account is first linked, and assigns role.
         async after(account) {
-          if (account.providerId !== "42school") return;
-          await syncFortyTwoProfile(account.userId, account.accessToken);
+          if (account.providerId === "42school") {
+            await syncFortyTwoProfile(account.userId, account.accessToken);
+          }
+
+          const user = await prisma.user.findUnique({
+            where: { id: account.userId },
+            select: { email: true },
+          });
+
+          const role = ADMIN_EMAILS.includes(user?.email ?? "")
+            ? "ADMIN"
+            : account.providerId === "42school"
+              ? "USER"
+              : "GUEST";
+
+          await prisma.user.update({
+            where: { id: account.userId },
+            data: { role },
+          });
         },
       },
       update: {

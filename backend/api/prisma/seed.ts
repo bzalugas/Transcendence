@@ -12,6 +12,7 @@ type SeedUser = {
   lastName: string;
   email: string;
   interests: string[];
+  role?: 'GUEST' | 'USER' | 'ADMIN';
 };
 
 type SeedPost = {
@@ -561,6 +562,8 @@ async function upsertUser(
   const fullName = `${seedUser.firstName} ${seedUser.lastName}`;
   const login = `${seedUser.firstName[0]}${seedUser.lastName}`.toLowerCase();
 
+  const role = seedUser.role ?? 'USER';
+
   const user = await prisma.user.upsert({
     where: { email: seedUser.email },
     create: {
@@ -569,6 +572,7 @@ async function upsertUser(
       login,
       name: fullName,
       emailVerified: true,
+      role,
       profile: {
         create: {
           firstname: seedUser.firstName,
@@ -582,6 +586,7 @@ async function upsertUser(
       login,
       name: fullName,
       emailVerified: true,
+      role,
       profile: {
         upsert: {
           create: {

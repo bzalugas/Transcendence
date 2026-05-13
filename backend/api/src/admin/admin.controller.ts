@@ -24,8 +24,8 @@ export class AdminController {
 
   @Delete('users/:id')
   async deleteUser(@Req() req: Request, @Param('id') id: string) {
-    await getSessionAdmin(req);
-    return this.adminService.deleteUser(id);
+    const requesterId = await getSessionAdmin(req);
+    return this.adminService.deleteUser(requesterId, id);
   }
 
   @Get('channels')

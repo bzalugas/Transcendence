@@ -1,62 +1,197 @@
-*How to set up development environment on this project ?*
-# Prerequisites
+# Development And Runtime Guide
 
-- docker (server & client)
-- docker compose
+## Prerequisites
+
+- Docker server and client
+- Docker Compose
 - Make
 
-# Work with the development infrastructure
+## Environment
 
-## Run the dev mode
+The Docker environment file is:
 
-First of all, you need to create the `src/.env-dev` file with the needed env variables (**listed in src/.env_template**). For the moment, we use POSTGRES_DB but it may change.
+```sh
+docker/.env
+```
 
-Then, just run `make` in the root directory in order to run all services and start develop, debug, etc.
+It contains the database variables, Better Auth public URLs, 42 OAuth credentials, and SMTP settings.
 
-The sources are bind mounted, so that means you can **edit files locally** and the modifications will instantly take effect in the container.
+For the HTTPS/Caddy setup, the public URLs should point to the public frontend origin. In local HTTPS mode they are currently expected to look like:
 
-**Be carefull**: it's possible that you develop some code based on the languages versions you have locally. If that's the case, always update the corresponding versions in the docker container (via Dockerfile).
+```env
+BETTER_AUTH_URL=https://localhost
+NEXT_PUBLIC_API_URL=https://localhost
+NEXT_PUBLIC_FRONTEND_URL=https://localhost
+```
 
-If you want to be able to develop wihtout installing locally the dependencies, see the **next section**.
+## Architecture
 
-*Note on dev mode*: In dev mode, the ports of the api and db containers are exposed to the host in order to access them to debug. That will not be the case with the production mode.
+The stack is split into four main services:
 
-### API container
-API container is available on the port 3000. (Will not be avaiblable after).
+- `front`: Next.js frontend
+- `api`: NestJS API with Better Auth and Prisma
+- `db`: PostgreSQL
+- `proxy`: Caddy reverse proxy
 
-### DB container
-Postgres listen on port **5433** on host and **5432** on container;
+Public traffic goes through Caddy:
 
-### Front container
-Front container is available on port 8080.
+```text
+https://domain/        -> front:8080
+https://domain/api/*   -> api:3000
+```
 
-## Stop the containers
+The API uses the global `/api` prefix for Nest controllers. Better Auth is mounted at:
 
-Use `make down` to stop and delete the containers. Use `make clean` to delete the anonymous volumes created by the bind mounts.
+```text
+/api/auth
+```
 
-## Handling Dockerfiles changes
+The frontend should call API routes through the public origin under `/api`.
 
-When updating a Dockerfile, run `make re` or `make build` then `make up` in order to build again the corresponding images before running containers.
+## Default Production-Like Stack
 
+The default Make targets now use the production Compose stack:
 
-# How to work with an IDE
+```sh
+make
+make up
+```
 
-Since the aim of this infrastructure is to harmonize all the dependencies between all the group members, you don't *need* to install locally the different libraries, programing languages, etc.
+These commands use only:
 
-To avoid mistakes, it would be better to develop directly with the versions inside the container. In order to do this, depending on your IDE, it is possible to start a new dev envrionment directly connected to a container.
+```text
+docker/compose.yaml
+```
 
-Of course, you can also synchronize your local versions with the container's ones and develop locally, but be careful!
+Useful production/default targets:
 
-## For VS Code
+```sh
+make build
+make up
+make up-d
+make logs
+make down
+make down-v
+make restart
+make recreate-one service=api
+make recreate-one service=front
+make recreate-one service=proxy
+```
 
-1. Add the `Docker` and `Dev Containers` extensions (both from Microsoft) to VS Code.
-2. Run the command `dev containers: attach to running containers...`
-3. Select the container you want to develop in.
+Compatibility aliases still exist:
 
-**That's it!** You can then build and run the containers with the extensions but the best solution is to use the Makefile.
+```sh
+make prod-up
+make prod-build
+make prod-recreate-one service=api
+```
 
-# Develop the database
+## Development Stack
 
-In the `src/backend/db` folder, you can update the `init.d/01_schema.sql` and `init.d/02_data.sql` in order to create the database and insert values into it at the container runtime.
+Development mode is explicit:
 
-The service `adminer` is available on localhost at port `8081`. You can connect to the database from there or from terminal connecting to the port `5433` with `psql` on host.
+```sh
+make dev
+```
+
+This uses:
+
+```text
+docker/compose.yaml
+docker/compose-dev.yaml
+```
+
+In dev mode, the source directories are bind-mounted into the containers:
+
+- `frontend/` -> `/app`
+- `backend/api/` -> `/api`
+
+The dev stack exposes extra ports for debugging:
+
+- Frontend: `http://localhost:8080`
+- API: `http://localhost:3000`
+- PostgreSQL: `localhost:5433` on host, `5432` in container
+- Adminer: `http://localhost:8081`
+- Caddy HTTPS proxy: `https://localhost`
+
+Useful dev targets:
+
+```sh
+make dev-up
+make dev-up-d
+make dev-build
+make dev-logs
+make dev-down
+make dev-down-v
+make dev-recreate-one service=< container >
+```
+
+On SELinux-enabled systems (Fedora), bind mounts use the `:z` option so containers can read project files.
+
+## Dockerfile Changes
+
+After changing a Dockerfile, rebuild the affected service:
+
+```sh
+make recreate-one service=api
+make recreate-one service=front
+```
+
+For the dev stack:
+
+```sh
+make dev-recreate-one service=api
+make dev-recreate-one service=front
+```
+
+## Database
+
+The API container runs Prisma migrations on startup.
+
+To run database setup manually and seed the database inside the API container:
+
+```sh
+make db-setup
+```
+
+To create a migration from local schema changes:
+
+```sh
+make migrate-generate name=your_migration_name
+```
+
+To apply pending migrations:
+
+```sh
+make migrate
+```
+
+To reset the dev database volumes and restart:
+
+```sh
+make migrate-reset
+```
+
+Adminer is available in dev mode at:
+
+```text
+http://localhost:8081
+```
+
+## IDE Workflow
+
+You can work directly on the host files because dev mode bind-mounts the project into the containers.
+
+For VS Code:
+
+1. Install the Docker and Dev Containers extensions.
+2. Start the dev stack with `make dev`.
+3. Use `Dev Containers: Attach to Running Container...`.
+4. Select either `transcendence_front` or `transcendence_api`.
+
+## Notes
+
+- The frontend production build is served with `next start` on port `8080`.
+- The API production build starts from `dist/src/main.js`.
+- Caddy owns public ports `80` and `443`.
+- In production, frontend and API ports do not need to be exposed directly.

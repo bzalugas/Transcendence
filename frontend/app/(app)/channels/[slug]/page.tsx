@@ -42,7 +42,9 @@ export default function ChannelPage({ params }: ChannelPageProps) {
   useEffect(() => {
     let active = true;
 
-    setLoaded(false);
+    queueMicrotask(() => {
+      if (active) setLoaded(false);
+    });
     Promise.all([getChannelBySlug(slug), getChannelMembers(slug), getChannelFeed(slug)])
       .then(([nextChannel, nextMembers, nextFeed]) => {
         if (!active) return;
@@ -110,7 +112,7 @@ export default function ChannelPage({ params }: ChannelPageProps) {
           onInvite={() => setInviteOpen(true)}
         />
 
-        <div className="flex flex-col gap-3 px-8 pb-7 pt-2">
+        <div className="flex flex-col gap-3 px-4 pb-7 pt-2 sm:px-6 md:px-8">
           <ChannelComposer channelLabel={channel.label} onPost={handlePost} />
 
           {feed.length === 0 ? (
@@ -142,7 +144,7 @@ export default function ChannelPage({ params }: ChannelPageProps) {
       </div>
 
       {panelOpen && (
-        <div className="flex w-[280px] shrink-0">
+        <div className="hidden w-[280px] shrink-0 xl:flex">
           <ChannelAboutPanel
             channel={channel}
             members={members}

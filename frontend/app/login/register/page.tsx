@@ -85,8 +85,8 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="flex h-full items-center justify-center p-7">
-      <div className="w-[420px] rounded-2xl border border-white/10 bg-white/5 p-[26px] shadow-2xl backdrop-blur-xl">
+    <div className="flex min-h-full items-center justify-center p-4 sm:p-7">
+      <div className="w-full max-w-[420px] rounded-2xl border border-white/10 bg-white/5 p-5 shadow-2xl backdrop-blur-xl sm:p-[26px]">
         {/* Header */}
         <Link
           href="/login/guest"
@@ -118,7 +118,7 @@ export default function RegisterPage() {
         {/* Form */}
         <form onSubmit={handleSubmit} className="flex flex-col gap-3.5">
           {/* Name */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className="mb-1.5 block text-[12px] font-medium text-text-muted">
                 First name
@@ -213,7 +213,7 @@ export default function RegisterPage() {
 
             {/* Password rules */}
             {password.length > 0 && (
-              <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1">
+              <div className="mt-2 grid grid-cols-1 gap-x-3 gap-y-1 sm:grid-cols-2">
                 {pwRules.map((rule) => (
                   <div key={rule.label} className="flex items-center gap-1.5">
                     <div

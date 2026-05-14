@@ -56,6 +56,16 @@ export class FriendshipsController {
     return this.friendshipsService.rejectRequest(userId, requestId);
   }
 
+  // Cancels a pending friend request sent by the current user.
+  @Delete('requests/:requestId')
+  async cancelRequest(
+    @Req() req: Request,
+    @Param('requestId', ParseIntPipe) requestId: number,
+  ) {
+    const userId = await getSessionUserId(req);
+    return this.friendshipsService.cancelSentRequest(userId, requestId);
+  }
+
   // Returns accepted friends for the current better-auth session user.
   @Get('me')
   async findMine(@Req() req: Request) {

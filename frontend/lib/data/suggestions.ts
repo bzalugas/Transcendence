@@ -31,8 +31,8 @@ export async function getFriendRequests(): Promise<FriendRequest[]> {
 }
 
 // Creates a pending friend request for a profile username.
-export async function sendFriendRequest(name: string): Promise<void> {
-  await request(`/friendships/requests/${encodeURIComponent(name)}`, {
+export async function sendFriendRequest(name: string): Promise<FriendRequest> {
+  return request<FriendRequest>(`/friendships/requests/${encodeURIComponent(name)}`, {
     method: "POST",
   });
 }
@@ -51,10 +51,22 @@ export async function rejectFriendRequest(requestId: number): Promise<void> {
   });
 }
 
+// Cancels one pending friend request sent by the current user.
+export async function cancelSentRequest(requestId: number): Promise<void> {
+  await request(`/friendships/requests/${requestId}`, {
+    method: "DELETE",
+  });
+}
+
 // Loads usernames that already have a pending request from the current user.
 export async function getSentRequestNames(): Promise<string[]> {
-  const requests = await request<FriendRequest[]>("/friendships/requests/sent");
+  const requests = await getSentRequests();
   return requests.map((friendRequest) => friendRequest.name);
+}
+
+// Loads pending friend requests sent by the current user.
+export async function getSentRequests(): Promise<FriendRequest[]> {
+  return request<FriendRequest[]>("/friendships/requests/sent");
 }
 
 // Sends an authenticated request to the backend friendship API.

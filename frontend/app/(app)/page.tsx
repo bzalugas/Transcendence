@@ -19,7 +19,7 @@ export default function HomePage() {
 
   return (
     <>
-      <div className="flex flex-1 flex-col gap-3 overflow-y-auto bg-bg-tertiary px-8 py-7">
+      <div className="flex flex-1 flex-col gap-3 overflow-y-auto bg-bg-tertiary px-4 py-5 sm:px-6 md:px-8 md:py-7">
         <div className="mb-0.5 flex items-center justify-between">
           <div className="text-[19px] font-medium">
             Hello, {currentUser.username}
@@ -27,7 +27,7 @@ export default function HomePage() {
           <button
             type="button"
             onClick={() => setShowPanel(!showPanel)}
-            className={`flex items-center rounded-[5px] p-1 transition-colors hover:bg-bg-hover hover:text-text-primary ${
+            className={`hidden items-center rounded-[5px] p-1 transition-colors hover:bg-bg-hover hover:text-text-primary xl:flex ${
               showPanel ? "text-text-dimmed" : "bg-bg-hover text-text-primary"
             }`}
             title="Toggle panel"
@@ -59,7 +59,7 @@ export default function HomePage() {
       </div>
 
       {showPanel && (
-        <div className="flex w-[260px] shrink-0">
+        <div className="hidden w-[260px] shrink-0 xl:flex">
           <FriendsPanel />
         </div>
       )}

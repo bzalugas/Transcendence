@@ -10,7 +10,8 @@ import {
   getSuggestions,
   getFriendRequests,
   sendFriendRequest,
-  getSentRequestNames,
+  getSentRequests,
+  cancelSentRequest,
   acceptFriendRequest,
   rejectFriendRequest,
   type FriendRequest,
@@ -24,8 +25,12 @@ export default function SuggestionsPage() {
   const [showPanel, setShowPanel] = useState(true);
   const [search, setSearch] = useState("");
   const [requested, setRequested] = useState<Set<string>>(new Set());
+  const [outgoingSuggestions, setOutgoingSuggestions] = useState<Set<string>>(new Set());
+  const [dismissingSuggestions, setDismissingSuggestions] = useState<Set<string>>(new Set());
   const [sendingRequests, setSendingRequests] = useState<Set<string>>(new Set());
   const [pendingRequests, setPendingRequests] = useState<FriendRequest[]>([]);
+  const [sentRequests, setSentRequests] = useState<FriendRequest[]>([]);
+  const [cancelingRequests, setCancelingRequests] = useState<Set<number>>(new Set());
   const [friendsList, setFriendsList] = useState<Friend[]>([]);
   const [suggestions, setSuggestions] = useState<SuggestionProfile[]>([]);
   const [suggestionsLoading, setSuggestionsLoading] = useState(true);
@@ -69,15 +74,17 @@ export default function SuggestionsPage() {
   useEffect(() => {
     let active = true;
 
-    Promise.all([getFriendRequests(), getSentRequestNames()])
-      .then(([requests, sentNames]) => {
+    Promise.all([getFriendRequests(), getSentRequests()])
+      .then(([requests, sent]) => {
         if (!active) return;
         setPendingRequests(requests);
-        setRequested(new Set(sentNames));
+        setSentRequests(sent);
+        setRequested(new Set(sent.map((request) => request.name)));
       })
       .catch(() => {
         if (!active) return;
         setPendingRequests([]);
+        setSentRequests([]);
         setRequested(new Set());
       });
 
@@ -91,8 +98,30 @@ export default function SuggestionsPage() {
     setSendingRequests((prev) => new Set([...prev, name]));
 
     try {
-      await sendFriendRequest(name);
+      const sentRequest = await sendFriendRequest(name);
       setRequested((prev) => new Set([...prev, name]));
+      setOutgoingSuggestions((prev) => new Set([...prev, name]));
+      window.setTimeout(() => {
+        setDismissingSuggestions((prev) => new Set([...prev, name]));
+      }, 500);
+      window.setTimeout(() => {
+        setSuggestions((prev) => prev.filter((suggestion) => suggestion.name !== name));
+        setSentRequests((prev) =>
+          prev.some((request) => request.name === sentRequest.name)
+            ? prev
+            : [sentRequest, ...prev],
+        );
+        setOutgoingSuggestions((prev) => {
+          const next = new Set(prev);
+          next.delete(name);
+          return next;
+        });
+        setDismissingSuggestions((prev) => {
+          const next = new Set(prev);
+          next.delete(name);
+          return next;
+        });
+      }, 1200);
     } finally {
       setSendingRequests((prev) => {
         const next = new Set(prev);
@@ -119,7 +148,32 @@ export default function SuggestionsPage() {
     notifyNavBadgesUpdated();
   }
 
+  async function cancelRequest(request: FriendRequest) {
+    setCancelingRequests((prev) => new Set([...prev, request.id]));
+
+    try {
+      await cancelSentRequest(request.id);
+      setSentRequests((prev) => prev.filter((item) => item.id !== request.id));
+      setRequested((prev) => {
+        const next = new Set(prev);
+        next.delete(request.name);
+        return next;
+      });
+      void getSuggestions()
+        .then(setSuggestions)
+        .catch(() => {});
+    } finally {
+      setCancelingRequests((prev) => {
+        const next = new Set(prev);
+        next.delete(request.id);
+        return next;
+      });
+    }
+  }
+
   const filteredSuggestions = suggestions.filter((s) => {
+    if (requested.has(s.name) && !outgoingSuggestions.has(s.name)) return false;
+
     const q = search.toLowerCase();
     if (!q) return true;
     return (
@@ -131,13 +185,13 @@ export default function SuggestionsPage() {
 
   return (
     <>
-      <div className="flex flex-1 flex-col overflow-y-auto bg-bg-tertiary px-8 py-7">
+      <div className="flex flex-1 flex-col overflow-y-auto bg-bg-tertiary px-4 py-5 sm:px-6 md:px-8 md:py-7">
         <div className="mb-0.5 flex items-center justify-between">
           <div className="text-[19px] font-medium">Suggestions for you</div>
           <button
             type="button"
             onClick={() => setShowPanel(!showPanel)}
-            className={`flex items-center rounded-[5px] p-1 transition-colors hover:bg-bg-hover hover:text-text-primary ${
+            className={`hidden items-center rounded-[5px] p-1 transition-colors hover:bg-bg-hover hover:text-text-primary xl:flex ${
               showPanel ? "text-text-dimmed" : "bg-bg-hover text-text-primary"
             }`}
             title="Toggle panel"
@@ -158,6 +212,16 @@ export default function SuggestionsPage() {
           placeholder="Search a profile by name or interest..."
         />
 
+        {sentRequests.length > 0 && (
+          <div className="mb-[22px] xl:hidden">
+            <SentRequestsList
+              requests={sentRequests}
+              cancelingIds={cancelingRequests}
+              onCancel={cancelRequest}
+            />
+          </div>
+        )}
+
         {/* Cards grid */}
         {suggestionsLoading ? (
           <div className="rounded-xl border border-border-default bg-bg-secondary p-[18px] text-[13px] italic text-text-dimmed">
@@ -168,11 +232,15 @@ export default function SuggestionsPage() {
             No suggestions found.
           </div>
         ) : (
-        <div className="grid grid-cols-3 gap-[13px]">
+        <div className="grid grid-cols-1 gap-[13px] sm:grid-cols-2 xl:grid-cols-3">
           {filteredSuggestions.map((s) => (
             <div
               key={s.name}
-              className="flex flex-col gap-[13px] rounded-xl border border-border-default bg-bg-secondary p-[18px] transition-colors hover:border-border-strong"
+              className={`flex flex-col gap-[13px] rounded-xl border border-border-default bg-bg-secondary p-[18px] transition-all duration-700 hover:border-border-strong ${
+                dismissingSuggestions.has(s.name)
+                  ? "scale-[0.98] opacity-0"
+                  : "scale-100 opacity-100"
+              }`}
             >
               <div className="flex items-start gap-3">
                 <div className="relative">
@@ -236,12 +304,15 @@ export default function SuggestionsPage() {
       </div>
 
       {showPanel && (
-        <div className="flex w-[260px] shrink-0">
+        <div className="hidden w-[260px] shrink-0 xl:flex">
           <SuggestionsPanel
             pendingRequests={pendingRequests}
+            sentRequests={sentRequests}
+            cancelingIds={cancelingRequests}
             friends={friendsList}
             onAccept={acceptRequest}
             onReject={rejectRequest}
+            onCancelSent={cancelRequest}
           />
         </div>
       )}
@@ -251,14 +322,20 @@ export default function SuggestionsPage() {
 
 function SuggestionsPanel({
   pendingRequests,
+  sentRequests,
+  cancelingIds,
   friends,
   onAccept,
   onReject,
+  onCancelSent,
 }: {
   pendingRequests: FriendRequest[];
+  sentRequests: FriendRequest[];
+  cancelingIds: Set<number>;
   friends: Friend[];
   onAccept: (request: FriendRequest) => void;
   onReject: (request: FriendRequest) => void;
+  onCancelSent: (request: FriendRequest) => void;
 }) {
   return (
     <aside className="flex w-full flex-col overflow-hidden border-l border-border-default bg-bg-secondary">
@@ -302,6 +379,14 @@ function SuggestionsPanel({
 
         <div className="my-4 h-px bg-border-default" />
 
+        <SentRequestsList
+          requests={sentRequests}
+          cancelingIds={cancelingIds}
+          onCancel={onCancelSent}
+        />
+
+        <div className="my-4 h-px bg-border-default" />
+
         {/* Friends */}
         <div className="mb-3 text-[10.5px] font-semibold uppercase tracking-wider text-text-muted">
           Friends
@@ -321,5 +406,61 @@ function SuggestionsPanel({
         </div>
       </div>
     </aside>
+  );
+}
+
+function SentRequestsList({
+  requests,
+  cancelingIds,
+  onCancel,
+}: {
+  requests: FriendRequest[];
+  cancelingIds: Set<number>;
+  onCancel: (request: FriendRequest) => void;
+}) {
+  return (
+    <div>
+      <div className="mb-3 text-[10.5px] font-semibold uppercase tracking-wider text-text-muted">
+        Invitations sent{" "}
+        <span className="ml-1 rounded-[10px] bg-bg-hover px-1.5 py-px text-[10px] font-semibold text-text-primary">
+          {requests.length}
+        </span>
+      </div>
+      {requests.length === 0 ? (
+        <p className="text-[12.5px] italic text-text-dimmed">No sent invitations.</p>
+      ) : (
+        <div className="flex flex-col gap-1">
+          {requests.map((request) => {
+            const isCanceling = cancelingIds.has(request.id);
+            return (
+              <div
+                key={request.id}
+                className="group flex min-w-0 items-center gap-[9px] rounded-[7px] px-2 py-1.5 transition-colors hover:bg-bg-hover"
+              >
+                <Link href={`/profile/${request.name}`} className="flex min-w-0 flex-1 items-center gap-[9px] hover:opacity-80">
+                  <Avatar initials={request.initials} size="md" />
+                  <div className="min-w-0">
+                    <div className="truncate text-[13px] font-medium">{request.name}</div>
+                    <div className="mt-[1px] text-[11px] text-text-dimmed">
+                      Waiting for response
+                    </div>
+                  </div>
+                </Link>
+                <button
+                  type="button"
+                  disabled={isCanceling}
+                  onClick={() => onCancel(request)}
+                  className="rounded-full border border-accent-green/30 bg-accent-green/10 px-2 py-[3px] text-[10.5px] font-medium text-accent-green transition-colors group-hover:border-away/35 group-hover:bg-away/10 group-hover:text-away disabled:cursor-default disabled:opacity-60"
+                  title="Cancel invitation"
+                >
+                  <span className="group-hover:hidden">{isCanceling ? "..." : "Sent"}</span>
+                  <span className="hidden group-hover:inline">{isCanceling ? "..." : "Cancel"}</span>
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }

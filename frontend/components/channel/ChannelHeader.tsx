@@ -17,8 +17,8 @@ export default function ChannelHeader({
   onInvite,
 }: ChannelHeaderProps) {
   return (
-    <div className="bg-bg-tertiary px-8 pt-6">
-      <div className="mb-1.5 flex items-center gap-3">
+    <div className="bg-bg-tertiary px-4 pt-5 sm:px-6 md:px-8 md:pt-6">
+      <div className="mb-1.5 flex flex-wrap items-center gap-3">
         <div
           className="h-3 w-3 shrink-0 rounded-full"
           style={{ background: channel.color }}
@@ -37,7 +37,7 @@ export default function ChannelHeader({
           type="button"
           onClick={onTogglePanel}
           title="Toggle panel"
-          className={`flex items-center rounded-[5px] p-1 transition-colors hover:bg-bg-hover hover:text-text-primary ${
+          className={`hidden items-center rounded-[5px] p-1 transition-colors hover:bg-bg-hover hover:text-text-primary xl:flex ${
             panelOpen ? "text-text-dimmed" : "bg-bg-hover text-text-primary"
           }`}
         >

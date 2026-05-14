@@ -39,7 +39,7 @@ export default function ProjectsPage() {
     <>
       <div className="flex flex-1 flex-col overflow-y-auto bg-bg-tertiary">
         {/* Header */}
-        <div className="flex items-start justify-between px-8 pt-6">
+        <div className="flex items-start justify-between px-4 pt-5 sm:px-6 md:px-8 md:pt-6">
           <div>
             <div className="text-[20px] font-semibold">Projects</div>
             <div className="mb-4 mt-1 text-[12.5px] text-text-muted">
@@ -49,7 +49,7 @@ export default function ProjectsPage() {
           <button
             type="button"
             onClick={() => setShowPanel(!showPanel)}
-            className={`mt-1 flex items-center rounded-[5px] p-1 transition-colors hover:bg-bg-hover hover:text-text-primary ${
+            className={`mt-1 hidden items-center rounded-[5px] p-1 transition-colors hover:bg-bg-hover hover:text-text-primary xl:flex ${
               showPanel ? "text-text-dimmed" : "bg-bg-hover text-text-primary"
             }`}
             title="Toggle panel"
@@ -59,7 +59,7 @@ export default function ProjectsPage() {
         </div>
 
         {/* Tabs */}
-        <div className="mx-8 mb-1 flex gap-0 border-b border-border-default">
+        <div className="mx-4 mb-1 flex gap-0 overflow-x-auto border-b border-border-default sm:mx-6 md:mx-8">
           <button
             onClick={() => setActiveTab("lfg")}
             className={`-mb-px border-b-2 px-[18px] py-2.5 text-[13.5px] transition-colors ${
@@ -86,7 +86,7 @@ export default function ProjectsPage() {
         {activeTab === "lfg" && (
           <>
             {/* Composer */}
-            <div className="mx-8 mt-4 rounded-xl border border-border-default bg-bg-secondary p-4">
+            <div className="mx-4 mt-4 rounded-xl border border-border-default bg-bg-secondary p-4 sm:mx-6 md:mx-8">
               <div className="mb-2.5 flex items-center gap-2.5">
                 <Avatar initials={currentUser.initials} avatarUrl={currentUser.avatarUrl} size="md" />
                 <input
@@ -94,7 +94,7 @@ export default function ProjectsPage() {
                   placeholder="Looking for teammates? Describe what you need..."
                 />
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                 <select className="cursor-pointer appearance-none rounded-md border border-border-default bg-bg-hover px-2.5 py-1.5 text-[12px] text-text-secondary outline-none hover:border-border-strong">
                   <option value="">Project...</option>
                   {allProjects.map((p) => (
@@ -105,17 +105,17 @@ export default function ProjectsPage() {
                   type="number"
                   min="1"
                   max="5"
-                  className="w-20 rounded-md border border-border-default bg-bg-hover px-2.5 py-1.5 text-[12px] text-text-secondary outline-none placeholder:text-text-dimmed"
+                  className="w-full rounded-md border border-border-default bg-bg-hover px-2.5 py-1.5 text-[12px] text-text-secondary outline-none placeholder:text-text-dimmed sm:w-20"
                   placeholder="Spots"
                 />
-                <button className="ml-auto rounded-[7px] bg-text-primary px-4 py-1.5 text-[12.5px] font-medium text-bg-tertiary hover:opacity-90">
+                <button className="rounded-[7px] bg-text-primary px-4 py-1.5 text-[12.5px] font-medium text-bg-tertiary hover:opacity-90 sm:ml-auto">
                   Post
                 </button>
               </div>
             </div>
 
             {/* LFG cards */}
-            <div className="flex flex-col gap-3 px-8 py-4">
+            <div className="flex flex-col gap-3 px-4 py-4 sm:px-6 md:px-8">
               <input
                 type="text"
                 value={lfgSearch}
@@ -140,7 +140,7 @@ export default function ProjectsPage() {
 
         {/* All projects tab */}
         {activeTab === "all" && (
-          <div className="flex flex-col gap-3 px-8 py-4">
+          <div className="flex flex-col gap-3 px-4 py-4 sm:px-6 md:px-8">
             <input
               type="text"
               value={projectSearch}
@@ -148,7 +148,7 @@ export default function ProjectsPage() {
               className="w-full rounded-lg border border-border-default bg-bg-secondary px-3.5 py-2.5 text-[13.5px] text-text-primary outline-none placeholder:text-text-dimmed focus:border-border-strong"
               placeholder="Search a project..."
             />
-            <div className="grid grid-cols-3 gap-2.5">
+            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
               {filteredProjects.map((p) => (
                 <div
                   key={p.name}
@@ -176,7 +176,7 @@ export default function ProjectsPage() {
       </div>
 
       {showPanel && (
-        <div className="flex w-[280px] shrink-0">
+        <div className="hidden w-[280px] shrink-0 xl:flex">
           <ProjectsPanel />
         </div>
       )}

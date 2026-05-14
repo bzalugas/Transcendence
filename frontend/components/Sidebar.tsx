@@ -86,7 +86,8 @@ export default function Sidebar() {
   if (!currentUser) return null;
 
   return (
-    <aside className="flex w-[220px] shrink-0 flex-col gap-0.5 overflow-y-auto border-r border-border-default bg-bg-secondary px-4 py-6">
+    <>
+    <aside className="hidden w-[220px] shrink-0 flex-col gap-0.5 overflow-y-auto border-r border-border-default bg-bg-secondary px-4 py-6 md:flex">
       {/* Logo */}
       <Link
         href="/"
@@ -184,5 +185,29 @@ export default function Sidebar() {
         anchorRef={settingsRef}
       />
     </aside>
+    <nav className="fixed inset-x-0 bottom-0 z-40 flex h-16 items-center justify-around border-t border-border-default bg-bg-secondary px-2 md:hidden">
+      {navItems.map(({ href, label, icon: Icon, badgeKey }) => {
+        const isActive = pathname === href;
+        const badge = badgeKey ? navBadges[badgeKey] : undefined;
+        const shouldShowBadge = typeof badge === "number" && badge > 0;
+        return (
+          <Link
+            key={href}
+            href={href}
+            aria-label={label}
+            className={`relative flex h-12 min-w-12 flex-col items-center justify-center gap-1 rounded-[7px] px-2 text-[10.5px] transition-colors ${
+              isActive ? "bg-bg-hover text-text-primary" : "text-text-tertiary"
+            }`}
+          >
+            <Icon />
+            <span className="max-w-[62px] truncate">{label}</span>
+            {shouldShowBadge && (
+              <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-accent-blue" />
+            )}
+          </Link>
+        );
+      })}
+    </nav>
+    </>
   );
 }

@@ -233,6 +233,32 @@ export class FriendshipsService {
     return { rejected: true };
   }
 
+  // Deletes a pending request when it was sent by the current user.
+  async cancelSentRequest(
+    userId: string,
+    requestId: number,
+  ): Promise<{ canceled: true }> {
+    const request = await this.prisma.friendRequest.findFirst({
+      where: {
+        id: requestId,
+        senderId: userId,
+        status: 'Pending',
+      },
+    });
+
+    if (!request) {
+      throw new NotFoundException('Friend request not found');
+    }
+
+    await this.prisma.friendRequest.delete({
+      where: {
+        id: request.id,
+      },
+    });
+
+    return { canceled: true };
+  }
+
   // Lists accepted friends for one user id from both sender and receiver sides.
   async findAcceptedForUser(userId: string): Promise<FriendDto[]> {
     const friendIds = await this.getAcceptedFriendIds(userId);

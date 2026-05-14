@@ -90,7 +90,7 @@ export default function EditProfilePage() {
   return (
     <div className="flex flex-1 flex-col overflow-y-auto bg-bg-tertiary">
       {/* Header */}
-      <div className="border-b border-border-default bg-bg-secondary px-8 pb-5 pt-6">
+      <div className="border-b border-border-default bg-bg-secondary px-4 pb-5 pt-5 sm:px-6 md:px-8 md:pt-6">
         <h1 className="text-[19px] font-medium">Edit profile</h1>
         <p className="mt-1 text-[13px] text-text-muted">
           Update your public profile information.
@@ -103,10 +103,10 @@ export default function EditProfilePage() {
       </div>
 
       {/* Form body */}
-      <div className="mx-auto w-full max-w-[680px] space-y-6 px-8 py-7">
+      <div className="mx-auto w-full max-w-[680px] space-y-6 px-4 py-5 sm:px-6 md:px-8 md:py-7">
         {/* ─── Avatar ─── */}
         <Section title="Avatar">
-          <div className="flex items-center gap-5">
+          <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:gap-5">
             <div className="relative h-[88px] w-[88px] shrink-0">
               {avatarPreview ? (
                 <img
@@ -132,7 +132,7 @@ export default function EditProfilePage() {
                 <button
                   type="button"
                   onClick={() => setAvatarPreview("")}
-                  className="ml-2 rounded-[7px] px-4 py-[7px] text-[13px] text-danger transition-colors hover:bg-danger/10"
+                className="ml-0 rounded-[7px] px-4 py-[7px] text-[13px] text-danger transition-colors hover:bg-danger/10 sm:ml-2"
                 >
                   Remove
                 </button>
@@ -198,7 +198,7 @@ export default function EditProfilePage() {
             ))}
 
             {/* Add row */}
-            <div className="flex items-end gap-2 pt-1">
+            <div className="flex flex-col gap-2 pt-1 sm:flex-row sm:items-end">
               <FieldGroup label="Platform" compact>
                 <input
                   type="text"
@@ -241,7 +241,7 @@ export default function EditProfilePage() {
 
 
         {/* ─── Action bar ─── */}
-        <div className="flex items-center justify-end gap-3 border-t border-border-default pt-5">
+        <div className="flex flex-col-reverse gap-3 border-t border-border-default pt-5 sm:flex-row sm:items-center sm:justify-end">
           <button
             type="button"
             onClick={() => router.push(`/profile/${currentUser.username}`)}

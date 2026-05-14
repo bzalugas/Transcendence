@@ -153,8 +153,8 @@ export default function ProfilePage({ params }: ProfilePageProps) {
     <>
       <div className="flex flex-1 flex-col overflow-y-auto bg-bg-tertiary">
         {/* Header */}
-        <div className="border-b border-border-default bg-bg-secondary px-8 pb-[22px] pt-6">
-          <div className="flex items-start justify-between">
+        <div className="border-b border-border-default bg-bg-secondary px-4 pb-[22px] pt-5 sm:px-6 md:px-8 md:pt-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             {/* Left: avatar + info */}
             <div className="flex items-center gap-4">
               <div className="shrink-0">
@@ -162,10 +162,10 @@ export default function ProfilePage({ params }: ProfilePageProps) {
                   <img
                     src={user.avatarUrl}
                     alt={user.initials}
-                    className="h-[88px] w-[88px] rounded-full border-[3px] border-bg-secondary object-cover"
+                    className="h-[72px] w-[72px] rounded-full border-[3px] border-bg-secondary object-cover sm:h-[88px] sm:w-[88px]"
                   />
                 ) : (
-                  <div className="flex h-[88px] w-[88px] items-center justify-center rounded-full border-[3px] border-bg-secondary bg-bg-hover text-[26px] font-medium text-text-primary">
+                  <div className="flex h-[72px] w-[72px] items-center justify-center rounded-full border-[3px] border-bg-secondary bg-bg-hover text-[22px] font-medium text-text-primary sm:h-[88px] sm:w-[88px] sm:text-[26px]">
                     {user.initials}
                   </div>
                 )}
@@ -212,7 +212,7 @@ export default function ProfilePage({ params }: ProfilePageProps) {
               <button
                 type="button"
                 onClick={() => setShowPanel(!showPanel)}
-                className={`flex items-center rounded-[5px] p-1 transition-colors hover:bg-bg-hover hover:text-text-primary ${
+                className={`hidden items-center rounded-[5px] p-1 transition-colors hover:bg-bg-hover hover:text-text-primary xl:flex ${
                   showPanel ? "text-text-dimmed" : "bg-bg-hover text-text-primary"
                 }`}
                 title="Toggle panel"
@@ -228,7 +228,7 @@ export default function ProfilePage({ params }: ProfilePageProps) {
                   Edit profile
                 </button>
               ) : (
-                <div className="mt-auto flex gap-2">
+                <div className="mt-auto flex flex-wrap justify-end gap-2">
                   <button
                     type="button"
                     onClick={() => {
@@ -260,7 +260,7 @@ export default function ProfilePage({ params }: ProfilePageProps) {
         </div>
 
         {/* Body */}
-        <div className="flex items-start gap-3.5 p-5 px-8">
+        <div className="flex flex-col items-stretch gap-3.5 px-4 py-5 sm:px-6 md:px-8 lg:flex-row">
           {/* Left column */}
           <div className="flex flex-1 flex-col gap-3.5">
             <Card title="Bio">
@@ -365,7 +365,7 @@ export default function ProfilePage({ params }: ProfilePageProps) {
       </div>
 
       {showPanel && (
-        <div className="flex w-[260px] shrink-0">
+        <div className="hidden w-[260px] shrink-0 xl:flex">
           <FriendsPanel />
         </div>
       )}

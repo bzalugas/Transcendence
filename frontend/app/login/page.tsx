@@ -71,12 +71,12 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex h-full items-center justify-center p-7">
-      <div className="w-[480px] rounded-2xl border border-white/10 bg-white/5 p-8 shadow-2xl backdrop-blur-xl">
+    <div className="flex min-h-full items-center justify-center p-4 sm:p-7">
+      <div className="w-full max-w-[480px] rounded-2xl border border-white/10 bg-white/5 p-5 shadow-2xl backdrop-blur-xl sm:p-8">
         {/* Header */}
         <div className="mb-8 flex items-center gap-3">
           <Logo42 className="h-8 w-auto" />
-          <h1 className="text-[32px] font-bold tracking-tight text-text-primary">
+          <h1 className="text-[28px] font-bold tracking-tight text-text-primary sm:text-[32px]">
             Connect
           </h1>
         </div>

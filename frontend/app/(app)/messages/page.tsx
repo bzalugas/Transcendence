@@ -25,6 +25,9 @@ export default function MessagesPage() {
   );
   const [messages, setMessages] = useState<ChatMessage[]>(() => [...getChatMessages(pending?.id ?? friendConvs[0]?.id ?? "")]);
   const [inputText, setInputText] = useState("");
+  const [mobileView, setMobileView] = useState<"list" | "chat">(
+    () => pending ? "chat" : "list",
+  );
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Clear pending after reading — safe to call multiple times
@@ -51,7 +54,9 @@ export default function MessagesPage() {
 
   // Reset messages when switching conversation
   useEffect(() => {
-    setMessages([...getChatMessages(activeId)]);
+    queueMicrotask(() => {
+      setMessages([...getChatMessages(activeId)]);
+    });
   }, [activeId]);
 
   // Scroll to bottom on new message
@@ -75,10 +80,22 @@ export default function MessagesPage() {
     setInputText("");
   }
 
+  function selectConversation(id: string) {
+    setActiveId(id);
+    setMobileView("chat");
+  }
+
   return (
     <>
       {/* Conversation list */}
-      <div className="flex w-[270px] shrink-0 flex-col overflow-hidden border-r border-border-default bg-bg-secondary">
+      <div className={`${mobileView === "chat" ? "hidden" : "flex"} min-h-0 w-full shrink-0 flex-col overflow-hidden bg-bg-secondary md:flex md:h-auto md:w-[270px] md:border-r md:border-border-default`}>
+        <div className="border-b border-border-default px-4 pb-3.5 pt-5 md:hidden">
+          <div className="text-[20px] font-semibold text-text-primary">Messages</div>
+          <div className="mt-1 text-[12.5px] text-text-muted">
+            Friends and channel conversations
+          </div>
+        </div>
+
         {/* Search */}
         <div className="border-b border-border-default px-4 pb-3 pt-4">
           <div className="flex items-center gap-2 rounded-full bg-bg-hover px-[13px] py-2 text-[13px] text-text-muted">
@@ -99,7 +116,7 @@ export default function MessagesPage() {
               key={c.id}
               conv={c}
               active={activeId === c.id}
-              onClick={() => setActiveId(c.id)}
+              onClick={() => selectConversation(c.id)}
             />
           ))}
 
@@ -111,19 +128,24 @@ export default function MessagesPage() {
               key={c.id}
               conv={c}
               active={activeId === c.id}
-              onClick={() => setActiveId(c.id)}
+              onClick={() => selectConversation(c.id)}
             />
           ))}
         </div>
       </div>
 
       {/* Chat area */}
-      <div className="flex flex-1 flex-col bg-bg-tertiary">
+      <div className={`${mobileView === "list" ? "hidden" : "flex"} min-h-0 flex-1 flex-col bg-bg-tertiary md:flex`}>
         {/* Chat header */}
-        {effectiveConv && <ChatHeader conv={effectiveConv} />}
+        {effectiveConv && (
+          <ChatHeader
+            conv={effectiveConv}
+            onBack={() => setMobileView("list")}
+          />
+        )}
 
         {/* Messages */}
-        <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-[22px] py-[22px]">
+        <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-3 py-4 sm:px-[22px] sm:py-[22px]">
           {/* Date sep */}
           <div className="flex items-center gap-3 text-[11.5px] text-text-dimmed">
             <div className="h-px flex-1 bg-border-default" />
@@ -133,13 +155,13 @@ export default function MessagesPage() {
 
           {messages.map((msg, idx) => (
             <div key={idx}>
-              <div className="mb-[5px] pl-[39px] text-[11px] font-medium text-text-muted">
+              <div className={`mb-[5px] text-[11px] font-medium text-text-muted ${msg.me ? "pr-[39px] text-right" : "pl-[39px]"}`}>
                 {msg.sender}
               </div>
               <div className={`flex items-end gap-[9px] ${msg.me ? "flex-row-reverse" : ""}`}>
                 <Avatar initials={msg.initials} size="md" />
                 <div
-                  className={`max-w-[420px] rounded-[14px] px-3.5 py-2.5 text-[13.5px] leading-relaxed ${
+                  className={`max-w-[min(420px,68vw)] rounded-[14px] px-3.5 py-2.5 text-[13.5px] leading-relaxed sm:max-w-[420px] ${
                     msg.me
                       ? "bg-text-primary text-bg-tertiary"
                       : "border border-border-default bg-bg-secondary text-text-primary"
@@ -147,7 +169,7 @@ export default function MessagesPage() {
                 >
                   {msg.text}
                 </div>
-                <span className="shrink-0 px-1 text-[10.5px] text-text-dimmed">{msg.time}</span>
+                <span className="hidden shrink-0 px-1 text-[10.5px] text-text-dimmed sm:inline">{msg.time}</span>
               </div>
             </div>
           ))}
@@ -155,13 +177,13 @@ export default function MessagesPage() {
         </div>
 
         {/* Input */}
-        <div className="flex items-center gap-2.5 border-t border-border-default bg-bg-secondary px-[22px] py-3.5">
-          <button className="text-[18px] text-text-dimmed transition-colors hover:text-text-primary">
+        <div className="flex items-center gap-2 border-t border-border-default bg-bg-secondary px-3 py-3 sm:gap-2.5 sm:px-[22px] sm:py-3.5">
+          <button className="hidden text-[18px] text-text-dimmed transition-colors hover:text-text-primary sm:block">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
             </svg>
           </button>
-          <button className="text-[18px] text-text-dimmed transition-colors hover:text-text-primary">
+          <button className="hidden text-[18px] text-text-dimmed transition-colors hover:text-text-primary sm:block">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="10" /><path d="M8 14s1.5 2 4 2 4-2 4-2" /><line x1="9" y1="9" x2="9.01" y2="9" /><line x1="15" y1="9" x2="15.01" y2="9" />
             </svg>
@@ -170,7 +192,7 @@ export default function MessagesPage() {
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") handleSend(); }}
-            className="flex-1 rounded-full border border-border-default bg-bg-hover px-4 py-2.5 text-[13.5px] text-text-tertiary outline-none focus:border-border-strong focus:text-text-primary"
+            className="min-w-0 flex-1 rounded-full border border-border-default bg-bg-hover px-4 py-2.5 text-[13.5px] text-text-tertiary outline-none focus:border-border-strong focus:text-text-primary"
             placeholder="Write a message..."
           />
           <button
@@ -202,7 +224,7 @@ function ConversationRow({
     <button
       type="button"
       onClick={onClick}
-      className={`flex w-full items-center gap-2.5 px-4 py-2.5 text-left transition-colors hover:bg-bg-hover ${
+      className={`flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-bg-hover md:gap-2.5 md:py-2.5 ${
         active ? "bg-bg-hover" : ""
       }`}
     >
@@ -222,8 +244,8 @@ function ConversationRow({
         </div>
       )}
       <div className="min-w-0 flex-1">
-        <div className="truncate text-[13px] font-medium">{conv.name}</div>
-        <div className="mt-0.5 truncate text-[12px] text-text-muted">{conv.preview}</div>
+        <div className="truncate text-[13.5px] font-medium md:text-[13px]">{conv.name}</div>
+        <div className="mt-0.5 truncate text-[12.5px] text-text-muted md:text-[12px]">{conv.preview}</div>
       </div>
       <div className="flex flex-col items-end gap-1">
         <span className="text-[11px] text-text-dimmed">{conv.time}</span>
@@ -237,9 +259,26 @@ function ConversationRow({
   );
 }
 
-function ChatHeader({ conv }: { conv: Conversation }) {
+function ChatHeader({
+  conv,
+  onBack,
+}: {
+  conv: Conversation;
+  onBack: () => void;
+}) {
   return (
-    <div className="flex items-center gap-3 border-b border-border-default bg-bg-secondary px-[22px] py-3.5">
+    <div className="flex items-center gap-3 border-b border-border-default bg-bg-secondary px-4 py-3.5 sm:px-[22px]">
+      <button
+        type="button"
+        onClick={onBack}
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary md:hidden"
+        aria-label="Back to conversations"
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="19" y1="12" x2="5" y2="12" />
+          <polyline points="12 19 5 12 12 5" />
+        </svg>
+      </button>
       {conv.type === "friend" ? (
         <div className="relative">
           <Avatar initials={conv.initials!} avatarUrl={conv.avatarUrl} size="lg" />
@@ -255,9 +294,9 @@ function ChatHeader({ conv }: { conv: Conversation }) {
           <ChannelIcon icon={conv.icon} />
         </div>
       )}
-      <div>
-        <div className="text-[14px] font-medium">{conv.name}</div>
-        <div className="mt-0.5 text-[12px] text-text-muted">
+      <div className="min-w-0">
+        <div className="truncate text-[14px] font-medium">{conv.name}</div>
+        <div className="mt-0.5 truncate text-[12px] text-text-muted">
           {conv.type === "friend" ? (
             <>
               {conv.online ? "Online" : conv.away ? "Away" : "Offline"}
@@ -268,7 +307,7 @@ function ChatHeader({ conv }: { conv: Conversation }) {
           )}
         </div>
       </div>
-      <div className="ml-auto flex gap-1.5">
+      <div className="ml-auto hidden gap-1.5 sm:flex">
         <button className="flex h-8 w-8 items-center justify-center rounded-[7px] text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />

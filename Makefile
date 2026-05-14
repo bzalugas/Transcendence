@@ -6,13 +6,57 @@ BACKEND_DIR     := backend/api
 API_CONTAINER   := transcendence_api
 DB_CONTAINER    := transcendence_db
 
-all: up
+all: prod-up
 
-# --- DEV PART ---
+# --- PROD PART ---
 up:
-	$(COMPOSE) -f $(COMPOSE_FILE) -f $(COMPOSE_DEV) --env-file $(ENV_FILE) up
+	$(COMPOSE) -f $(COMPOSE_FILE) --env-file $(ENV_FILE) up -d --build
 
 up-d:
+	$(COMPOSE) -f $(COMPOSE_FILE) --env-file $(ENV_FILE) up -d
+
+build:
+	$(COMPOSE) -f $(COMPOSE_FILE) --env-file $(ENV_FILE) build
+
+build-one:
+	$(COMPOSE) -f $(COMPOSE_FILE) --env-file $(ENV_FILE) build $(service)
+
+up-one:
+	$(COMPOSE) -f $(COMPOSE_FILE) --env-file $(ENV_FILE) up -d $(service)
+
+recreate-one:
+	$(COMPOSE) -f $(COMPOSE_FILE) --env-file $(ENV_FILE) up -d --build --force-recreate $(service)
+
+logs:
+	$(COMPOSE) -f $(COMPOSE_FILE) --env-file $(ENV_FILE) logs
+
+down:
+	$(COMPOSE) -f $(COMPOSE_FILE) --env-file $(ENV_FILE) down
+
+down-v:
+	$(COMPOSE) -f $(COMPOSE_FILE) --env-file $(ENV_FILE) down -v
+
+stop:
+	$(COMPOSE) -f $(COMPOSE_FILE) --env-file $(ENV_FILE) stop
+
+rmi:
+	docker rmi -f $$($(COMPOSE) -f $(COMPOSE_FILE) --env-file $(ENV_FILE) config --images) 2>/dev/null
+
+start:
+	$(COMPOSE) -f $(COMPOSE_FILE) --env-file $(ENV_FILE) start
+
+restart:
+	$(COMPOSE) -f $(COMPOSE_FILE) --env-file $(ENV_FILE) restart
+
+re: clean build up
+
+# --- DEV PART ---
+dev: dev-up
+
+dev-up:
+	$(COMPOSE) -f $(COMPOSE_FILE) -f $(COMPOSE_DEV) --env-file $(ENV_FILE) up
+
+dev-up-d:
 	$(COMPOSE) -f $(COMPOSE_FILE) -f $(COMPOSE_DEV) --env-file $(ENV_FILE) up -d
 
 db-setup:
@@ -20,61 +64,48 @@ db-setup:
 	docker exec $(API_CONTAINER) bunx prisma migrate deploy
 	docker exec $(API_CONTAINER) bunx prisma db seed
 
-build:
+dev-build:
 	$(COMPOSE) -f $(COMPOSE_FILE) -f $(COMPOSE_DEV) --env-file $(ENV_FILE) build
 
-rebuild:
+dev-rebuild:
 	$(COMPOSE) -f $(COMPOSE_FILE) -f $(COMPOSE_DEV) --env-file $(ENV_FILE) up -d --build 
 
-logs:
+dev-build-one:
+	$(COMPOSE) -f $(COMPOSE_FILE) -f $(COMPOSE_DEV) --env-file $(ENV_FILE) build $(service)
+
+dev-up-one:
+	$(COMPOSE) -f $(COMPOSE_FILE) -f $(COMPOSE_DEV) --env-file $(ENV_FILE) up -d $(service)
+
+dev-recreate-one:
+	$(COMPOSE) -f $(COMPOSE_FILE) -f $(COMPOSE_DEV) --env-file $(ENV_FILE) up -d --build --force-recreate $(service)
+
+dev-logs:
 	$(COMPOSE) -f $(COMPOSE_FILE) -f $(COMPOSE_DEV) --env-file $(ENV_FILE) logs -f
 
-down:
+dev-down:
 	$(COMPOSE) -f $(COMPOSE_FILE) -f $(COMPOSE_DEV) --env-file $(ENV_FILE) down
 
-down-v:
+dev-down-v:
 	$(COMPOSE) -f $(COMPOSE_FILE) -f $(COMPOSE_DEV) --env-file $(ENV_FILE) down -v
 
-stop:
+dev-stop:
 	$(COMPOSE) -f $(COMPOSE_FILE) -f $(COMPOSE_DEV) --env-file $(ENV_FILE) stop
 
-rmi:
-	docker rmi -f $$($(COMPOSE) -f $(COMPOSE_FILE) -f $(COMPOSE_DEV)  config --images) 2>/dev/null
+dev-rmi:
+	docker rmi -f $$($(COMPOSE) -f $(COMPOSE_FILE) -f $(COMPOSE_DEV) --env-file $(ENV_FILE) config --images) 2>/dev/null
 
-start:
-	$(COMPOSE) -f $(COMPOSE_FILE) -f $(COMPOSE_DEV) start
+dev-start:
+	$(COMPOSE) -f $(COMPOSE_FILE) -f $(COMPOSE_DEV) --env-file $(ENV_FILE) start
 
-restart:
-	$(COMPOSE) -f $(COMPOSE_FILE) -f $(COMPOSE_DEV) restart
+dev-restart:
+	$(COMPOSE) -f $(COMPOSE_FILE) -f $(COMPOSE_DEV) --env-file $(ENV_FILE) restart
 
-re: clean build up
+dev-re: dev-clean dev-build dev-up
+
+dev-clean: dev-down-v dev-rmi
+	docker volume prune -f
 
 
-# --- PROD part ---
-
-prod-up:
-	$(COMPOSE) -f $(COMPOSE_FILE) up -d --build
-
-prod-build:
-	$(COMPOSE) -f $(COMPOSE_FILE)build
-
-prod-logs:
-	$(COMPOSE) -f $(COMPOSE_FILE) logs
-
-prod-down:
-	$(COMPOSE) -f $(COMPOSE_FILE) down
-
-prod-stop:
-	$(COMPOSE) -f $(COMPOSE_FILE) stop
-
-prod-rmi:
-	docker rmi -f $$($(COMPOSE) -f $(COMPOSE_FILE) config --images) 2>/dev/null
-
-prod-start:
-	$(COMPOSE) -f $(COMPOSE_FILE) -f $(COMPOSE_DEV) start
-
-prod-restart:
-	$(COMPOSE) -f $(COMPOSE_FILE) -f $(COMPOSE_DEV) restart
 
 #--- UTILS ---
 # Generate prisma schema + create migration locally
@@ -87,10 +118,11 @@ migrate:
 	docker exec $(API_CONTAINER) bunx exec prisma migrate deploy
 
 # Reset DB and restart fresh
-migrate-reset: down-v
+migrate-reset: dev-down-v
 	docker compose -f $(COMPOSE_FILE) -f $(COMPOSE_DEV) --env-file $(ENV_FILE) up -d
 
 clean: down-v rmi
 	docker volume prune -f
 
-.PHONY: all build build-prod dev prod up up-d logs down down-v stop rmi start restart re
+.PHONY: all up up-d build build-one up-one recreate-one logs down down-v stop rmi start restart re \
+	dev dev-up dev-up-d dev-build dev-rebuild dev-build-one dev-up-one dev-recreate-one dev-logs dev-down dev-down-v dev-stop dev-rmi dev-start dev-restart dev-re dev-clean

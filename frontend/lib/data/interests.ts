@@ -1,7 +1,6 @@
+import { API_BASE_URL } from "@/lib/api-url";
 import type { AvailableInterest, ProfileInterest } from "@/lib/types";
 import { notifyChannelsUpdated } from "@/lib/data/channel-events";
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
 
 // Loads the complete interest catalog from the API for search and joining.
 export async function getAllInterests(): Promise<AvailableInterest[]> {

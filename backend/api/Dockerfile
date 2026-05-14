@@ -13,9 +13,8 @@ RUN bunx prisma generate
 # -- BUILD --
 FROM base AS build
 COPY . .
-RUN bun run build
-
 RUN bunx prisma generate
+RUN bun run build
 
 RUN if [ -z "$(ls -A prisma/migrations 2>/dev/null)" ]; then \
       mkdir -p prisma/migrations/0_init && \
@@ -32,12 +31,15 @@ RUN if [ -z "$(ls -A prisma/migrations 2>/dev/null)" ]; then \
 FROM oven/bun:1 AS prod
 WORKDIR /api
 
+RUN apt update && apt install -y netcat-traditional && rm -rf /var/lib/apt/lists/*
+
 COPY --from=build /api/dist ./dist
 COPY --from=build /api/node_modules ./node_modules
-COPY package.json bun.lockb ./
+COPY --from=build /api/prisma ./prisma
+COPY package.json bun.lock ./
 
 COPY ./tools/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
 CMD ["bun", "run", "start:prod"]
-ENTRYPOINT ["./entrypoint.sh"]
+ENTRYPOINT ["/entrypoint.sh"]

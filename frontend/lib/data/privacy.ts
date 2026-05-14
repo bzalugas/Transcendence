@@ -1,3 +1,5 @@
+import { API_BASE_URL } from "@/lib/api-url";
+
 export type DataRequestStatus =
   | "pending"
   | "confirmed"
@@ -29,8 +31,6 @@ export interface ExportPreview {
     count: number;
   }>;
 }
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
 
 export async function requestDataExport(): Promise<DataOperationResult> {
   return request<DataOperationResult>("/privacy/export-request", { method: "POST" });

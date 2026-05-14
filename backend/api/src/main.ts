@@ -5,12 +5,15 @@ import { auth } from '../lib/auth';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  const frontendOrigin = process.env.NEXT_PUBLIC_FRONTEND_URL ?? "http://localhost:8080";
+
+  app.setGlobalPrefix("api");
 
   const httpAdapter = app.getHttpAdapter();
   const instance = httpAdapter.getInstance();
 
   instance.use("/api/auth", (req: any, res: any, next: any) => {
-	res.setHeader("Access-Control-Allow-Origin", "http://localhost:8080");
+	res.setHeader("Access-Control-Allow-Origin", frontendOrigin);
 	res.setHeader("Access-Control-Allow-Credentials", "true");
 	res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
 	res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
@@ -25,7 +28,7 @@ async function bootstrap() {
   instance.use("/api/auth", toNodeHandler(auth));
 
   app.enableCors({
-    origin: process.env.NEXT_PUBLIC_FRONTEND_URL ?? "http://localhost:8080",
+    origin: frontendOrigin,
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],

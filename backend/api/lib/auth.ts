@@ -32,10 +32,20 @@ interface FortyTwoUserInfo {
     link?: string | null;
   } | null;
   cursus_users?: Array<{
+    begin_at?: string | null;
+    end_at?: string | null;
     grade?: string | null;
     level?: number | null;
+    cursus_id?: number | null;
+    cursus?: {
+      id?: number | null;
+      name?: string | null;
+      slug?: string | null;
+    } | null;
   }>;
 }
+
+const pendingFortyTwoProfiles = new Map<string, FortyTwoUserInfo>();
 
 // Fetches the authenticated 42 profile from the access token returned by OAuth.
 async function fetchFortyTwoMe(accessToken: string): Promise<FortyTwoUserInfo | null> {
@@ -50,37 +60,82 @@ async function fetchFortyTwoMe(accessToken: string): Promise<FortyTwoUserInfo | 
   return response.json();
 }
 
-// Selects the Alumni cursus level first, then Transcender, then Cadet, then falls back to any available level.
+// Selects the most relevant cursus level: current main 42 cursus first, then older main cursus entries, then any usable level.
 function selectFortyTwoLevel(cursusUsers?: FortyTwoUserInfo["cursus_users"]): number {
-  const alumniCursus = cursusUsers?.find(
-    (cursusUser) => cursusUser.grade?.toLowerCase() === "alumni",
-  );
-  
-  const transcenderCursus = cursusUsers?.find(
-    (cursusUser) => cursusUser.grade?.toLowerCase() === "transcender",
-  );
-  
-  const cadetCursus = cursusUsers?.find(
-    (cursusUser) => cursusUser.grade?.toLowerCase() === "cadet",
-  );
+  const withLevel = cursusUsers?.filter((cursusUser) => cursusUser.level != null) ?? [];
 
   return (
-    alumniCursus?.level ??
-    transcenderCursus?.level ??
-    cadetCursus?.level ??
-    cursusUsers?.find((cursusUser) => cursusUser.level != null)?.level ??
+    [...withLevel].sort((a, b) => cursusPriority(b) - cursusPriority(a))[0]?.level ??
     0
   );
 }
 
-// Synchronizes 42 OAuth profile fields into the local User and Profile tables.
-async function syncFortyTwoProfile(userId: string, accessToken?: string | null) {
-  if (!accessToken) return;
+function cursusPriority(cursusUser: NonNullable<FortyTwoUserInfo["cursus_users"]>[number]): number {
+  const mainCursusBonus = isMainFortyTwoCursus(cursusUser) ? 100 : 0;
+  const activeBonus = isActiveCursus(cursusUser) ? 10 : 0;
 
-  const data = await fetchFortyTwoMe(accessToken);
+  return mainCursusBonus + activeBonus + beginAtTimestamp(cursusUser) / 1_000_000_000_000_000;
+}
+
+function isMainFortyTwoCursus(
+  cursusUser: NonNullable<FortyTwoUserInfo["cursus_users"]>[number],
+): boolean {
+  const cursusId = cursusUser.cursus?.id ?? cursusUser.cursus_id;
+  const cursusName = cursusUser.cursus?.name?.toLowerCase() ?? "";
+  const cursusSlug = cursusUser.cursus?.slug?.toLowerCase() ?? "";
+
+  return (
+    cursusId === 21 ||
+    cursusId === 2 ||
+    cursusName === "42" ||
+    cursusName.includes("42cursus") ||
+    cursusSlug === "42" ||
+    cursusSlug.includes("42cursus")
+  );
+}
+
+function isActiveCursus(
+  cursusUser: NonNullable<FortyTwoUserInfo["cursus_users"]>[number],
+): boolean {
+  if (!cursusUser.begin_at) return cursusUser.end_at == null;
+
+  const now = Date.now();
+  const beginAt = Date.parse(cursusUser.begin_at);
+  const endAt = cursusUser.end_at ? Date.parse(cursusUser.end_at) : null;
+
+  return !Number.isNaN(beginAt) && beginAt <= now && (endAt === null || endAt >= now);
+}
+
+function beginAtTimestamp(
+  cursusUser: NonNullable<FortyTwoUserInfo["cursus_users"]>[number],
+): number {
+  if (!cursusUser.begin_at) return 0;
+
+  const timestamp = Date.parse(cursusUser.begin_at);
+
+  return Number.isNaN(timestamp) ? 0 : timestamp;
+}
+
+// Synchronizes 42 OAuth profile fields into the local User and Profile tables.
+async function syncFortyTwoProfile(
+  userId: string,
+  accessToken?: string | null,
+  accountId?: string | null,
+) {
+  const data =
+    (accountId ? pendingFortyTwoProfiles.get(accountId) : undefined) ??
+    (accessToken ? await fetchFortyTwoMe(accessToken) : null);
+
+  if (accountId) {
+    pendingFortyTwoProfiles.delete(accountId);
+  }
 
   if (!data?.login) return;
 
+  await syncFortyTwoProfileData(userId, data);
+}
+
+async function syncFortyTwoProfileData(userId: string, data: FortyTwoUserInfo) {
   const avatarUri = data.image?.link ?? null;
   const fullName =
     data.displayname ||
@@ -115,6 +170,33 @@ async function syncFortyTwoProfile(userId: string, accessToken?: string | null) 
       },
     },
   });
+}
+
+// Refreshes existing 42 users during every OAuth sign-in. New users are handled by the account create hook.
+async function refreshKnownFortyTwoProfile(data: FortyTwoUserInfo) {
+  const account = await prisma.account.findFirst({
+    where: {
+      providerId: "42school",
+      accountId: String(data.id),
+    },
+    select: {
+      userId: true,
+    },
+  });
+  const user =
+    account ??
+    (await prisma.user.findUnique({
+      where: {
+        email: data.email,
+      },
+      select: {
+        id: true,
+      },
+    }));
+
+  if (!user) return;
+
+  await syncFortyTwoProfileData("userId" in user ? user.userId : user.id, data);
 }
 
 export const auth = betterAuth({
@@ -185,7 +267,11 @@ export const auth = betterAuth({
         // Populates app profile data when a 42 OAuth account is first linked, and assigns role.
         async after(account) {
           if (account.providerId === "42school") {
-            await syncFortyTwoProfile(account.userId, account.accessToken);
+            await syncFortyTwoProfile(
+              account.userId,
+              account.accessToken,
+              account.accountId,
+            );
           }
 
           const user = await prisma.user.findUnique({
@@ -209,7 +295,11 @@ export const auth = betterAuth({
         // Keeps app profile data fresh on later 42 OAuth sign-ins.
         async after(account) {
           if (account.providerId !== "42school") return;
-          await syncFortyTwoProfile(account.userId, account.accessToken);
+          await syncFortyTwoProfile(
+            account.userId,
+            account.accessToken,
+            account.accountId,
+          );
         },
       },
     },
@@ -233,6 +323,8 @@ export const auth = betterAuth({
             const data = await fetchFortyTwoMe(tokens.accessToken);
 
             if (!data) return null;
+            pendingFortyTwoProfiles.set(String(data.id), data);
+            await refreshKnownFortyTwoProfile(data);
 
             return {
               id: String(data.id),

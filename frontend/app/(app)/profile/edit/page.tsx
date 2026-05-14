@@ -133,19 +133,17 @@ export default function EditProfilePage() {
         width: frameBounds.width,
         height: frameBounds.height,
       };
-      const imageSize = getContainedImageSize(image, frameSize);
       const size = Math.min(frameSize.width, frameSize.height) * 0.72;
       const crop = {
         x: (frameSize.width - size) / 2,
         y: (frameSize.height - size) / 2,
         size,
       };
-      const minZoom = Math.max(
-        AVATAR_MIN_ZOOM,
-        crop.size / imageSize.width,
-        crop.size / imageSize.height,
-      );
-      const nextZoom = Math.max(AVATAR_MIN_ZOOM, minZoom);
+      const imageSize = getCoverImageSize(image, {
+        width: crop.size,
+        height: crop.size,
+      });
+      const nextZoom = AVATAR_MIN_ZOOM;
 
       setEditorFrameSize(frameSize);
       setAvatarImageSize(imageSize);
@@ -254,6 +252,19 @@ export default function EditProfilePage() {
     };
   }
 
+  function getAvatarBaseImageRect() {
+    const frame = editorFrameSize;
+    const image = avatarImageSize;
+    if (!frame || !image) return null;
+
+    return {
+      x: (frame.width - image.width) / 2,
+      y: (frame.height - image.height) / 2,
+      width: image.width,
+      height: image.height,
+    };
+  }
+
   function clampAvatarPan(
     pan: Point,
     zoom = avatarZoom,
@@ -265,10 +276,12 @@ export default function EditProfilePage() {
 
     const imageWidth = image.width * zoom;
     const imageHeight = image.height * zoom;
-    const minX = crop.x + crop.size - (frame.width + imageWidth) / 2;
-    const maxX = crop.x - (frame.width - imageWidth) / 2;
-    const minY = crop.y + crop.size - (frame.height + imageHeight) / 2;
-    const maxY = crop.y - (frame.height - imageHeight) / 2;
+    const imageXAtCenter = (frame.width - imageWidth) / 2;
+    const imageYAtCenter = (frame.height - imageHeight) / 2;
+    const minX = crop.x + crop.size - imageWidth - imageXAtCenter;
+    const maxX = crop.x - imageXAtCenter;
+    const minY = crop.y + crop.size - imageHeight - imageYAtCenter;
+    const maxY = crop.y - imageYAtCenter;
 
     return {
       x: clamp(pan.x, Math.min(minX, maxX), Math.max(minX, maxX)),
@@ -321,7 +334,7 @@ export default function EditProfilePage() {
 
   if (!currentUser) return null;
 
-  const avatarImageRect = getAvatarImageRect();
+  const avatarBaseImageRect = getAvatarBaseImageRect();
 
   return (
     <div className="flex flex-1 flex-col overflow-y-auto bg-bg-tertiary">
@@ -523,29 +536,38 @@ export default function EditProfilePage() {
                 onWheel={handleAvatarWheel}
               >
                 <img
+                  src={avatarEditor.src}
+                  alt=""
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-0 h-full w-full scale-105 select-none object-cover opacity-35 blur-md"
+                  draggable={false}
+                />
+                <img
                   ref={editorImageRef}
                   src={avatarEditor.src}
                   alt=""
                   onLoad={initializeCrop}
                   className={
-                    avatarImageRect
+                    avatarBaseImageRect
                       ? "absolute select-none object-contain"
                       : "max-h-full max-w-full select-none object-contain"
                   }
                   draggable={false}
-                  style={avatarImageRect
+                  style={avatarBaseImageRect
                     ? {
-                        left: avatarImageRect.x,
-                        top: avatarImageRect.y,
-                        width: avatarImageRect.width,
-                        height: "auto",
+                        left: avatarBaseImageRect.x,
+                        top: avatarBaseImageRect.y,
+                        width: avatarBaseImageRect.width,
+                        height: avatarBaseImageRect.height,
+                        transform: `translate3d(${avatarPan.x}px, ${avatarPan.y}px, 0) scale(${avatarZoom})`,
+                        transformOrigin: "center center",
                       }
                     : undefined}
                 />
                 {cropRect && (
                   <>
                     <div
-                      className="pointer-events-none absolute rounded-full border-2 border-white bg-white/5 shadow-[0_0_0_9999px_rgba(0,0,0,0.45)]"
+                      className="pointer-events-none absolute rounded-full border-2 border-white bg-white/5 shadow-[0_0_0_9999px_rgba(245,245,245,0.34)]"
                       style={{
                         left: cropRect.x,
                         top: cropRect.y,
@@ -619,10 +641,10 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
 }
 
-function getContainedImageSize(image: HTMLImageElement, frame: Size): Size {
+function getCoverImageSize(image: HTMLImageElement, frame: Size): Size {
   const naturalWidth = image.naturalWidth || frame.width;
   const naturalHeight = image.naturalHeight || frame.height;
-  const scale = Math.min(1, frame.width / naturalWidth, frame.height / naturalHeight);
+  const scale = Math.max(frame.width / naturalWidth, frame.height / naturalHeight);
 
   return {
     width: naturalWidth * scale,

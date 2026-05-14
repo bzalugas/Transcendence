@@ -11,6 +11,7 @@ interface ApiChannel {
   label: string;
   color: string;
   imageUri: string | null;
+  description?: string;
   memberCount: number;
   postCount: number;
   joined?: boolean;
@@ -171,6 +172,7 @@ function toChannel(channel: ApiChannel): Channel {
     label: channel.label,
     color: channel.color,
     imageUri: channel.imageUri,
+    description: channel.description,
     memberCount: channel.memberCount,
     postCount: channel.postCount,
     joined: channel.joined,

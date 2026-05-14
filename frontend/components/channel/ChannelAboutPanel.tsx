@@ -1,8 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
+import type { MouseEvent } from "react";
 import Avatar from "@/components/Avatar";
+import FriendPopover from "@/components/FriendPopover";
 import FriendsList from "@/components/FriendsList";
 import ConfirmModal from "@/components/ConfirmModal";
 import type {
@@ -24,15 +25,15 @@ const presenceColor: Record<PresenceStatus, string | undefined> = {
   offline: undefined,
 };
 
-const VISIBLE_OTHERS = 4;
-
 export default function ChannelAboutPanel({
   channel,
   members,
   onLeave,
 }: ChannelAboutPanelProps) {
   const [confirmLeave, setConfirmLeave] = useState(false);
-  const [showAllOthers, setShowAllOthers] = useState(false);
+  const [activeMember, setActiveMember] = useState<Friend | null>(null);
+  const [activeAnchor, setActiveAnchor] = useState<HTMLElement | null>(null);
+  const [activeAnchorPosition, setActiveAnchorPosition] = useState({ top: 0, left: 0 });
 
   const friendMembers = useMemo<Friend[]>(
     () =>
@@ -53,14 +54,11 @@ export default function ChannelAboutPanel({
   );
 
   const total = channel.memberCount ?? members.length;
-  const visibleOthers = showAllOthers
-    ? otherMembers
-    : otherMembers.slice(0, VISIBLE_OTHERS);
 
   return (
     <>
       <aside className="flex w-full flex-col overflow-hidden border-l border-border-default bg-bg-secondary">
-        <div className="flex-1 overflow-y-auto px-[18px] py-6">
+        <div className="shrink-0 px-[18px] pb-4 pt-6">
           <div className="mb-3 text-[10.5px] font-semibold uppercase tracking-wider text-text-muted">
             About
           </div>
@@ -81,16 +79,18 @@ export default function ChannelAboutPanel({
               <InfoRow label="Posts" value={String(channel.postCount)} />
             )}
           </div>
+        </div>
 
-          <div className="my-4 h-px bg-border-default" />
-
+        <div className="shrink-0 border-t border-border-default px-[18px] pb-3 pt-4">
           <div className="mb-3 flex items-center justify-between">
             <div className="text-[10.5px] font-semibold uppercase tracking-wider text-text-muted">
               Members
             </div>
             <div className="text-[12px] text-text-dimmed">{total}</div>
           </div>
+        </div>
 
+        <div className="min-h-0 flex-1 overflow-y-auto px-[18px] pb-4">
           {friendMembers.length > 0 && (
             <>
               <div className="mb-1 px-2 text-[10.5px] uppercase tracking-wider text-text-dimmed">
@@ -106,20 +106,29 @@ export default function ChannelAboutPanel({
                 Others
               </div>
               <div className="flex flex-col gap-0.5">
-                {visibleOthers.map((m) => (
-                  <OtherMemberRow key={m.username} member={m} />
+                {otherMembers.map((m) => (
+                  <OtherMemberRow
+                    key={m.username}
+                    member={m}
+                    active={activeMember?.name === m.username}
+                    onSelect={(event) => {
+                      const nextMember = activeMember?.name === m.username
+                        ? null
+                        : {
+                            initials: m.initials,
+                            avatarUrl: m.avatarUrl,
+                            name: m.username,
+                            level: m.level,
+                          };
+                      const rect = event.currentTarget.getBoundingClientRect();
+                      setActiveMember(nextMember);
+                      setActiveAnchor(nextMember ? event.currentTarget : null);
+                      setActiveAnchorPosition(
+                        nextMember ? { top: rect.top, left: rect.left - 248 } : { top: 0, left: 0 },
+                      );
+                    }}
+                  />
                 ))}
-                {otherMembers.length > VISIBLE_OTHERS && (
-                  <button
-                    type="button"
-                    onClick={() => setShowAllOthers((v) => !v)}
-                    className="px-2 py-1.5 text-left text-[12px] text-text-dimmed transition-colors hover:text-text-tertiary"
-                  >
-                    {showAllOthers
-                      ? "Show less"
-                      : `Show all ${otherMembers.length} others…`}
-                  </button>
-                )}
               </div>
             </>
           )}
@@ -135,6 +144,19 @@ export default function ChannelAboutPanel({
           </button>
         </div>
       </aside>
+
+      {activeMember && (
+        <FriendPopover
+          friend={activeMember}
+          anchorElement={activeAnchor}
+          anchorPosition={activeAnchorPosition}
+          onClose={() => {
+            setActiveMember(null);
+            setActiveAnchor(null);
+            setActiveAnchorPosition({ top: 0, left: 0 });
+          }}
+        />
+      )}
 
       {confirmLeave && (
         <ConfirmModal
@@ -170,10 +192,24 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-function OtherMemberRow({ member }: { member: ChannelMember }) {
+function OtherMemberRow({
+  member,
+  active,
+  onSelect,
+}: {
+  member: ChannelMember;
+  active: boolean;
+  onSelect: (event: MouseEvent<HTMLButtonElement>) => void;
+}) {
   const dotColor = presenceColor[member.status];
   return (
-    <Link href={`/profile/${member.username}`} className="flex items-center gap-2.5 rounded-[7px] px-2 py-1.5 transition-colors hover:bg-bg-hover">
+    <button
+      type="button"
+      onClick={onSelect}
+      className={`flex items-center gap-2.5 rounded-[7px] px-2 py-1.5 text-left transition-colors hover:bg-bg-hover ${
+        active ? "bg-bg-hover" : ""
+      }`}
+    >
       <div className="relative">
         <Avatar
           initials={member.initials}
@@ -191,6 +227,6 @@ function OtherMemberRow({ member }: { member: ChannelMember }) {
         {member.username}
       </span>
       <span className="text-[11px] text-text-dimmed">lvl {member.level}</span>
-    </Link>
+    </button>
   );
 }

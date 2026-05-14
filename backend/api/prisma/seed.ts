@@ -283,22 +283,86 @@ const users: SeedUser[] = [
 ];
 
 const interests = [
-  { name: 'Cycling', color: '#4E9F3D' },
-  { name: 'Photography', color: '#2F80ED' },
-  { name: 'Gaming', color: '#8B5CF6' },
-  { name: 'Chess', color: '#F97316' },
-  { name: 'Sport', color: '#10B981' },
-  { name: 'Aviation', color: '#0EA5E9' },
-  { name: 'Music', color: '#EC4899' },
-  { name: 'Cooking', color: '#F59E0B' },
-  { name: 'Robotics', color: '#64748B' },
-  { name: 'Design', color: '#E11D48' },
-  { name: 'Hiking', color: '#84CC16' },
-  { name: 'Cinema', color: '#6366F1' },
-  { name: 'Literature', color: '#A855F7' },
-  { name: 'Web Dev', color: '#14B8A6' },
-  { name: 'AI', color: '#06B6D4' },
-  { name: 'Climbing', color: '#D946EF' },
+  {
+    name: 'Cycling',
+    color: '#4E9F3D',
+    description: 'Plan rides, share routes, and talk gear for every cycling level.',
+  },
+  {
+    name: 'Photography',
+    color: '#2F80ED',
+    description: 'Share shots, organize photowalks, and trade editing tips.',
+  },
+  {
+    name: 'Gaming',
+    color: '#8B5CF6',
+    description: 'Find teammates, discuss releases, and set up casual sessions.',
+  },
+  {
+    name: 'Chess',
+    color: '#F97316',
+    description: 'Analyze games, share puzzles, and arrange friendly matches.',
+  },
+  {
+    name: 'Sport',
+    color: '#10B981',
+    description: 'Coordinate workouts, matches, and active meetups around campus.',
+  },
+  {
+    name: 'Aviation',
+    color: '#0EA5E9',
+    description: 'Talk aircraft, flight tracking, simulators, and aviation news.',
+  },
+  {
+    name: 'Music',
+    color: '#EC4899',
+    description: 'Share playlists, jam plans, concerts, and music discoveries.',
+  },
+  {
+    name: 'Cooking',
+    color: '#F59E0B',
+    description: 'Swap recipes, meal ideas, kitchen hacks, and food plans.',
+  },
+  {
+    name: 'Robotics',
+    color: '#64748B',
+    description: 'Build, debug, and share robotics projects and experiments.',
+  },
+  {
+    name: 'Design',
+    color: '#E11D48',
+    description: 'Discuss product design, visuals, workflows, and feedback.',
+  },
+  {
+    name: 'Hiking',
+    color: '#84CC16',
+    description: 'Plan trails, share outdoor tips, and find hiking partners.',
+  },
+  {
+    name: 'Cinema',
+    color: '#6366F1',
+    description: 'Recommend films, plan screenings, and discuss what you watched.',
+  },
+  {
+    name: 'Literature',
+    color: '#A855F7',
+    description: 'Share books, essays, writing, and reading recommendations.',
+  },
+  {
+    name: 'Web Dev',
+    color: '#14B8A6',
+    description: 'Talk frontend, backend, tooling, bugs, and project ideas.',
+  },
+  {
+    name: 'AI',
+    color: '#06B6D4',
+    description: 'Explore AI tools, papers, projects, and practical experiments.',
+  },
+  {
+    name: 'Climbing',
+    color: '#D946EF',
+    description: 'Find climbing partners, routes, gyms, and training advice.',
+  },
 ];
 
 const samplePosts: SeedPost[] = [
@@ -645,8 +709,11 @@ async function upsertInterestWithChannel(
     where: { interestId: interest.id },
     create: {
       interestId: interest.id,
+      description: seedInterest.description,
     },
-    update: {},
+    update: {
+      description: seedInterest.description,
+    },
   });
 }
 

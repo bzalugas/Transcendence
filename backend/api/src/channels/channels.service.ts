@@ -15,6 +15,7 @@ export interface ChannelDto {
   label: string;
   color: string;
   imageUri: string | null;
+  description?: string;
   memberCount: number;
   postCount: number;
   joined?: boolean;
@@ -681,6 +682,7 @@ export class ChannelsService {
     channel: {
       id: number;
       interestId: number;
+      description: string | null;
       interest: {
         name: string;
         color: string | null;
@@ -700,6 +702,7 @@ export class ChannelsService {
       label: channel.interest.name,
       color: channel.interest.color ?? '#6B7280',
       imageUri: channel.interest.imageUri,
+      description: channel.description ?? undefined,
       memberCount: channel._count.users,
       postCount: rootPostCount,
       ...membership,

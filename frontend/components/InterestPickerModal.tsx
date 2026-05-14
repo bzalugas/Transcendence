@@ -117,7 +117,9 @@ export default function InterestPickerModal({ joined, onJoin, onClose }: Props) 
             <div className="text-[20px] font-semibold">{detail.name}</div>
           </div>
           {/* Desc */}
-          <div className="text-[14px] leading-relaxed text-text-secondary">{detail.desc}</div>
+          <div className="text-[14px] leading-relaxed text-text-secondary">
+            {detail.desc || "Join this room to meet people who share this interest."}
+          </div>
           {/* Members */}
           <div className="flex items-center gap-2 text-[13px] text-text-muted">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

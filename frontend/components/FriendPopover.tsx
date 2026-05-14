@@ -100,13 +100,15 @@ export default function FriendPopover({
             </Link>
             <div className="mt-px text-[11px] text-[#888888]">Level {friend.level}</div>
           </div>
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); setShowSubMore(!showSubMore); }}
-            className="rounded-[4px] px-1.5 py-0.5 text-[16px] leading-none text-[#666666] transition-colors hover:bg-[#1a1a19] hover:text-white"
-          >
-            ···
-          </button>
+          {onRemove && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setShowSubMore(!showSubMore); }}
+              className="rounded-[4px] px-1.5 py-0.5 text-[16px] leading-none text-[#666666] transition-colors hover:bg-[#1a1a19] hover:text-white"
+            >
+              ···
+            </button>
+          )}
         </div>
 
         <div className="h-px bg-white/[0.08]" />
@@ -138,7 +140,7 @@ export default function FriendPopover({
       </div>
 
       {/* Sub-popover (3 dots) */}
-      {showSubMore && (
+      {showSubMore && onRemove && (
         <div
           ref={subMoreRef}
           className="fixed z-[1001] w-[220px] rounded-[10px] border border-white/[0.12] bg-[#0f0f0e] px-2 py-1.5 shadow-[0_8px_30px_rgba(0,0,0,0.6)]"
@@ -175,8 +177,8 @@ export default function FriendPopover({
           onCancel={() => setConfirmAction(null)}
           onConfirm={() => {
             setConfirmAction(null);
-            if (confirmAction === "remove" || confirmAction === "block") {
-              void onRemove?.();
+            if (onRemove && (confirmAction === "remove" || confirmAction === "block")) {
+              void onRemove();
             }
             onClose();
           }}

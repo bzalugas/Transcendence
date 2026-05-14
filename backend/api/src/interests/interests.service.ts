@@ -17,6 +17,7 @@ export class InterestsService {
   async findAll(): Promise<InterestDto[]> {
     const interests = await this.prisma.interest.findMany({
       include: {
+        channel: true,
         _count: {
           select: {
             interestedUsers: true,
@@ -38,6 +39,7 @@ export class InterestsService {
       include: {
         interest: {
           include: {
+            channel: true,
             _count: {
               select: {
                 interestedUsers: true,
@@ -155,13 +157,14 @@ export class InterestsService {
     id: number;
     name: string;
     color: string | null;
+    channel: { description: string | null } | null;
     _count: { interestedUsers: number };
   }): InterestDto {
     return {
       id: interest.id,
       name: interest.name,
       color: interest.color ?? '#6B7280',
-      desc: '',
+      desc: interest.channel?.description ?? '',
       members: interest._count.interestedUsers,
     };
   }

@@ -7,7 +7,6 @@ import ChannelHeader from "@/components/channel/ChannelHeader";
 import ChannelComposer from "@/components/channel/ChannelComposer";
 import ChannelSystemEvent from "@/components/channel/ChannelSystemEvent";
 import ChannelAboutPanel from "@/components/channel/ChannelAboutPanel";
-import ChannelInviteModal from "@/components/channel/ChannelInviteModal";
 import {
   getChannelBySlug,
   getChannelFeed,
@@ -36,7 +35,6 @@ export default function ChannelPage({ params }: ChannelPageProps) {
   const [members, setMembers] = useState<ChannelMember[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [panelOpen, setPanelOpen] = useState(true);
-  const [inviteOpen, setInviteOpen] = useState(false);
 
   // Reset feed when navigating to a different channel
   useEffect(() => {
@@ -109,7 +107,6 @@ export default function ChannelPage({ params }: ChannelPageProps) {
           channel={channel}
           panelOpen={panelOpen}
           onTogglePanel={() => setPanelOpen((p) => !p)}
-          onInvite={() => setInviteOpen(true)}
         />
 
         <div className="flex flex-col gap-3 px-4 pb-7 pt-2 sm:px-6 md:px-8">
@@ -156,13 +153,6 @@ export default function ChannelPage({ params }: ChannelPageProps) {
         </div>
       )}
 
-      {inviteOpen && (
-        <ChannelInviteModal
-          channel={channel}
-          members={members}
-          onClose={() => setInviteOpen(false)}
-        />
-      )}
     </>
   );
 }

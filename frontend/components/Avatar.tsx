@@ -1,3 +1,5 @@
+import { fileUrl } from "@/lib/data/files";
+
 type AvatarSize = "sm" | "md" | "lg";
 
 interface AvatarProps {
@@ -20,7 +22,7 @@ export default function Avatar({
   if (avatarUrl) {
     return (
       <img
-        src={avatarUrl}
+        src={fileUrl(avatarUrl)}
         alt={initials}
         className={`shrink-0 rounded-full object-cover ${sizeStyles[size]}`}
       />

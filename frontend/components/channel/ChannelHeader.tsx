@@ -7,14 +7,12 @@ interface ChannelHeaderProps {
   channel: Channel;
   panelOpen: boolean;
   onTogglePanel: () => void;
-  onInvite: () => void;
 }
 
 export default function ChannelHeader({
   channel,
   panelOpen,
   onTogglePanel,
-  onInvite,
 }: ChannelHeaderProps) {
   return (
     <div className="bg-bg-tertiary px-4 pt-5 sm:px-6 md:px-8 md:pt-6">
@@ -26,13 +24,6 @@ export default function ChannelHeader({
         <div className="text-[20px] font-semibold text-text-primary">
           {channel.label}
         </div>
-        <button
-          type="button"
-          onClick={onInvite}
-          className="ml-auto rounded-[7px] border border-border-strong/60 px-4 py-1.5 text-[12.5px] font-medium text-text-primary transition-colors hover:bg-bg-hover"
-        >
-          Invite
-        </button>
         <button
           type="button"
           onClick={onTogglePanel}

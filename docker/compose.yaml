@@ -7,8 +7,6 @@ services:
       target: prod
     restart: always
     env_file: .env
-    ports:
-      - "8080:8080"
   
   api:
     image: transcendence_api
@@ -18,6 +16,8 @@ services:
       target: prod
     restart: always
     env_file: .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}?schema=public
     depends_on:
       - db
       
@@ -35,6 +35,26 @@ services:
     volumes:
       - db-data:/var/lib/postgresql
 
+  proxy:
+    image: caddy:2.11-alpine
+    container_name: transcendence_proxy
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro,z
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - front
+      - api
+
+
 volumes:
   db-data:
-    name: db-data
+    name: transcendence-db-data
+  caddy-data:
+    name: transcendence-caddy-data
+  caddy-config:
+    name: transcendence-caddy-config

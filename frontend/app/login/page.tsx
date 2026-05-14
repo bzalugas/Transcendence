@@ -6,8 +6,6 @@ import Logo42 from "@/components/Logo42";
 import TermsAcceptanceModal from "@/components/TermsAcceptanceModal";
 import { authClient } from "@/lib/auth-client";
 
-const FRONTEND_BASE_URL = process.env.NEXT_PUBLIC_FRONTEND_URL ?? "http://localhost:8080";
-
 const features = [
   {
     title: "Channels",
@@ -46,11 +44,12 @@ export default function LoginPage() {
   const signInWith42 = async () => {
     setLoading(true);
     setError("");
+    const frontendBaseUrl = getFrontendBaseUrl();
 
     const { error } = await authClient.signIn.social({
       provider: "42school",
-      callbackURL: FRONTEND_BASE_URL,
-      newUserCallbackURL: FRONTEND_BASE_URL,
+      callbackURL: frontendBaseUrl,
+      newUserCallbackURL: frontendBaseUrl,
     });
 
     setLoading(false);
@@ -139,4 +138,12 @@ export default function LoginPage() {
       />
     </div>
   );
+}
+
+function getFrontendBaseUrl() {
+  if (typeof window !== "undefined") {
+    return window.location.origin;
+  }
+
+  return process.env.NEXT_PUBLIC_FRONTEND_URL ?? "http://localhost:8080";
 }

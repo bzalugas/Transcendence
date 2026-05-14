@@ -18,6 +18,12 @@ RUN bun run build
 FROM oven/bun:1 AS prod
 WORKDIR /app
 
-COPY --from=build /app/dist ./dist
+ENV NODE_ENV=production
 
-CMD ["bun", "run", "dev"]
+COPY --from=build /app/.next ./.next
+COPY --from=build /app/public ./public
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/package.json ./package.json
+COPY --from=build /app/next.config.ts ./next.config.ts
+
+CMD ["bun", "run", "start", "--", "-p", "8080"]

@@ -15,12 +15,16 @@ const PREVIEW_COUNT = 12;
 export default function InterestPickerModal({ joined, onJoin, onClose }: Props) {
   const [search, setSearch] = useState("");
   const [detail, setDetail] = useState<AvailableInterest | null>(null);
+  const [showAll, setShowAll] = useState(false);
   const [allInterests, setAllInterests] = useState<AvailableInterest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [joiningName, setJoiningName] = useState("");
+  const [joinedName, setJoinedName] = useState("");
   const [requestSent, setRequestSent] = useState(false);
   const [requestDesc, setRequestDesc] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
+  const returnDelayRef = useRef<ReturnType<typeof window.setTimeout> | null>(null);
 
   useEffect(() => {
     searchRef.current?.focus();
@@ -47,18 +51,41 @@ export default function InterestPickerModal({ joined, onJoin, onClose }: Props) 
     };
   }, []);
 
+  useEffect(() => {
+    return () => {
+      if (returnDelayRef.current) window.clearTimeout(returnDelayRef.current);
+    };
+  }, []);
+
   const joinedNames = new Set(joined.map((i) => i.name));
+  if (joinedName) joinedNames.add(joinedName);
   const available = allInterests.filter((i) => !joinedNames.has(i.name));
   const isSearching = search.trim() !== "";
   const filtered = isSearching
     ? available.filter((i) => i.name.toLowerCase().includes(search.toLowerCase()))
     : available;
+  const visibleInterests = isSearching || showAll
+    ? filtered
+    : filtered.slice(0, PREVIEW_COUNT);
 
   const showRequest = isSearching && filtered.length === 0;
 
   async function handleJoin(interest: AvailableInterest) {
-    const joinedInterest = await joinMyInterest(interest);
-    onJoin(joinedInterest);
+    if (joiningName || joinedNames.has(interest.name)) return;
+
+    setJoiningName(interest.name);
+
+    try {
+      const joinedInterest = await joinMyInterest(interest);
+      onJoin(joinedInterest);
+      setJoinedName(interest.name);
+      returnDelayRef.current = window.setTimeout(() => {
+        setDetail(null);
+        setJoinedName("");
+      }, 500);
+    } finally {
+      setJoiningName("");
+    }
   }
 
   function handleSendRequest() {
@@ -104,16 +131,17 @@ export default function InterestPickerModal({ joined, onJoin, onClose }: Props) 
           {/* Join btn */}
           <button
             type="button"
+            disabled={Boolean(joiningName || isJoined)}
             onClick={() => {
               if (!isJoined) handleJoin(detail);
             }}
             className={`ml-auto mt-auto rounded-lg px-6 py-2.5 text-[13.5px] font-medium transition-opacity ${
               isJoined
                 ? "cursor-default border border-accent-green/30 bg-bg-hover text-accent-green"
-                : "bg-text-primary text-bg-primary hover:opacity-90"
+                : "bg-text-primary text-bg-primary hover:opacity-90 disabled:cursor-default disabled:opacity-70"
             }`}
           >
-            {isJoined ? "Joined" : "Join"}
+            {joiningName === detail.name ? "Joining..." : isJoined ? "Joined" : "Join"}
           </button>
         </div>
       </Overlay>
@@ -145,6 +173,7 @@ export default function InterestPickerModal({ joined, onJoin, onClose }: Props) 
         value={search}
         onChange={(e) => {
           setSearch(e.target.value);
+          setShowAll(false);
           setRequestSent(false);
         }}
         placeholder="Search interests..."
@@ -166,7 +195,7 @@ export default function InterestPickerModal({ joined, onJoin, onClose }: Props) 
 
       {!showRequest && (
         <div className="flex max-h-[320px] flex-wrap content-start gap-2 overflow-y-auto px-6 pb-5">
-          {(isSearching ? filtered : filtered.slice(0, PREVIEW_COUNT)).map((i) => (
+          {visibleInterests.map((i) => (
             <button
               key={i.name}
               type="button"
@@ -177,10 +206,10 @@ export default function InterestPickerModal({ joined, onJoin, onClose }: Props) 
               {i.name}
             </button>
           ))}
-          {!isSearching && filtered.length > PREVIEW_COUNT && (
+          {!isSearching && !showAll && filtered.length > PREVIEW_COUNT && (
             <button
               type="button"
-              onClick={() => searchRef.current?.focus()}
+              onClick={() => setShowAll(true)}
               className="rounded-full border border-dashed border-border-default px-3.5 py-2 text-[13px] text-text-dimmed transition-colors hover:border-solid hover:text-text-muted"
             >
               +{filtered.length - PREVIEW_COUNT} more

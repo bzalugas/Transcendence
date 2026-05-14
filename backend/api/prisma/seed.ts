@@ -6,6 +6,8 @@ const prisma = new PrismaClient();
 const sharedPassword = '123456ABCdef!';
 const maxFriendsPerUser = 10;
 const maxRootPostsPerChannel = 5;
+const minSeedPostAgeMs = 2 * 60 * 60 * 1000;
+const maxSeedPostAgeMs = 7 * 24 * 60 * 60 * 1000;
 
 type SeedUser = {
   firstName: string;
@@ -953,6 +955,7 @@ function friendPairKey(firstUserId: string, secondUserId: string) {
 // Creates sample persisted posts and comments for the seeded interest channels.
 async function seedChannelPosts() {
   for (const samplePost of samplePosts) {
+    const rootPostCreatedAt = randomSeedPostDate();
     const channel = await prisma.channel.findFirst({
       where: {
         interest: {
@@ -971,6 +974,7 @@ async function seedChannelPosts() {
       channelId: channel.id,
       content: samplePost.content,
       parentId: null,
+      createdAt: rootPostCreatedAt,
     });
 
     for (const sampleComment of samplePost.comments) {
@@ -985,6 +989,7 @@ async function seedChannelPosts() {
         channelId: channel.id,
         content: sampleComment.content,
         parentId: post.id,
+        createdAt: randomSeedPostDate(rootPostCreatedAt),
       });
     }
   }
@@ -996,16 +1001,37 @@ async function findOrCreatePost(post: {
   channelId: number;
   content: string;
   parentId: number | null;
+  createdAt: Date;
 }) {
   const existingPost = await prisma.post.findFirst({
-    where: post,
+    where: {
+      authorId: post.authorId,
+      channelId: post.channelId,
+      content: post.content,
+      parentId: post.parentId,
+    },
   });
 
-  if (existingPost) return existingPost;
+  if (existingPost) {
+    return prisma.post.update({
+      where: { id: existingPost.id },
+      data: { createdAt: post.createdAt },
+    });
+  }
 
   return prisma.post.create({
     data: post,
   });
+}
+
+function randomSeedPostDate(after?: Date): Date {
+  const latest = Date.now() - minSeedPostAgeMs;
+  const earliest = after
+    ? Math.min(after.getTime() + 10 * 60 * 1000, latest)
+    : Date.now() - maxSeedPostAgeMs;
+  const timestamp = earliest + Math.random() * (latest - earliest);
+
+  return new Date(timestamp);
 }
 
 main()

@@ -111,6 +111,7 @@ export interface PostAttachment {
 
 export interface Post {
   id: string;
+  createdAt?: string;
   authorId?: string;
   initials: string;
   avatarUrl?: string;

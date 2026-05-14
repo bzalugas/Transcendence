@@ -2,9 +2,8 @@ import {
   profileActivity,
   currentProjects,
 } from "@/lib/mocks/profile";
+import { API_BASE_URL } from "@/lib/api-url";
 import type { User } from "@/lib/types";
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
 
 // Backend swap point: replace with `fetch('/api/profile/:username')`.
 

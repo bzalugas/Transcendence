@@ -6,7 +6,7 @@ BACKEND_DIR     := backend/api
 API_CONTAINER   := transcendence_api
 DB_CONTAINER    := transcendence_db
 
-all: up
+all: prod-up
 
 # --- DEV PART ---
 up:
@@ -25,6 +25,15 @@ build:
 
 rebuild:
 	$(COMPOSE) -f $(COMPOSE_FILE) -f $(COMPOSE_DEV) --env-file $(ENV_FILE) up -d --build 
+
+build-one:
+	$(COMPOSE) -f $(COMPOSE_FILE) -f $(COMPOSE_DEV) --env-file $(ENV_FILE) build $(service)
+
+up-one:
+	$(COMPOSE) -f $(COMPOSE_FILE) -f $(COMPOSE_DEV) --env-file $(ENV_FILE) up -d $(service)
+
+recreate-one:
+	$(COMPOSE) -f $(COMPOSE_FILE) -f $(COMPOSE_DEV) --env-file $(ENV_FILE) up -d --build --force-recreate $(service)
 
 logs:
 	$(COMPOSE) -f $(COMPOSE_FILE) -f $(COMPOSE_DEV) --env-file $(ENV_FILE) logs -f
@@ -53,28 +62,37 @@ re: clean build up
 # --- PROD part ---
 
 prod-up:
-	$(COMPOSE) -f $(COMPOSE_FILE) up -d --build
+	$(COMPOSE) -f $(COMPOSE_FILE) --env-file $(ENV_FILE) up -d --build
 
 prod-build:
-	$(COMPOSE) -f $(COMPOSE_FILE)build
+	$(COMPOSE) -f $(COMPOSE_FILE) --env-file $(ENV_FILE) build
+
+prod-build-one:
+	$(COMPOSE) -f $(COMPOSE_FILE) --env-file $(ENV_FILE) build $(service)
+
+prod-up-one:
+	$(COMPOSE) -f $(COMPOSE_FILE) --env-file $(ENV_FILE) up -d $(service)
+
+prod-recreate-one:
+	$(COMPOSE) -f $(COMPOSE_FILE) --env-file $(ENV_FILE) up -d --build --force-recreate $(service)
 
 prod-logs:
-	$(COMPOSE) -f $(COMPOSE_FILE) logs
+	$(COMPOSE) -f $(COMPOSE_FILE) --env-file $(ENV_FILE) logs
 
 prod-down:
-	$(COMPOSE) -f $(COMPOSE_FILE) down
+	$(COMPOSE) -f $(COMPOSE_FILE) --env-file $(ENV_FILE) down
 
 prod-stop:
-	$(COMPOSE) -f $(COMPOSE_FILE) stop
+	$(COMPOSE) -f $(COMPOSE_FILE) --env-file $(ENV_FILE) stop
 
 prod-rmi:
-	docker rmi -f $$($(COMPOSE) -f $(COMPOSE_FILE) config --images) 2>/dev/null
+	docker rmi -f $$($(COMPOSE) -f $(COMPOSE_FILE) --env-file $(ENV_FILE) config --images) 2>/dev/null
 
 prod-start:
-	$(COMPOSE) -f $(COMPOSE_FILE) -f $(COMPOSE_DEV) start
+	$(COMPOSE) -f $(COMPOSE_FILE) --env-file $(ENV_FILE) start
 
 prod-restart:
-	$(COMPOSE) -f $(COMPOSE_FILE) -f $(COMPOSE_DEV) restart
+	$(COMPOSE) -f $(COMPOSE_FILE) --env-file $(ENV_FILE) restart
 
 #--- UTILS ---
 # Generate prisma schema + create migration locally
@@ -93,4 +111,4 @@ migrate-reset: down-v
 clean: down-v rmi
 	docker volume prune -f
 
-.PHONY: all build build-prod dev prod up up-d logs down down-v stop rmi start restart re
+.PHONY: all build build-one build-prod dev prod up up-d up-one recreate-one logs down down-v stop rmi start restart re prod-up prod-build prod-build-one prod-up-one prod-recreate-one prod-logs prod-down prod-stop prod-rmi prod-start prod-restart

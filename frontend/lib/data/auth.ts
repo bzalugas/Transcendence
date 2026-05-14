@@ -2,9 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { authClient } from "@/lib/auth-client";
+import { API_BASE_URL } from "@/lib/api-url";
 import type { ProfileSocial, User } from "@/lib/types";
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
 
 type BetterAuthSessionUser = {
   id?: string;

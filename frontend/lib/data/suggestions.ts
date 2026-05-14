@@ -1,6 +1,5 @@
+import { API_BASE_URL } from "@/lib/api-url";
 import type { Friend } from "@/lib/types";
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
 
 export interface SuggestionProfile {
   initials: string;

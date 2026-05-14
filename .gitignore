@@ -3,5 +3,6 @@
 .env-dev
 .next
 node_modules
+*.tsbuildinfo
 subject.pdf
 backend/api/uploads

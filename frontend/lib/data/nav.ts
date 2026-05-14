@@ -1,6 +1,5 @@
+import { API_BASE_URL } from "@/lib/api-url";
 import type { NavBadges } from "@/lib/types";
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
 
 interface ApiFriendRequest {
   id: number;

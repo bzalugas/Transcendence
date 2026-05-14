@@ -1,7 +1,7 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
+import { AUTH_BASE_URL } from "@/lib/api-url";
 
 export async function requestPasswordReset(email: string, redirectTo: string): Promise<void> {
-  await request("/api/auth/request-password-reset", {
+  await request("/request-password-reset", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -11,7 +11,7 @@ export async function requestPasswordReset(email: string, redirectTo: string): P
 }
 
 export async function resetPassword(token: string, newPassword: string): Promise<void> {
-  await request("/api/auth/reset-password", {
+  await request("/reset-password", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -21,7 +21,7 @@ export async function resetPassword(token: string, newPassword: string): Promise
 }
 
 async function request(path: string, init: RequestInit): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  const response = await fetch(`${AUTH_BASE_URL}${path}`, {
     ...init,
     credentials: "include",
   });

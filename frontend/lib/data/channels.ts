@@ -1,7 +1,6 @@
+import { API_BASE_URL } from "@/lib/api-url";
 import type { Channel, ChannelFeedItem, ChannelMember, Comment, Post, User } from "@/lib/types";
 import { notifyChannelsUpdated } from "@/lib/data/channel-events";
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
 
 let channelsCache: Channel[] = [];
 

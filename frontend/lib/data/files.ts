@@ -1,6 +1,5 @@
+import { API_BASE_URL } from "@/lib/api-url";
 import type { FileAsset } from "@/lib/types";
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
 
 export const ACCEPTED_UPLOAD_TYPES = [
   "image/jpeg",

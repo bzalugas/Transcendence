@@ -8,6 +8,7 @@ import Avatar from "@/components/Avatar";
 import FriendsPanel from "@/components/FriendsPanel";
 import InterestPickerModal from "@/components/InterestPickerModal";
 import PanelToggleIcon from "@/components/icons/PanelToggleIcon";
+import { fileUrl } from "@/lib/data/files";
 import { getProfileByUsername, getUserProfileByUsername } from "@/lib/data/profile";
 import { useCurrentUser } from "@/lib/data/auth";
 import { getProfileFriends } from "@/lib/data/friends";
@@ -160,7 +161,7 @@ export default function ProfilePage({ params }: ProfilePageProps) {
               <div className="shrink-0">
                 {user.avatarUrl ? (
                   <img
-                    src={user.avatarUrl}
+                    src={fileUrl(user.avatarUrl)}
                     alt={user.initials}
                     className="h-[72px] w-[72px] rounded-full border-[3px] border-bg-secondary object-cover sm:h-[88px] sm:w-[88px]"
                   />

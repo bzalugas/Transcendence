@@ -93,7 +93,7 @@ export function toAppUser(sessionUser: BetterAuthSessionUser): User {
 
 // Updates the better-auth user record and persisted profile fields supported by the API.
 export async function updateCurrentUser(
-  updates: Partial<Pick<User, "username" | "bio" | "initials" | "socials">>,
+  updates: Partial<Pick<User, "username" | "bio" | "avatarUrl" | "initials" | "socials">>,
 ): Promise<User | null> {
   const client = authClient as typeof authClient & {
     updateUser?: (data: { name?: string | null }) => Promise<unknown>;
@@ -103,7 +103,7 @@ export async function updateCurrentUser(
     await client.updateUser?.({ name: updates.username });
   }
 
-  if ("bio" in updates || "socials" in updates) {
+  if ("bio" in updates || "socials" in updates || "avatarUrl" in updates) {
     const response = await fetch(`${API_BASE_URL}/profiles/me`, {
       method: "PATCH",
       credentials: "include",
@@ -113,6 +113,7 @@ export async function updateCurrentUser(
       body: JSON.stringify({
         ...("bio" in updates ? { bio: updates.bio ?? null } : {}),
         ...("socials" in updates ? { socials: updates.socials ?? [] } : {}),
+        ...("avatarUrl" in updates ? { avatarUri: updates.avatarUrl ?? null } : {}),
       }),
     });
 

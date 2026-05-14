@@ -101,11 +101,12 @@ model User_Interest {
 }
 
 model Channel {
-  id         Int            @id @default(autoincrement())
-  interestId Int            @unique
-  interest   Interest       @relation(name: "mainInterest", fields: [interestId], references: [id])
-  posts      Post[]
-  users      User_Channel[]
+  id          Int            @id @default(autoincrement())
+  interestId  Int            @unique
+  description String?
+  interest    Interest       @relation(name: "mainInterest", fields: [interestId], references: [id])
+  posts       Post[]
+  users       User_Channel[]
   //imageUri    String?               // déplacé dans Interest
   //title       String      @unique   // supprimé  (redondant avec Interest.name)
   //tags        Interest[]            // supprimé

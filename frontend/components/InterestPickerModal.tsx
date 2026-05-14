@@ -24,7 +24,7 @@ export default function InterestPickerModal({ joined, onJoin, onClose }: Props) 
   const [requestSent, setRequestSent] = useState(false);
   const [requestDesc, setRequestDesc] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
-  const returnDelayRef = useRef<ReturnType<typeof window.setTimeout> | null>(null);
+  const returnDelayRef = useRef<number | null>(null);
 
   useEffect(() => {
     searchRef.current?.focus();

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Avatar from "@/components/Avatar";
 import type { Comment, FileAsset, Post as PostType } from "@/lib/types";
@@ -69,6 +69,7 @@ export default function Post({
   const [editUploads, setEditUploads] = useState<UploadItem[]>([]);
   const [editError, setEditError] = useState("");
   const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
   const editFileInputRef = useRef<HTMLInputElement>(null);
   const imageAttachments = attachments?.filter((attachment) => attachment.category === "image") ?? [];
   const previewImageIndex = previewAttachment?.category === "image"
@@ -89,6 +90,27 @@ export default function Post({
     .filter((upload) => upload.status === "uploaded" && upload.asset)
     .map((upload) => upload.asset as FileAsset);
   const isUploadingEdit = editUploads.some((upload) => upload.status === "uploading");
+
+  useEffect(() => {
+    if (!menuOpen) return;
+
+    function handlePointerDown(event: PointerEvent) {
+      if (menuRef.current?.contains(event.target as Node)) return;
+      setMenuOpen(false);
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setMenuOpen(false);
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [menuOpen]);
 
   // Persists a reply when possible, then adds it to the displayed comments.
   async function submitComment() {
@@ -305,50 +327,48 @@ export default function Post({
             {time} · <span className="text-text-tertiary">{channelLabel}</span>
           </div>
         </div>
-        <div className="relative">
-          <button
-            type="button"
-            onClick={() => {
-              if (canEdit || canDelete) setMenuOpen((open) => !open);
-            }}
-            className={`px-1 text-text-muted transition-colors ${
-              canEdit || canDelete ? "hover:text-text-primary" : "cursor-default"
-            }`}
-            aria-haspopup="menu"
-            aria-expanded={menuOpen && (canEdit || canDelete)}
-            aria-label="Post options"
-          >
-            ···
-          </button>
-          {menuOpen && (canEdit || canDelete) && (
-            <div
-              role="menu"
-              className="absolute right-0 top-6 z-20 min-w-[132px] rounded-lg border border-border-subtle bg-bg-secondary py-1 shadow-lg"
+        {(canEdit || canDelete) && (
+          <div ref={menuRef} className="relative">
+            <button
+              type="button"
+              onClick={() => setMenuOpen((open) => !open)}
+              className="px-1 text-text-muted transition-colors hover:text-text-primary"
+              aria-haspopup="menu"
+              aria-expanded={menuOpen}
+              aria-label="Post options"
             >
-              {canEdit && (
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={beginEdit}
-                  className="w-full px-3 py-2 text-left text-[12.5px] font-medium text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary"
-                >
-                  Edit post
-                </button>
-              )}
-              {canDelete && (
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => { void deletePost(); }}
-                  disabled={isDeleting}
-                  className="w-full px-3 py-2 text-left text-[12.5px] font-medium text-red-500 transition-colors hover:bg-bg-hover disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {isDeleting ? "Removing..." : "Remove post"}
-                </button>
-              )}
-            </div>
-          )}
-        </div>
+              ···
+            </button>
+            {menuOpen && (
+              <div
+                role="menu"
+                className="absolute right-0 top-6 z-20 min-w-[132px] rounded-lg border border-border-subtle bg-bg-secondary py-1 shadow-lg"
+              >
+                {canEdit && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={beginEdit}
+                    className="w-full px-3 py-2 text-left text-[12.5px] font-medium text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary"
+                  >
+                    Edit post
+                  </button>
+                )}
+                {canDelete && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => { void deletePost(); }}
+                    disabled={isDeleting}
+                    className="w-full px-3 py-2 text-left text-[12.5px] font-medium text-red-500 transition-colors hover:bg-bg-hover disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {isDeleting ? "Removing..." : "Remove post"}
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {isEditing ? (

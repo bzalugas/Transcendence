@@ -83,7 +83,7 @@ export async function deleteUploadedFile(fileId: number): Promise<void> {
 }
 
 export function fileUrl(path: string): string {
-  return path.startsWith("http") ? path : `${API_BASE_URL}${path}`;
+  return path.startsWith("http") || path.startsWith("data:") ? path : `${API_BASE_URL}${path}`;
 }
 
 export function formatFileSize(bytes: number): string {

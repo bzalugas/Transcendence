@@ -3,10 +3,10 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { Channel, Friend } from "@/lib/types";
-import { getAllChannels } from "@/lib/data/channels";
+import type { Friend } from "@/lib/types";
 import { addChatMessage, setPendingConv } from "@/lib/data/messages";
 import { useCurrentUser } from "@/lib/data/auth";
+import { fileUrl } from "@/lib/data/files";
 import GameModal from "@/components/GameModal";
 import ConfirmActionModal, { type ConfirmAction } from "@/components/ConfirmActionModal";
 
@@ -26,31 +26,13 @@ export default function FriendPopover({
   onRemove,
 }: FriendPopoverProps) {
   const router = useRouter();
-  const [channels, setChannels] = useState<Channel[]>([]);
   const { user: currentUser } = useCurrentUser();
   const [msgText, setMsgText] = useState("");
   const popRef = useRef<HTMLDivElement>(null);
   const subMoreRef = useRef<HTMLDivElement>(null);
   const [showSubMore, setShowSubMore] = useState(false);
-  const [showSubChannels, setShowSubChannels] = useState(false);
   const [showGameModal, setShowGameModal] = useState(false);
   const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null);
-
-  useEffect(() => {
-    let active = true;
-
-    getAllChannels()
-      .then((items) => {
-        if (active) setChannels(items);
-      })
-      .catch(() => {
-        if (active) setChannels([]);
-      });
-
-    return () => {
-      active = false;
-    };
-  }, []);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -105,7 +87,7 @@ export default function FriendPopover({
         <div className="flex items-center gap-2.5 rounded-t-[8px] px-3.5 py-[14px] pb-[10px]">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#1a1a18] text-[12px] font-medium text-white">
             {friend.avatarUrl
-              ? <img src={friend.avatarUrl} alt={friend.name} className="h-9 w-9 rounded-full object-cover" />
+              ? <img src={fileUrl(friend.avatarUrl)} alt={friend.name} className="h-9 w-9 rounded-full object-cover" />
               : initials}
           </div>
           <div className="min-w-0 flex-1">
@@ -120,7 +102,7 @@ export default function FriendPopover({
           </div>
           <button
             type="button"
-            onClick={(e) => { e.stopPropagation(); setShowSubMore(!showSubMore); setShowSubChannels(false); }}
+            onClick={(e) => { e.stopPropagation(); setShowSubMore(!showSubMore); }}
             className="rounded-[4px] px-1.5 py-0.5 text-[16px] leading-none text-[#666666] transition-colors hover:bg-[#1a1a19] hover:text-white"
           >
             ···
@@ -162,35 +144,6 @@ export default function FriendPopover({
           className="fixed z-[1001] w-[220px] rounded-[10px] border border-white/[0.12] bg-[#0f0f0e] px-2 py-1.5 shadow-[0_8px_30px_rgba(0,0,0,0.6)]"
           style={{ top: anchorPosition.top, left: anchorPosition.left + 248 }}
         >
-          <div
-            className="relative"
-            onMouseEnter={() => setShowSubChannels(true)}
-            onMouseLeave={() => setShowSubChannels(false)}
-          >
-            <button
-              type="button"
-              className="flex w-full items-center gap-2 rounded-[5px] px-2 py-[7px] text-[12.5px] text-[#c9c6c1] transition-colors hover:bg-[#1a1a19] hover:text-white"
-            >
-              <span className="text-[10px] text-[#666666]">◂</span>
-              Invite to a channel
-            </button>
-            {showSubChannels && (
-              <div className="absolute right-full top-0 mr-1 w-[200px] overflow-hidden rounded-[10px] border border-white/[0.12] bg-[#0f0f0e] px-2 py-1.5 shadow-[0_8px_30px_rgba(0,0,0,0.6)]">
-                {channels.map((r) => (
-                  <button
-                    key={r.slug}
-                    type="button"
-                    onClick={() => { setShowSubChannels(false); onClose(); }}
-                    className="flex w-full items-center gap-2 rounded-[5px] px-2 py-[7px] text-[12.5px] text-[#c9c6c1] transition-colors hover:bg-[#1a1a19] hover:text-white"
-                  >
-                    <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: r.color }} />
-                    {r.label}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-          <div className="my-1 h-px bg-white/[0.08]" />
           <button
             type="button"
             onClick={() => { setShowSubMore(false); setConfirmAction("remove"); }}
@@ -204,13 +157,6 @@ export default function FriendPopover({
             className="flex w-full items-center gap-2 rounded-[5px] px-2 py-[7px] text-[12.5px] text-[#e84545] transition-colors hover:bg-[rgba(232,69,69,0.1)]"
           >
             Block
-          </button>
-          <button
-            type="button"
-            onClick={() => { setShowSubMore(false); setConfirmAction("report"); }}
-            className="flex w-full items-center gap-2 rounded-[5px] px-2 py-[7px] text-[12.5px] text-[#e84545] transition-colors hover:bg-[rgba(232,69,69,0.1)]"
-          >
-            Report
           </button>
         </div>
       )}

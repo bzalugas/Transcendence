@@ -34,6 +34,7 @@ export interface ChannelMemberDto {
 
 export interface ChannelPostDto {
   id: string;
+  createdAt: string;
   authorId: string;
   initials: string;
   avatarUrl?: string;
@@ -760,6 +761,7 @@ export class ChannelsService {
 
     return {
       id: String(post.id),
+      createdAt: post.createdAt.toISOString(),
       authorId: post.authorId,
       initials: this.initials(author),
       avatarUrl: post.author.profile?.avatarUri ?? post.author.image ?? undefined,

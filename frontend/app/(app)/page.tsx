@@ -1,18 +1,79 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Post from "@/components/Post";
-import ActivityCard from "@/components/ActivityCard";
-import NewChannelCard from "@/components/NewChannelCard";
 import FriendsPanel from "@/components/FriendsPanel";
 import PanelToggleIcon from "@/components/icons/PanelToggleIcon";
-import { getHomeFeed } from "@/lib/data/feed";
+import { getHomeFeed, type HomePostFeedItem } from "@/lib/data/feed";
+import { listenForChannelsUpdated } from "@/lib/data/channel-events";
 import { useCurrentUser } from "@/lib/data/auth";
+import {
+  createChannelReply,
+  deleteChannelPost,
+  updateChannelPost,
+} from "@/lib/data/channels";
 
 export default function HomePage() {
   const [showPanel, setShowPanel] = useState(true);
+  const [feed, setFeed] = useState<HomePostFeedItem[]>([]);
+  const [loadingFeed, setLoadingFeed] = useState(true);
+  const [feedError, setFeedError] = useState("");
   const { user: currentUser } = useCurrentUser();
-  const feed = getHomeFeed();
+
+  useEffect(() => {
+    let active = true;
+
+    function loadHomeFeed() {
+      setLoadingFeed(true);
+      getHomeFeed()
+        .then((items) => {
+          if (!active) return;
+          setFeed(items);
+          setFeedError("");
+        })
+        .catch(() => {
+          if (!active) return;
+          setFeed([]);
+          setFeedError("Unable to load your feed.");
+        })
+        .finally(() => {
+          if (active) setLoadingFeed(false);
+        });
+    }
+
+    loadHomeFeed();
+    const stopListening = listenForChannelsUpdated(loadHomeFeed);
+
+    return () => {
+      active = false;
+      stopListening();
+    };
+  }, []);
+
+  function removePostFromFeed(postId: string) {
+    setFeed((items) => items.filter((item) => item.post.id !== postId));
+  }
+
+  async function handleDeletePost(channelSlug: string, postId: string) {
+    await deleteChannelPost(channelSlug, postId);
+    removePostFromFeed(postId);
+  }
+
+  async function handleUpdatePost(
+    channelSlug: string,
+    postId: string,
+    body: string,
+    attachmentIds: number[],
+  ) {
+    const post = await updateChannelPost(channelSlug, postId, body, attachmentIds);
+    setFeed((items) =>
+      items.map((item) =>
+        item.post.id === postId
+          ? { kind: "post", post }
+          : item,
+      ),
+    );
+  }
 
 //   IF NOT LOGGED -> REDIRECT TO SIGN IN SIGN UP
   if (!currentUser) return null;
@@ -39,23 +100,35 @@ export default function HomePage() {
           What&apos;s happening in your channels
         </div>
 
-        {feed.map((item) => {
-          switch (item.kind) {
-            case "post":
-              return <Post key={item.post.id} {...item.post} />;
-            case "new-channel":
-              return (
-                <NewChannelCard
-                  key={item.announcement.id}
-                  {...item.announcement}
-                />
-              );
-            case "activity":
-              return (
-                <ActivityCard key={item.activity.id} activity={item.activity} />
-              );
-          }
-        })}
+        {loadingFeed ? (
+          <div className="rounded-xl border border-border-default bg-bg-secondary p-[18px] text-[13px] italic text-text-dimmed">
+            Loading feed...
+          </div>
+        ) : feedError ? (
+          <div className="rounded-xl border border-border-default bg-bg-secondary p-[18px] text-[13px] italic text-danger">
+            {feedError}
+          </div>
+        ) : feed.length === 0 ? (
+          <div className="rounded-xl border border-border-default bg-bg-secondary p-[18px] text-[13px] italic text-text-dimmed">
+            No posts yet in your interests.
+          </div>
+        ) : (
+          feed.map((item) => (
+            <Post
+              key={item.post.id}
+              {...item.post}
+              onReply={(postId, replyBody) =>
+                createChannelReply(item.post.channelSlug, postId, replyBody)
+              }
+              onUpdate={(postId, body, attachmentIds) =>
+                handleUpdatePost(item.post.channelSlug, postId, body, attachmentIds)
+              }
+              onDelete={(postId) =>
+                handleDeletePost(item.post.channelSlug, postId)
+              }
+            />
+          ))
+        )}
       </div>
 
       {showPanel && (

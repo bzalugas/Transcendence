@@ -5,7 +5,7 @@ services:
     ports:
       - "8080:8080"
     volumes:
-      - ../frontend/:/app
+      - ../frontend/:/app:z
       - frontend-node-modules:/app/node_modules
     networks:
       - transcendence-net
@@ -20,7 +20,7 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - ../backend/api:/api
+      - ../backend/api:/api:z
       - api-node-modules:/api/node_modules
     depends_on:
       db:

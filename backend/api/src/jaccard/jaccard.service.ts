@@ -1,9 +1,13 @@
 import { Injectable } from '@nestjs/common';
+import { BlocksService } from '../blocks/blocks.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class JaccardService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly blocksService: BlocksService,
+  ) {}
 
   // Finds users who should not appear in suggestions because a relationship already exists.
   private async getExcludedUserIds(userId: string): Promise<string[]> {
@@ -40,11 +44,14 @@ export class JaccardService {
       currentUser.interests.map(i => [i.interestId, i.interest.name])
     );
 
-    const excludedUserIds = await this.getExcludedUserIds(userId);
+    const [excludedUserIds, blockedUserIds] = await Promise.all([
+      this.getExcludedUserIds(userId),
+      this.blocksService.getBlockedPairUserIds(userId),
+    ]);
 
     const candidats = await this.prisma.user.findMany({
       where: {
-        id: { notIn: [...excludedUserIds, userId] },
+        id: { notIn: [...excludedUserIds, ...blockedUserIds, userId] },
         interests: {
           some: { interestId: { in: currentInterestIds } },
         },

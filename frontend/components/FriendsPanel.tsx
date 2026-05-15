@@ -10,21 +10,25 @@ import type { Friend } from "@/lib/types";
 
 export default function FriendsPanel({
   topSlot,
+  friends: friendsProp,
 }: {
   topSlot?: ReactNode;
+  friends?: Friend[];
 } = {}) {
-  const [friends, setFriends] = useState<Friend[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [fetchedFriends, setFetchedFriends] = useState<Friend[]>([]);
+  const [loading, setLoading] = useState(friendsProp === undefined);
 
   useEffect(() => {
+    if (friendsProp !== undefined) return;
+
     let active = true;
 
     getFriends()
       .then((items) => {
-        if (active) setFriends(items);
+        if (active) setFetchedFriends(items);
       })
       .catch(() => {
-        if (active) setFriends([]);
+        if (active) setFetchedFriends([]);
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -33,7 +37,9 @@ export default function FriendsPanel({
     return () => {
       active = false;
     };
-  }, []);
+  }, [friendsProp]);
+
+  const friends = friendsProp ?? fetchedFriends;
 
   return (
     <aside className="flex w-full flex-col overflow-hidden border-l border-border-default bg-bg-secondary">

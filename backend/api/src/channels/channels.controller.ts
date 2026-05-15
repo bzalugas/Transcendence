@@ -48,8 +48,8 @@ export class ChannelsController {
   // Returns the persisted post feed for one channel.
   @Get(':slug/feed')
   async findFeed(@Req() req: Request, @Param('slug') slug: string) {
-    await getSessionUserId(req);
-    return this.channelsService.findFeedBySlug(slug);
+    const userId = await getSessionUserId(req);
+    return this.channelsService.findFeedBySlug(slug, userId);
   }
 
   // Creates a persisted post in one channel for the current session user.

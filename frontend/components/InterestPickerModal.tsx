@@ -2,7 +2,11 @@
 
 import { useState, useRef, useEffect } from "react";
 import type { AvailableInterest, ProfileInterest } from "@/lib/types";
-import { getAllInterests, joinMyInterest } from "@/lib/data/interests";
+import {
+  getAllInterests,
+  joinMyInterest,
+  requestNewInterest,
+} from "@/lib/data/interests";
 
 interface Props {
   joined: ProfileInterest[];
@@ -22,8 +26,11 @@ export default function InterestPickerModal({ joined, onJoin, onClose }: Props) 
   const [joiningName, setJoiningName] = useState("");
   const [joinedName, setJoinedName] = useState("");
   const [requestSent, setRequestSent] = useState(false);
+  const [requestSubmitting, setRequestSubmitting] = useState(false);
+  const [requestError, setRequestError] = useState("");
   const [requestDesc, setRequestDesc] = useState("");
   const [requestedInterestName, setRequestedInterestName] = useState("");
+  const [requestAlreadyExists, setRequestAlreadyExists] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
   const returnDelayRef = useRef<number | null>(null);
 
@@ -90,16 +97,30 @@ export default function InterestPickerModal({ joined, onJoin, onClose }: Props) 
     }
   }
 
-  function handleSendRequest() {
+  async function handleSendRequest() {
     if (!requestDesc.trim()) return;
-    setRequestedInterestName(search.trim());
-    setRequestSent(true);
-    setRequestDesc("");
+    const requestedName = search.trim();
+    setRequestSubmitting(true);
+    setRequestError("");
+
+    try {
+      const result = await requestNewInterest(requestedName, requestDesc);
+      setRequestedInterestName(requestedName);
+      setRequestAlreadyExists(result.alreadyRequested);
+      setRequestSent(true);
+      setRequestDesc("");
+    } catch {
+      setRequestError("Unable to send this request. Please try again.");
+    } finally {
+      setRequestSubmitting(false);
+    }
   }
 
   function requestAnotherInterest() {
     setRequestSent(false);
     setRequestedInterestName("");
+    setRequestAlreadyExists(false);
+    setRequestError("");
     setSearch("");
     setRequestDesc("");
     setShowAll(false);
@@ -181,10 +202,14 @@ export default function InterestPickerModal({ joined, onJoin, onClose }: Props) 
             ✓
           </div>
           <div className="text-[15px] font-medium text-text-primary">
-            We received your request
+            {requestAlreadyExists ? "Request already exists" : "We received your request"}
           </div>
           <div className="mt-2 max-w-[380px] text-[13px] leading-relaxed text-text-muted">
-            {requestedInterestName ? (
+            {requestAlreadyExists && requestedInterestName ? (
+              <>
+                &quot;<span className="font-medium text-text-secondary">{requestedInterestName}</span>&quot; was already requested earlier. We kept it in review with your latest description.
+              </>
+            ) : requestedInterestName ? (
               <>
                 &quot;<span className="font-medium text-text-secondary">{requestedInterestName}</span>&quot; will be reviewed before it appears in the interest list.
               </>
@@ -241,6 +266,7 @@ export default function InterestPickerModal({ joined, onJoin, onClose }: Props) 
           setSearch(e.target.value);
           setShowAll(false);
           setRequestSent(false);
+          setRequestError("");
         }}
         placeholder="Search interests..."
         className="mx-6 mb-4 rounded-lg border border-border-default bg-bg-hover px-3.5 py-2.5 text-[13px] text-text-primary outline-none placeholder:text-text-dimmed focus:border-border-strong"
@@ -292,18 +318,26 @@ export default function InterestPickerModal({ joined, onJoin, onClose }: Props) 
           </div>
           <textarea
             value={requestDesc}
-            onChange={(e) => setRequestDesc(e.target.value)}
+            onChange={(e) => {
+              setRequestDesc(e.target.value);
+              setRequestError("");
+            }}
             placeholder="Describe this interest briefly..."
             className="h-20 w-full resize-none rounded-lg border border-border-default bg-bg-hover px-3.5 py-2.5 text-[13px] text-text-primary outline-none placeholder:text-text-dimmed focus:border-border-strong"
           />
-          <div className="flex justify-end">
+          <div className="flex items-center justify-between gap-3">
+            {requestError ? (
+              <div className="text-[12px] text-danger">{requestError}</div>
+            ) : (
+              <div />
+            )}
             <button
               type="button"
-              disabled={!canRequestInterest}
+              disabled={!canRequestInterest || requestSubmitting}
               onClick={handleSendRequest}
               className="rounded-lg bg-text-primary px-[22px] py-2.5 text-[13px] font-medium text-bg-primary transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:bg-bg-hover disabled:text-text-dimmed disabled:hover:opacity-100"
             >
-              Request a new interest
+              {requestSubmitting ? "Sending..." : "Request a new interest"}
             </button>
           </div>
         </div>

@@ -5,6 +5,7 @@ import { randomUUID } from 'node:crypto';
 const prisma = new PrismaClient();
 const sharedPassword = '123456ABCdef!';
 const maxFriendsPerUser = 10;
+const minBootstrapFriendsForNonSeededUsers = 3;
 const maxRootPostsPerChannel = 5;
 const minSeedPostAgeMs = 2 * 60 * 60 * 1000;
 const maxSeedPostAgeMs = 7 * 24 * 60 * 60 * 1000;
@@ -875,6 +876,77 @@ async function seedFriendships() {
       },
     });
   }
+
+  await seedBootstrapFriendshipsForNonSeededUsers(seededUserIds);
+}
+
+async function seedBootstrapFriendshipsForNonSeededUsers(
+  seededUserIds: string[],
+) {
+  const nonSeededUsers = await prisma.user.findMany({
+    where: {
+      id: {
+        notIn: seededUserIds,
+      },
+    },
+    include: {
+      interests: true,
+    },
+  });
+
+  if (nonSeededUsers.length === 0) return;
+
+  const seededCandidateUsers = await prisma.user.findMany({
+    where: {
+      id: {
+        in: seededUserIds,
+      },
+    },
+    include: {
+      interests: true,
+    },
+  });
+
+  for (const user of nonSeededUsers) {
+    const existingFriendIds = new Set(await getAcceptedFriendIds(user.id));
+    const missingFriendsCount =
+      minBootstrapFriendsForNonSeededUsers - existingFriendIds.size;
+
+    if (missingFriendsCount <= 0) continue;
+
+    const candidates = seededCandidateUsers
+      .filter((candidate) => candidate.id !== user.id)
+      .filter((candidate) => !existingFriendIds.has(candidate.id))
+      .sort((first, second) => {
+        const sharedDifference =
+          countSharedInterestIds(user.interests, second.interests) -
+          countSharedInterestIds(user.interests, first.interests);
+
+        if (sharedDifference !== 0) return sharedDifference;
+
+        return userDisplayName(first).localeCompare(userDisplayName(second));
+      })
+      .slice(0, missingFriendsCount);
+
+    for (const candidate of candidates) {
+      const pairKey = friendPairKey(user.id, candidate.id);
+
+      await prisma.friendRequest.upsert({
+        where: {
+          pairKey,
+        },
+        create: {
+          senderId: user.id,
+          receiverId: candidate.id,
+          pairKey,
+          status: 'Accepted',
+        },
+        update: {
+          status: 'Accepted',
+        },
+      });
+    }
+  }
 }
 
 function buildSeededFriendships() {
@@ -940,6 +1012,19 @@ function desiredSeedFriendCount(user: SeedUser, index: number) {
 function sharedInterestCount(firstUser: SeedUser, secondUser: SeedUser) {
   return firstUser.interests.filter((interest) =>
     secondUser.interests.includes(interest),
+  ).length;
+}
+
+function countSharedInterestIds(
+  firstInterests: Array<{ interestId: number }>,
+  secondInterests: Array<{ interestId: number }>,
+) {
+  const secondInterestIds = new Set(
+    secondInterests.map((interest) => interest.interestId),
+  );
+
+  return firstInterests.filter((interest) =>
+    secondInterestIds.has(interest.interestId),
   ).length;
 }
 
@@ -1108,6 +1193,31 @@ function validateSeededFriendships() {
 
 function friendPairKey(firstUserId: string, secondUserId: string) {
   return [firstUserId, secondUserId].sort().join(':');
+}
+
+async function getAcceptedFriendIds(userId: string): Promise<string[]> {
+  const friendRequests = await prisma.friendRequest.findMany({
+    where: {
+      status: 'Accepted',
+      OR: [{ senderId: userId }, { receiverId: userId }],
+    },
+    select: {
+      senderId: true,
+      receiverId: true,
+    },
+  });
+
+  return friendRequests.map((request) =>
+    request.senderId === userId ? request.receiverId : request.senderId,
+  );
+}
+
+function userDisplayName(user: {
+  login: string | null;
+  name: string | null;
+  email: string;
+}) {
+  return user.login ?? user.name ?? user.email.split('@')[0];
 }
 
 // Creates sample persisted posts and comments for the seeded interest channels.

@@ -16,12 +16,24 @@ docker/.env
 
 It contains the database variables, Better Auth public URLs, 42 OAuth credentials, and SMTP settings.
 
-For the HTTPS/Caddy setup, the public URLs should point to the public frontend origin. In local HTTPS mode they are currently expected to look like:
+42 OAuth must use the exact same callback URL in `docker/.env` and in the
+42 application dashboard. For the default HTTPS/Caddy setup, the public URLs
+should point to the public frontend origin:
 
 ```env
 BETTER_AUTH_URL=https://localhost
 NEXT_PUBLIC_API_URL=https://localhost
 NEXT_PUBLIC_FRONTEND_URL=https://localhost
+FORTY_TWO_REDIRECT_URI=https://localhost/api/auth/oauth2/callback/42school
+```
+
+For direct local dev on exposed ports, use:
+
+```env
+BETTER_AUTH_URL=http://localhost:3000
+NEXT_PUBLIC_API_URL=http://localhost:3000
+NEXT_PUBLIC_FRONTEND_URL=http://localhost:8080
+FORTY_TWO_REDIRECT_URI=http://localhost:3000/api/auth/oauth2/callback/42school
 ```
 
 ## Architecture

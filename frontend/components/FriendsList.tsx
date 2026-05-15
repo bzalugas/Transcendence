@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Avatar from "@/components/Avatar";
 import FriendPopover from "@/components/FriendPopover";
+import { blockUser } from "@/lib/data/blocks";
 import { removeFriend } from "@/lib/data/friends";
 import type { Friend } from "@/lib/types";
 
@@ -20,6 +21,14 @@ export default function FriendsList({ friends: initialFriends }: FriendsListProp
   // Removes a friend through the API and reflects it in the visible list.
   async function handleRemove(name: string) {
     await removeFriend(name);
+    setRemovedNames((prev) => new Set([...prev, name]));
+    setActiveFriend(null);
+    setActiveAnchor(null);
+    setActiveAnchorPosition({ top: 0, left: 0 });
+  }
+
+  async function handleBlock(name: string) {
+    await blockUser(name);
     setRemovedNames((prev) => new Set([...prev, name]));
     setActiveFriend(null);
     setActiveAnchor(null);
@@ -64,6 +73,7 @@ export default function FriendsList({ friends: initialFriends }: FriendsListProp
             setActiveAnchorPosition({ top: 0, left: 0 });
           }}
           onRemove={() => handleRemove(activeFriend.name)}
+          onBlock={() => handleBlock(activeFriend.name)}
         />
       )}
     </>

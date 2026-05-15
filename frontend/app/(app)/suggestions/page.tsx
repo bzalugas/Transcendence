@@ -310,7 +310,7 @@ export default function SuggestionsPage() {
               </div>
               <div className="flex flex-wrap gap-[5px]">
                 {s.sharedTags.map((t) => (
-                  <span key={t} className="rounded-full bg-text-primary px-2.5 py-[3px] text-[12px] text-bg-tertiary">
+                  <span key={t} className="rounded-full bg-contrast-soft-bg px-2.5 py-[3px] text-[12px] text-contrast-soft-text">
                     {t}
                   </span>
                 ))}

@@ -5,6 +5,7 @@ import Avatar from "@/components/Avatar";
 import FriendsPanel from "@/components/FriendsPanel";
 import MessageComposer from "@/components/MessageComposer";
 import PanelToggleIcon from "@/components/icons/PanelToggleIcon";
+import { getBlockedUsers } from "@/lib/data/blocks";
 import { getAllProjects } from "@/lib/data/projects";
 import { useCurrentUser } from "@/lib/data/auth";
 import type { ProjectGridItem, ProjectDiscussionMessage } from "@/lib/mocks/projects";
@@ -18,6 +19,7 @@ export default function ProjectsPage() {
   const [activeSlug, setActiveSlug] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [localMessages, setLocalMessages] = useState<Record<string, ProjectDiscussionMessage[]>>({});
+  const [blockedNames, setBlockedNames] = useState<Set<string>>(new Set());
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   const filteredProjects = useMemo(() => {
@@ -36,24 +38,27 @@ export default function ProjectsPage() {
     activeSlug ? projects.find((project) => project.slug === activeSlug) : null;
 
   const activeMessages = activeProject
-    ? [...activeProject.messages, ...(localMessages[activeProject.slug] ?? [])]
+    ? filterVisibleMessages(
+        [...activeProject.messages, ...(localMessages[activeProject.slug] ?? [])],
+        blockedNames,
+      )
     : [];
   const mostActiveProjects = useMemo(() => {
     return [...projects]
       .sort((a, b) => {
         const recentMessagesA = countRecentMessages([
-          ...a.messages,
+          ...filterVisibleMessages(a.messages, blockedNames),
           ...(localMessages[a.slug] ?? []),
         ]);
         const recentMessagesB = countRecentMessages([
-          ...b.messages,
+          ...filterVisibleMessages(b.messages, blockedNames),
           ...(localMessages[b.slug] ?? []),
         ]);
 
         return recentMessagesB - recentMessagesA;
       })
       .slice(0, 3);
-  }, [localMessages, projects]);
+  }, [blockedNames, localMessages, projects]);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -69,6 +74,27 @@ export default function ProjectsPage() {
       .finally(() => {
         if (!mounted) return;
         setProjectsLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [currentUser]);
+
+  useEffect(() => {
+    if (!currentUser) return;
+
+    let mounted = true;
+
+    getBlockedUsers()
+      .then((users) => {
+        if (!mounted) return;
+        setBlockedNames(
+          new Set(users.map((user) => normalizeProfileName(user.name))),
+        );
+      })
+      .catch(() => {
+        if (mounted) setBlockedNames(new Set());
       });
 
     return () => {
@@ -157,7 +183,7 @@ export default function ProjectsPage() {
                   key={project.slug}
                   project={project}
                   recentMessageCount={countRecentMessages([
-                    ...project.messages,
+                    ...filterVisibleMessages(project.messages, blockedNames),
                     ...(localMessages[project.slug] ?? []),
                   ])}
                   onClick={() => setActiveSlug(project.slug)}
@@ -324,6 +350,19 @@ function countRecentMessages(messages: ProjectDiscussionMessage[]) {
   return messages.filter((message) => message.daysAgo < 14).length;
 }
 
+function filterVisibleMessages(
+  messages: ProjectDiscussionMessage[],
+  blockedNames: Set<string>,
+) {
+  return messages.filter(
+    (message) => message.me || !blockedNames.has(normalizeProfileName(message.sender)),
+  );
+}
+
+function normalizeProfileName(name: string) {
+  return name.trim().toLowerCase();
+}
+
 function ProjectListItem({
   project,
   active,
@@ -365,7 +404,7 @@ function ProjectMessage({ message }: { message: ProjectDiscussionMessage }) {
         <div
           className={`rounded-lg px-3 py-2 text-[13px] leading-relaxed ${
             message.me
-              ? "bg-text-primary text-bg-tertiary"
+              ? "bg-contrast-soft-bg text-contrast-soft-text"
               : "border border-border-default bg-bg-secondary text-text-secondary"
           }`}
         >

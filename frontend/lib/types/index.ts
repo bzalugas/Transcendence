@@ -172,7 +172,7 @@ export type HomeFeedItem =
   | { kind: "new-channel"; announcement: NewChannelAnnouncement }
   | { kind: "activity"; activity: Activity };
 
-export type ConversationType = "friend";
+export type ConversationType = "friend" | "channel";
 
 export interface Conversation {
   id: string;

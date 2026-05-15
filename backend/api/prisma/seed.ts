@@ -295,7 +295,8 @@ const interests = [
   {
     name: 'Cycling',
     color: '#4E9F3D',
-    description: 'Plan rides, share routes, and talk gear for every cycling level.',
+    description:
+      'Plan rides, share routes, and talk gear for every cycling level.',
   },
   {
     name: 'Photography',
@@ -305,7 +306,8 @@ const interests = [
   {
     name: 'Gaming',
     color: '#8B5CF6',
-    description: 'Find teammates, discuss releases, and set up casual sessions.',
+    description:
+      'Find teammates, discuss releases, and set up casual sessions.',
   },
   {
     name: 'Chess',
@@ -315,12 +317,14 @@ const interests = [
   {
     name: 'Sport',
     color: '#10B981',
-    description: 'Coordinate workouts, matches, and active meetups around campus.',
+    description:
+      'Coordinate workouts, matches, and active meetups around campus.',
   },
   {
     name: 'Aviation',
     color: '#0EA5E9',
-    description: 'Talk aircraft, flight tracking, simulators, and aviation news.',
+    description:
+      'Talk aircraft, flight tracking, simulators, and aviation news.',
   },
   {
     name: 'Music',
@@ -350,7 +354,8 @@ const interests = [
   {
     name: 'Cinema',
     color: '#6366F1',
-    description: 'Recommend films, plan screenings, and discuss what you watched.',
+    description:
+      'Recommend films, plan screenings, and discuss what you watched.',
   },
   {
     name: 'Literature',
@@ -365,7 +370,8 @@ const interests = [
   {
     name: 'AI',
     color: '#06B6D4',
-    description: 'Explore AI tools, papers, projects, and practical experiments.',
+    description:
+      'Explore AI tools, papers, projects, and practical experiments.',
   },
   {
     name: 'Climbing',
@@ -754,7 +760,7 @@ async function upsertInterestWithChannel(
     },
   });
 
-  await prisma.channel.upsert({
+  const channel = await prisma.channel.upsert({
     where: { interestId: interest.id },
     create: {
       interestId: interest.id,
@@ -762,6 +768,19 @@ async function upsertInterestWithChannel(
     },
     update: {
       description: seedInterest.description,
+    },
+  });
+
+  await prisma.chat.upsert({
+    where: { channelId: channel.id },
+    create: {
+      name: `${seedInterest.name} chats`,
+      type: 'Interest',
+      channelId: channel.id,
+    },
+    update: {
+      name: `${seedInterest.name} chats`,
+      type: 'Interest',
     },
   });
 }

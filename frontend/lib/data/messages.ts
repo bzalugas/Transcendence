@@ -1,5 +1,6 @@
 import { io, type Socket } from "socket.io-client";
 import { API_BASE_URL, API_ORIGIN } from "@/lib/api-url";
+import { getJoinedChannels } from "@/lib/data/channels";
 import { getFriends } from "@/lib/data/friends";
 import type { ChatMessage, Conversation } from "@/lib/types";
 
@@ -58,10 +59,49 @@ export async function getFriendConversations(): Promise<Conversation[]> {
   });
 }
 
+export async function getChannelConversations(): Promise<Conversation[]> {
+  const [joinedChannels, chats] = await Promise.all([
+    getJoinedChannels(),
+    request<ApiChat[]>("/chats"),
+  ]);
+  const channelChats = chats.filter((chat) => chat.type === "Interest");
+
+  return Promise.all(
+    joinedChannels.map(async (channel) => {
+      const chat =
+        channelChats.find(
+          (candidate) => candidate.channel?.slug === channel.slug,
+        ) ??
+        (await request<ApiChat>(
+          `/chats/channel/${encodeURIComponent(channel.slug)}`,
+          {
+            method: "POST",
+          },
+        ));
+      const lastMessage = chat.lastMessage;
+
+      return {
+        id: String(chat.id),
+        type: "channel" as const,
+        name: channel.label,
+        initials: initials(channel.label),
+        channelSlug: channel.slug,
+        channelColor: channel.color,
+        preview: lastMessage?.content ?? "",
+        time: lastMessage ? formatTime(lastMessage.createdAt) : "",
+      };
+    }),
+  );
+}
+
 export async function getConversationById(
   id: string,
 ): Promise<Conversation | undefined> {
-  const conversations = await getFriendConversations();
+  const [friendConversations, channelConversations] = await Promise.all([
+    getFriendConversations(),
+    getChannelConversations(),
+  ]);
+  const conversations = [...friendConversations, ...channelConversations];
   return conversations.find((conversation) => conversation.id === id);
 }
 
@@ -92,6 +132,20 @@ export async function getOrCreatePrivateConversation(
     ...conversation,
     id: String(chat.id),
   };
+}
+
+export async function getOrCreateChannelChat(slug: string): Promise<ApiChat> {
+  return request<ApiChat>(`/chats/channel/${encodeURIComponent(slug)}`, {
+    method: "POST",
+  });
+}
+
+export async function getChatMessagesById(
+  chatId: string | number,
+  currentUserId?: string,
+): Promise<ChatMessage[]> {
+  const messages = await request<ApiMessage[]>(`/chats/${chatId}/messages`);
+  return messages.map((message) => toChatMessage(message, currentUserId));
 }
 
 export function joinChat(chatId: string): void {
@@ -227,10 +281,17 @@ interface ApiChatUser {
   avatarUrl?: string;
 }
 
-interface ApiChat {
+export interface ApiChat {
   id: number;
   name: string;
   type: "Interest" | "Group" | "Private";
+  channel?: {
+    id: number;
+    slug: string;
+    label: string;
+    color: string;
+    imageUri: string | null;
+  };
   users: ApiChatUser[];
   lastMessage?: ApiMessage;
 }
@@ -243,4 +304,17 @@ export interface ApiMessage {
   type: "Normal" | "Auto";
   createdAt: string;
   sender: ApiChatUser;
+}
+
+function initials(value: string): string {
+  const parts = value
+    .trim()
+    .split(/[\s._-]+/)
+    .filter(Boolean);
+
+  if (parts.length >= 2) {
+    return `${parts[0][0]}${parts[1][0]}`.toLowerCase();
+  }
+
+  return value.slice(0, 2).toLowerCase();
 }

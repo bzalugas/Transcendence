@@ -7,6 +7,7 @@ import FriendsPanel from "@/components/FriendsPanel";
 import MessageComposer from "@/components/MessageComposer";
 import PanelToggleIcon from "@/components/icons/PanelToggleIcon";
 import {
+  getChannelConversations,
   getFriendConversations,
   getChatMessages,
   getPendingConv,
@@ -26,6 +27,7 @@ export default function MessagesPage() {
   const [showPanel, setShowPanel] = useState(true);
   const pending = getPendingConv();
   const [friendConvs, setFriendConvs] = useState<Conversation[]>([]);
+  const [channelConvs, setChannelConvs] = useState<Conversation[]>([]);
   const [conversationsLoading, setConversationsLoading] = useState(true);
   const [activeId, setActiveId] = useState<string>(() => pending?.id ?? "");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -48,13 +50,19 @@ export default function MessagesPage() {
   useEffect(() => {
     let active = true;
 
-    getFriendConversations()
-      .then((conversations) => {
+    Promise.all([getFriendConversations(), getChannelConversations()])
+      .then(([friendConversations, channelConversations]) => {
         if (!active) return;
-        setFriendConvs(conversations);
+        setFriendConvs(friendConversations);
+        setChannelConvs(channelConversations);
         setActiveId((currentActiveId) => {
           if (currentActiveId) return currentActiveId;
-          return pending?.id ?? conversations[0]?.id ?? "";
+          return (
+            pending?.id ??
+            friendConversations[0]?.id ??
+            channelConversations[0]?.id ??
+            ""
+          );
         });
       })
       .finally(() => {
@@ -66,9 +74,9 @@ export default function MessagesPage() {
     };
   }, [pending?.id]);
 
-  const activeConv = friendConvs.find(
-    (conversation) => conversation.id === activeId,
-  );
+  const activeConv =
+    friendConvs.find((conversation) => conversation.id === activeId) ??
+    channelConvs.find((conversation) => conversation.id === activeId);
 
   // If no stored conv exists, build a virtual one from pending data so the header always renders
   const effectiveConv: Conversation | undefined = useMemo(
@@ -91,6 +99,15 @@ export default function MessagesPage() {
     [activeConv, activeId, pending],
   );
   const filteredFriendConvs = friendConvs.filter((conv) => {
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
+
+    return (
+      conv.name.toLowerCase().includes(q) ||
+      conv.preview.toLowerCase().includes(q)
+    );
+  });
+  const filteredChannelConvs = channelConvs.filter((conv) => {
     const q = search.trim().toLowerCase();
     if (!q) return true;
 
@@ -123,6 +140,16 @@ export default function MessagesPage() {
                   id: conversation.id,
                   otherUserId:
                     conversation.otherUserId ?? candidate.otherUserId,
+                }
+              : candidate,
+          ),
+        );
+        setChannelConvs((conversations) =>
+          conversations.map((candidate) =>
+            candidate.id === effectiveConv.id
+              ? {
+                  ...candidate,
+                  id: conversation.id,
                 }
               : candidate,
           ),
@@ -174,6 +201,11 @@ export default function MessagesPage() {
 
         return [...currentMessages, toChatMessage(message, currentUser?.id)];
       });
+      updateConversationPreview(
+        String(message.chatId),
+        message.content,
+        message.createdAt,
+      );
     }, setChatError);
   }, [activeId, currentUser?.id]);
 
@@ -216,6 +248,32 @@ export default function MessagesPage() {
   function selectConversation(id: string) {
     setActiveId(id);
     setMobileView("chat");
+  }
+
+  function updateConversationPreview(
+    conversationId: string,
+    preview: string,
+    createdAt: string,
+  ) {
+    const date = new Date(createdAt);
+    const time = Number.isNaN(date.getTime())
+      ? ""
+      : `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+
+    setFriendConvs((conversations) =>
+      conversations.map((conversation) =>
+        conversation.id === conversationId
+          ? { ...conversation, preview, time }
+          : conversation,
+      ),
+    );
+    setChannelConvs((conversations) =>
+      conversations.map((conversation) =>
+        conversation.id === conversationId
+          ? { ...conversation, preview, time }
+          : conversation,
+      ),
+    );
   }
 
   return (
@@ -279,6 +337,28 @@ export default function MessagesPage() {
           {!conversationsLoading && filteredFriendConvs.length === 0 && (
             <div className="px-4 py-3 text-[12.5px] text-text-muted">
               No conversation found.
+            </div>
+          )}
+
+          <div className="px-4 pb-1.5 pt-5 text-[10.5px] font-semibold uppercase tracking-wider text-text-muted">
+            Channel chats
+          </div>
+          {conversationsLoading && (
+            <div className="px-4 py-3 text-[12.5px] text-text-muted">
+              Loading channel chats...
+            </div>
+          )}
+          {filteredChannelConvs.map((c) => (
+            <ConversationRow
+              key={c.id}
+              conv={c}
+              active={activeId === c.id}
+              onClick={() => selectConversation(c.id)}
+            />
+          ))}
+          {!conversationsLoading && filteredChannelConvs.length === 0 && (
+            <div className="px-4 py-3 text-[12.5px] text-text-muted">
+              No channel chat found.
             </div>
           )}
         </div>

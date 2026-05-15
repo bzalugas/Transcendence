@@ -43,14 +43,20 @@ export default function ChannelPage({ params }: ChannelPageProps) {
     queueMicrotask(() => {
       if (active) setLoaded(false);
     });
-    Promise.all([getChannelBySlug(slug), getChannelMembers(slug), getChannelFeed(slug)])
+    Promise.all([
+      getChannelBySlug(slug),
+      getChannelMembers(slug),
+      getChannelFeed(slug),
+    ])
       .then(([nextChannel, nextMembers, nextFeed]) => {
         if (!active) return;
         setChannel(nextChannel ?? null);
-        setMembers(nextMembers.map((m) => ({
-          ...m,
-          isSelf: currentUser ? m.username === currentUser.username : false,
-        })));
+        setMembers(
+          nextMembers.map((m) => ({
+            ...m,
+            isSelf: currentUser ? m.username === currentUser.username : false,
+          })),
+        );
         setFeed(nextFeed);
       })
       .catch(() => {
@@ -81,7 +87,12 @@ export default function ChannelPage({ params }: ChannelPageProps) {
   // Persists a new channel post and prepends the returned DB-backed post to the feed.
   async function handlePost(body: string, attachmentIds: number[]) {
     if (!currentUser) return;
-    const post = await createChannelPost(slug, body, currentUser, attachmentIds);
+    const post = await createChannelPost(
+      slug,
+      body,
+      currentUser,
+      attachmentIds,
+    );
     setFeed((items) => [{ kind: "post", post }, ...items]);
   }
 
@@ -92,7 +103,11 @@ export default function ChannelPage({ params }: ChannelPageProps) {
     );
   }
 
-  async function handleUpdatePost(postId: string, body: string, attachmentIds: number[]) {
+  async function handleUpdatePost(
+    postId: string,
+    body: string,
+    attachmentIds: number[],
+  ) {
     const post = await updateChannelPost(slug, postId, body, attachmentIds);
     setFeed((items) =>
       items.map((item) =>
@@ -109,10 +124,12 @@ export default function ChannelPage({ params }: ChannelPageProps) {
       getChannelFeed(slug),
     ]);
 
-    setMembers(nextMembers.map((m) => ({
-      ...m,
-      isSelf: currentUser ? m.username === currentUser.username : false,
-    })));
+    setMembers(
+      nextMembers.map((m) => ({
+        ...m,
+        isSelf: currentUser ? m.username === currentUser.username : false,
+      })),
+    );
     setFeed(nextFeed);
   }
 
@@ -169,7 +186,6 @@ export default function ChannelPage({ params }: ChannelPageProps) {
           />
         </div>
       )}
-
     </>
   );
 }

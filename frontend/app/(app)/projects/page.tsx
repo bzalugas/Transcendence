@@ -6,9 +6,12 @@ import FriendsPanel from "@/components/FriendsPanel";
 import MessageComposer from "@/components/MessageComposer";
 import PanelToggleIcon from "@/components/icons/PanelToggleIcon";
 import { getBlockedUsers } from "@/lib/data/blocks";
-import { getAllProjects } from "@/lib/data/projects";
+import {
+  getAllProjects,
+  type ProjectDiscussionMessage,
+  type ProjectGridItem,
+} from "@/lib/data/projects";
 import { useCurrentUser } from "@/lib/data/auth";
-import type { ProjectGridItem, ProjectDiscussionMessage } from "@/lib/mocks/projects";
 
 export default function ProjectsPage() {
   const [showPanel, setShowPanel] = useState(true);

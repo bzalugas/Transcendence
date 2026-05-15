@@ -1,7 +1,3 @@
-import {
-  profileActivity,
-  currentProjects,
-} from "@/lib/mocks/profile";
 import { API_BASE_URL } from "@/lib/api-url";
 import type { User } from "@/lib/types";
 
@@ -11,9 +7,7 @@ export function getMyProfile(user?: User) {
   return {
     interests: [],
     friends: [],
-    activity: profileActivity,
     socials: user?.socials ?? [],
-    currentProjects,
   };
 }
 
@@ -40,9 +34,7 @@ export function getProfileByUsername(username: string, currentUser: User) {
     isSelf: false as const,
     interests: [],
     friends: [],
-    activity: [],
     socials: [],
-    currentProjects: [],
   };
 }
 

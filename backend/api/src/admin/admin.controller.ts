@@ -116,6 +116,15 @@ export class AdminController {
     return this.adminService.deleteChannel(id);
   }
 
+  @Get('channels/:id/members')
+  async findChannelMembers(
+    @Req() req: Request,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    await getSessionAdmin(req);
+    return this.adminService.findChannelMembers(id);
+  }
+
   @Post('users/:userId/channels/:channelId')
   async addUserToChannel(
     @Req() req: Request,

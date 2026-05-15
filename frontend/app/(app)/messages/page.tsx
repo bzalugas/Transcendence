@@ -38,6 +38,9 @@ export default function MessagesPage() {
   const [channelConvs, setChannelConvs] = useState<Conversation[]>([]);
   const [conversationsLoading, setConversationsLoading] = useState(true);
   const [activeId, setActiveId] = useState<string>(() => pending?.id ?? "");
+  const [activeType, setActiveType] = useState<Conversation["type"]>(() =>
+    pending ? "friend" : "friend",
+  );
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
@@ -50,10 +53,15 @@ export default function MessagesPage() {
   const composerInputRef = useRef<HTMLInputElement | null>(null);
   const pendingInitialMessageRef = useRef(pending?.initialMessage ?? "");
   const activeIdRef = useRef(activeId);
+  const activeTypeRef = useRef(activeType);
 
   useEffect(() => {
     activeIdRef.current = activeId;
   }, [activeId]);
+
+  useEffect(() => {
+    activeTypeRef.current = activeType;
+  }, [activeType]);
 
   // Clear pending after reading — safe to call multiple times
   useEffect(() => {
@@ -78,6 +86,7 @@ export default function MessagesPage() {
         );
         setActiveId((currentActiveId) => {
           if (currentActiveId) return currentActiveId;
+          setActiveType(friendConversations[0] ? "friend" : "channel");
           return (
             pending?.id ??
             friendConversations[0]?.id ??
@@ -96,8 +105,9 @@ export default function MessagesPage() {
   }, [pending?.id]);
 
   const activeConv =
-    friendConvs.find((conversation) => conversation.id === activeId) ??
-    channelConvs.find((conversation) => conversation.id === activeId);
+    activeType === "friend"
+      ? friendConvs.find((conversation) => conversation.id === activeId)
+      : channelConvs.find((conversation) => conversation.id === activeId);
 
   // If no stored conv exists, build a virtual one from pending data so the header always renders
   const effectiveConv: Conversation | undefined = useMemo(
@@ -157,11 +167,12 @@ export default function MessagesPage() {
         if (!active) return;
         setMessages(nextMessages);
         setActiveId(conversation.id);
+        setActiveType(conversation.type);
         clearUnreadMessageCount(conversation.id);
         void markChatRead(conversation.id);
         setFriendConvs((conversations) =>
           conversations.map((candidate) =>
-            candidate.id === effectiveConv.id
+            effectiveConv.type === "friend" && candidate.id === effectiveConv.id
               ? {
                   ...candidate,
                   id: conversation.id,
@@ -173,6 +184,7 @@ export default function MessagesPage() {
         );
         setChannelConvs((conversations) =>
           conversations.map((candidate) =>
+            effectiveConv.type === "channel" &&
             candidate.id === effectiveConv.id
               ? {
                   ...candidate,
@@ -195,23 +207,31 @@ export default function MessagesPage() {
     return () => {
       active = false;
     };
-  }, [currentUser?.id, effectiveConv?.id]);
+  }, [currentUser?.id, effectiveConv?.id, effectiveConv?.type]);
 
   useEffect(() => {
     const initialMessage = pendingInitialMessageRef.current.trim();
-    if (!initialMessage || !activeId || activeId.startsWith("user:")) return;
+    if (
+      !initialMessage ||
+      !activeId ||
+      activeType !== "friend" ||
+      activeId.startsWith("user:")
+    )
+      return;
 
     pendingInitialMessageRef.current = "";
-    sendChatMessage(activeId, initialMessage);
-  }, [activeId]);
+    sendChatMessage(activeId, initialMessage, "Private");
+  }, [activeId, activeType]);
 
   useEffect(() => {
     return subscribeToChatMessages((message) => {
       const messageChatId = String(message.chatId);
       const isActiveConversation = isMessageForActiveConversation(
         messageChatId,
+        message.chatType,
         message.senderId,
         activeIdRef.current,
+        activeTypeRef.current,
         currentUser?.id,
       );
 
@@ -238,6 +258,7 @@ export default function MessagesPage() {
       }
       updateConversationPreview(
         messageChatId,
+        message.chatType,
         message.senderId,
         messagePreview(message),
         message.createdAt,
@@ -271,16 +292,19 @@ export default function MessagesPage() {
       return;
 
     try {
-      const conversation = activeId.startsWith("user:")
-        ? await getOrCreatePrivateConversation(effectiveConv)
-        : effectiveConv;
+      const conversation =
+        effectiveConv.type === "friend" && effectiveConv.id.startsWith("user:")
+          ? await getOrCreatePrivateConversation(effectiveConv)
+          : effectiveConv;
 
       if (conversation.id !== activeId) {
         setActiveId(conversation.id);
+        setActiveType(conversation.type);
       }
 
+      const chatType = conversation.type === "friend" ? "Private" : "Interest";
       joinChat(conversation.id);
-      sendChatMessage(conversation.id, text, attachmentIds);
+      sendChatMessage(conversation.id, text, chatType, attachmentIds);
       setInputText("");
     } catch (error) {
       setChatError(
@@ -289,18 +313,20 @@ export default function MessagesPage() {
     }
   }
 
-  function selectConversation(id: string) {
-    setActiveId(id);
+  function selectConversation(conversation: Conversation) {
+    setActiveId(conversation.id);
+    setActiveType(conversation.type);
     setMobileView("chat");
-    clearConversationUnread(id);
-    if (!id.startsWith("user:")) {
-      clearUnreadMessageCount(id);
-      void markChatRead(id);
+    clearConversationUnread(conversation.id, conversation.type);
+    if (!conversation.id.startsWith("user:")) {
+      clearUnreadMessageCount(conversation.id);
+      void markChatRead(conversation.id);
     }
   }
 
   function updateConversationPreview(
     conversationId: string,
+    chatType: "Private" | "Interest" | "Group",
     senderId: string,
     preview: string,
     createdAt: string,
@@ -314,6 +340,7 @@ export default function MessagesPage() {
     setFriendConvs((conversations) =>
       sortConversationsByActivity(
         conversations.map((conversation) =>
+          chatType === "Private" &&
           isFriendConversationForMessage(conversation, conversationId, senderId)
             ? {
                 ...conversation,
@@ -332,7 +359,7 @@ export default function MessagesPage() {
     setChannelConvs((conversations) =>
       sortConversationsByActivity(
         conversations.map((conversation) =>
-          conversation.id === conversationId
+          chatType === "Interest" && conversation.id === conversationId
             ? {
                 ...conversation,
                 preview,
@@ -348,17 +375,20 @@ export default function MessagesPage() {
     );
   }
 
-  function clearConversationUnread(conversationId: string) {
+  function clearConversationUnread(
+    conversationId: string,
+    conversationType: Conversation["type"],
+  ) {
     setFriendConvs((conversations) =>
       conversations.map((conversation) =>
-        conversation.id === conversationId
+        conversationType === "friend" && conversation.id === conversationId
           ? { ...conversation, unread: undefined }
           : conversation,
       ),
     );
     setChannelConvs((conversations) =>
       conversations.map((conversation) =>
-        conversation.id === conversationId
+        conversationType === "channel" && conversation.id === conversationId
           ? { ...conversation, unread: undefined }
           : conversation,
       ),
@@ -436,10 +466,10 @@ export default function MessagesPage() {
           )}
           {filteredFriendConvs.map((c) => (
             <ConversationRow
-              key={c.id}
+              key={`friend:${c.id}`}
               conv={c}
-              active={activeId === c.id}
-              onClick={() => selectConversation(c.id)}
+              active={activeType === "friend" && activeId === c.id}
+              onClick={() => selectConversation(c)}
             />
           ))}
           {!conversationsLoading && filteredFriendConvs.length === 0 && (
@@ -458,10 +488,10 @@ export default function MessagesPage() {
           )}
           {filteredChannelConvs.map((c) => (
             <ConversationRow
-              key={c.id}
+              key={`channel:${c.id}`}
               conv={c}
-              active={activeId === c.id}
-              onClick={() => selectConversation(c.id)}
+              active={activeType === "channel" && activeId === c.id}
+              onClick={() => selectConversation(c)}
             />
           ))}
           {!conversationsLoading && filteredChannelConvs.length === 0 && (
@@ -567,14 +597,20 @@ function withUnreadCounts(
 
 function isMessageForActiveConversation(
   messageChatId: string,
+  chatType: "Private" | "Interest" | "Group",
   senderId: string,
   activeId: string,
+  activeType: Conversation["type"],
   currentUserId?: string,
 ): boolean {
   if (messageChatId === activeId) return true;
   if (senderId === currentUserId) return false;
 
-  return activeId === `user:${senderId}`;
+  return (
+    chatType === "Private" &&
+    activeType === "friend" &&
+    activeId === `user:${senderId}`
+  );
 }
 
 function isFriendConversationForMessage(

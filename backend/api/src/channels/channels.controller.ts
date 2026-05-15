@@ -11,11 +11,15 @@ import {
 } from '@nestjs/common';
 import type { Request } from 'express';
 import { getSessionUserId } from '../auth/session';
+import { ChannelsGateway } from './channels.gateway';
 import { ChannelsService } from './channels.service';
 
 @Controller('channels')
 export class ChannelsController {
-  constructor(private readonly channelsService: ChannelsService) {}
+  constructor(
+    private readonly channelsService: ChannelsService,
+    private readonly channelsGateway: ChannelsGateway,
+  ) {}
 
   // Returns every channel backed by an Interest row.
   @Get()
@@ -60,12 +64,15 @@ export class ChannelsController {
     @Body() body: { content?: string; attachmentIds?: number[] },
   ) {
     const userId = await getSessionUserId(req);
-    return this.channelsService.createPostBySlug(
+    const post = await this.channelsService.createPostBySlug(
       userId,
       slug,
       body.content,
       body.attachmentIds,
     );
+    this.channelsGateway.emitPost(slug, post);
+
+    return post;
   }
 
   // Creates a persisted reply attached to one channel post.

@@ -16,6 +16,9 @@ import {
   updateChannelPost,
   deleteChannelPost,
   leaveChannel,
+  joinChannelRealtime,
+  leaveChannelRealtime,
+  subscribeToChannelPosts,
 } from "@/lib/data/channels";
 import { useCurrentUser } from "@/lib/data/auth";
 import type { Channel, ChannelFeedItem, ChannelMember } from "@/lib/types";
@@ -74,6 +77,31 @@ export default function ChannelPage({ params }: ChannelPageProps) {
     };
   }, [slug]);
 
+  useEffect(() => {
+    joinChannelRealtime(slug);
+
+    const unsubscribe = subscribeToChannelPosts((event) => {
+      if (event.slug !== slug) return;
+
+      setFeed((items) => {
+        if (
+          items.some(
+            (item) => item.kind === "post" && item.post.id === event.post.id,
+          )
+        ) {
+          return items;
+        }
+
+        return [{ kind: "post", post: event.post }, ...items];
+      });
+    });
+
+    return () => {
+      unsubscribe();
+      leaveChannelRealtime(slug);
+    };
+  }, [slug]);
+
   if (loaded && !channel) notFound();
 
   if (!channel) {
@@ -93,7 +121,11 @@ export default function ChannelPage({ params }: ChannelPageProps) {
       currentUser,
       attachmentIds,
     );
-    setFeed((items) => [{ kind: "post", post }, ...items]);
+    setFeed((items) =>
+      items.some((item) => item.kind === "post" && item.post.id === post.id)
+        ? items
+        : [{ kind: "post", post }, ...items],
+    );
   }
 
   async function handleDeletePost(postId: string) {

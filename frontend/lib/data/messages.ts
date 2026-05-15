@@ -118,7 +118,7 @@ export async function getChatMessages(
   conversation: Conversation,
   currentUserId?: string,
 ): Promise<{ conversation: Conversation; messages: ChatMessage[] }> {
-  const chat = await ensurePrivateChat(conversation);
+  const chat = await ensureChat(conversation);
   const messages = await request<ApiMessage[]>(`/chats/${chat.id}/messages`);
 
   return {
@@ -135,7 +135,11 @@ export async function getChatMessages(
 export async function getOrCreatePrivateConversation(
   conversation: Conversation,
 ): Promise<Conversation> {
-  const chat = await ensurePrivateChat(conversation);
+  if (conversation.type !== "friend") {
+    throw new Error("A private conversation is required");
+  }
+
+  const chat = await ensureChat(conversation);
 
   return {
     ...conversation,
@@ -170,11 +174,12 @@ export function leaveChat(chatId: string): void {
 export function sendChatMessage(
   chatId: string,
   content: string,
+  chatType: "Private" | "Interest",
   attachmentIds: number[] = [],
 ): void {
   const socket = getChatSocket();
   if (!socket.connected) socket.connect();
-  socket.emit("chat:message", { chatId, content, attachmentIds });
+  socket.emit("chat:message", { chatId, content, chatType, attachmentIds });
 }
 
 export async function markChatRead(chatId: string | number): Promise<void> {
@@ -250,14 +255,19 @@ function toPendingConversationId(userId?: string): string {
   return userId ? `user:${userId}` : "user:unknown";
 }
 
-async function ensurePrivateChat(conversation: Conversation): Promise<ApiChat> {
+async function ensureChat(conversation: Conversation): Promise<ApiChat> {
   if (!conversation.id.startsWith("user:")) {
     const chats = await request<ApiChat[]>("/chats");
     const chat = chats.find(
       (candidate) => String(candidate.id) === conversation.id,
     );
     if (!chat) throw new Error("Chat not found");
+    assertChatMatchesConversation(chat, conversation);
     return chat;
+  }
+
+  if (conversation.type !== "friend") {
+    throw new Error("Only private conversations can be created from a user id");
   }
 
   if (!conversation.otherUserId) {
@@ -270,6 +280,28 @@ async function ensurePrivateChat(conversation: Conversation): Promise<ApiChat> {
       method: "POST",
     },
   );
+}
+
+function assertChatMatchesConversation(
+  chat: ApiChat,
+  conversation: Conversation,
+): void {
+  if (conversation.type === "friend" && chat.type !== "Private") {
+    throw new Error("Selected conversation is not a private chat");
+  }
+
+  if (conversation.type === "channel") {
+    if (chat.type !== "Interest") {
+      throw new Error("Selected conversation is not a channel chat");
+    }
+
+    if (
+      conversation.channelSlug &&
+      chat.channel?.slug !== conversation.channelSlug
+    ) {
+      throw new Error("Selected channel chat does not match the channel");
+    }
+  }
 }
 
 function getOtherUser(
@@ -348,6 +380,7 @@ export interface ApiChat {
 export interface ApiMessage {
   id: number;
   chatId: number;
+  chatType: "Interest" | "Group" | "Private";
   senderId: string;
   content: string;
   type: "Normal" | "Auto";

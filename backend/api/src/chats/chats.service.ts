@@ -46,6 +46,7 @@ export interface ChatUserDto {
 export interface MessageDto {
   id: number;
   chatId: number;
+  chatType: ChatType;
   senderId: string;
   content: string;
   type: MessageType;
@@ -224,6 +225,7 @@ export class ChatsService {
     chatId: number,
     content?: string,
     attachmentIds?: number[],
+    expectedChatType?: ChatType,
   ): Promise<CreateMessageResult> {
     const trimmedContent = content?.trim();
     const fileAssets = await this.findAttachableFiles(userId, attachmentIds);
@@ -235,6 +237,9 @@ export class ChatsService {
     }
 
     const chat = await this.assertChatAccess(userId, chatId);
+    if (expectedChatType && chat.type !== expectedChatType) {
+      throw new ForbiddenException('Chat type mismatch');
+    }
     const encryptedContent =
       chat.type === 'Private' && trimmedContent
         ? this.encryptPrivateMessage(trimmedContent)
@@ -521,6 +526,11 @@ export class ChatsService {
 
   private messageInclude() {
     return {
+      chat: {
+        select: {
+          type: true,
+        },
+      },
       sender: {
         include: {
           profile: true,
@@ -636,6 +646,7 @@ export class ChatsService {
     return {
       id: message.id,
       chatId: message.chatId,
+      chatType: message.chat.type,
       senderId: message.senderId,
       content: this.messageContent(message),
       type: message.type,
@@ -784,6 +795,9 @@ interface ChatUserRecord {
 interface MessageRecord {
   id: number;
   chatId: number;
+  chat: {
+    type: ChatType;
+  };
   senderId: string;
   content: string;
   type: MessageType;

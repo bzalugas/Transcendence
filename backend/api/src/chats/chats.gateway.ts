@@ -6,6 +6,7 @@ import {
   WebSocketServer,
   WebSocketGateway,
 } from '@nestjs/websockets';
+import type { ChatType } from '@prisma/client';
 import type { Server, Socket } from 'socket.io';
 import { auth } from '../../lib/auth';
 import { ChatsService } from './chats.service';
@@ -75,6 +76,7 @@ export class ChatsGateway implements OnGatewayConnection {
       chatId?: number | string;
       content?: string;
       attachmentIds?: number[];
+      chatType?: ChatType;
     },
   ) {
     try {
@@ -86,6 +88,7 @@ export class ChatsGateway implements OnGatewayConnection {
           chatId,
           payload?.content,
           payload?.attachmentIds,
+          payload?.chatType,
         );
 
       client.to(this.chatRoom(chatId)).emit('chat:message', message);

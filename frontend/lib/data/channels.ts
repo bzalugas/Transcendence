@@ -1,5 +1,13 @@
-import { API_BASE_URL } from "@/lib/api-url";
-import type { Channel, ChannelFeedItem, ChannelMember, Comment, Post, User } from "@/lib/types";
+import { io, type Socket } from "socket.io-client";
+import { API_BASE_URL, API_ORIGIN } from "@/lib/api-url";
+import type {
+  Channel,
+  ChannelFeedItem,
+  ChannelMember,
+  Comment,
+  Post,
+  User,
+} from "@/lib/types";
 import { notifyChannelsUpdated } from "@/lib/data/channel-events";
 
 let channelsCache: Channel[] = [];
@@ -63,7 +71,9 @@ export async function joinChannel(slug: string): Promise<Channel> {
 }
 
 // Loads one channel from the database-backed API by its slug.
-export async function getChannelBySlug(slug: string): Promise<Channel | undefined> {
+export async function getChannelBySlug(
+  slug: string,
+): Promise<Channel | undefined> {
   try {
     const channel = toChannel(await request<ApiChannel>(`/channels/${slug}`));
     mergeChannelCache([channel]);
@@ -74,8 +84,12 @@ export async function getChannelBySlug(slug: string): Promise<Channel | undefine
 }
 
 // Loads channel members from the database-backed API.
-export async function getChannelMembers(slug: string): Promise<ChannelMember[]> {
-  const members = await request<ApiChannelMember[]>(`/channels/${slug}/members`);
+export async function getChannelMembers(
+  slug: string,
+): Promise<ChannelMember[]> {
+  const members = await request<ApiChannelMember[]>(
+    `/channels/${slug}/members`,
+  );
   return members.map((member) => ({
     id: member.id,
     username: member.username,
@@ -128,7 +142,10 @@ export async function updateChannelPost(
 }
 
 // Removes a persisted post owned by the current authenticated user.
-export async function deleteChannelPost(slug: string, postId: string): Promise<void> {
+export async function deleteChannelPost(
+  slug: string,
+  postId: string,
+): Promise<void> {
   await request(`/channels/${slug}/posts/${postId}`, { method: "DELETE" });
 }
 
@@ -147,6 +164,35 @@ export async function createChannelReply(
   });
 }
 
+export function joinChannelRealtime(slug: string): void {
+  const socket = getChannelSocket();
+  if (!socket.connected) socket.connect();
+  socket.emit("channel:join", { slug });
+}
+
+export function leaveChannelRealtime(slug: string): void {
+  getChannelSocket().emit("channel:leave", { slug });
+}
+
+export function subscribeToChannelPosts(
+  listener: (event: { slug: string; post: Post }) => void,
+  onError?: (message: string) => void,
+): () => void {
+  const socket = getChannelSocket();
+  const handlePost = (event: { slug: string; post: Post }) => listener(event);
+  const handleError = (error: { message?: string }) => {
+    onError?.(error.message ?? "Channel realtime error");
+  };
+
+  socket.on("channel:post", handlePost);
+  socket.on("channel:error", handleError);
+
+  return () => {
+    socket.off("channel:post", handlePost);
+    socket.off("channel:error", handleError);
+  };
+}
+
 // Sends an authenticated request to the backend API and validates the response.
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
@@ -155,7 +201,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   });
 
   if (!response.ok) {
-    throw new Error(`${init?.method ?? "GET"} ${path} failed with ${response.status}`);
+    throw new Error(
+      `${init?.method ?? "GET"} ${path} failed with ${response.status}`,
+    );
   }
 
   if (response.status === 204) {
@@ -184,7 +232,9 @@ function toChannel(channel: ApiChannel): Channel {
 
 // Keeps recently loaded channels available for local post labels.
 function mergeChannelCache(channels: Channel[]): void {
-  const bySlug = new Map(channelsCache.map((channel) => [channel.slug, channel]));
+  const bySlug = new Map(
+    channelsCache.map((channel) => [channel.slug, channel]),
+  );
 
   for (const channel of channels) {
     bySlug.set(channel.slug, channel);
@@ -192,3 +242,17 @@ function mergeChannelCache(channels: Channel[]): void {
 
   channelsCache = Array.from(bySlug.values());
 }
+
+function getChannelSocket(): Socket {
+  if (!channelSocket) {
+    channelSocket = io(API_ORIGIN, {
+      autoConnect: false,
+      path: "/api/socket.io",
+      withCredentials: true,
+    });
+  }
+
+  return channelSocket;
+}
+
+let channelSocket: Socket | null = null;

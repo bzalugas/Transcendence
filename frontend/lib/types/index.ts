@@ -191,6 +191,9 @@ export interface Conversation {
   online?: boolean;
   away?: boolean;
   level?: number;
+  // Channel-specific
+  channelSlug?: string;
+  channelColor?: string;
 }
 
 export interface ChatMessage {

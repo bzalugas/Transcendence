@@ -10,6 +10,10 @@ import { useCurrentUser } from "@/lib/data/auth";
 import {
   createChannelReply,
   deleteChannelPost,
+  getJoinedChannels,
+  joinChannelRealtime,
+  leaveChannelRealtime,
+  subscribeToChannelPosts,
   updateChannelPost,
 } from "@/lib/data/channels";
 
@@ -50,6 +54,42 @@ export default function HomePage() {
     };
   }, []);
 
+  useEffect(() => {
+    let active = true;
+    const joinedSlugs = new Set<string>();
+
+    getJoinedChannels()
+      .then((channels) => {
+        if (!active) return;
+
+        for (const channel of channels) {
+          joinedSlugs.add(channel.slug);
+          joinChannelRealtime(channel.slug);
+        }
+      })
+      .catch(() => {});
+
+    const unsubscribe = subscribeToChannelPosts((event) => {
+      if (!joinedSlugs.has(event.slug)) return;
+
+      setFeed((items) => {
+        if (items.some((item) => item.post.id === event.post.id)) return items;
+
+        return [{ kind: "post" as const, post: event.post }, ...items].sort(
+          (first, second) => postTimestamp(second) - postTimestamp(first),
+        );
+      });
+    });
+
+    return () => {
+      active = false;
+      unsubscribe();
+      for (const slug of joinedSlugs) {
+        leaveChannelRealtime(slug);
+      }
+    };
+  }, []);
+
   function removePostFromFeed(postId: string) {
     setFeed((items) => items.filter((item) => item.post.id !== postId));
   }
@@ -65,17 +105,20 @@ export default function HomePage() {
     body: string,
     attachmentIds: number[],
   ) {
-    const post = await updateChannelPost(channelSlug, postId, body, attachmentIds);
+    const post = await updateChannelPost(
+      channelSlug,
+      postId,
+      body,
+      attachmentIds,
+    );
     setFeed((items) =>
       items.map((item) =>
-        item.post.id === postId
-          ? { kind: "post", post }
-          : item,
+        item.post.id === postId ? { kind: "post", post } : item,
       ),
     );
   }
 
-//   IF NOT LOGGED -> REDIRECT TO SIGN IN SIGN UP
+  //   IF NOT LOGGED -> REDIRECT TO SIGN IN SIGN UP
   if (!currentUser) return null;
 
   return (
@@ -121,7 +164,12 @@ export default function HomePage() {
                 createChannelReply(item.post.channelSlug, postId, replyBody)
               }
               onUpdate={(postId, body, attachmentIds) =>
-                handleUpdatePost(item.post.channelSlug, postId, body, attachmentIds)
+                handleUpdatePost(
+                  item.post.channelSlug,
+                  postId,
+                  body,
+                  attachmentIds,
+                )
               }
               onDelete={(postId) =>
                 handleDeletePost(item.post.channelSlug, postId)
@@ -138,4 +186,8 @@ export default function HomePage() {
       )}
     </>
   );
+}
+
+function postTimestamp(item: HomePostFeedItem): number {
+  return item.post.createdAt ? new Date(item.post.createdAt).getTime() : 0;
 }

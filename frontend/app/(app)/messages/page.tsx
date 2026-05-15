@@ -6,6 +6,7 @@ import Avatar from "@/components/Avatar";
 import FriendsPanel from "@/components/FriendsPanel";
 import MessageComposer from "@/components/MessageComposer";
 import PanelToggleIcon from "@/components/icons/PanelToggleIcon";
+import { fileUrl, formatFileSize } from "@/lib/data/files";
 import {
   getChannelConversations,
   getFriendConversations,
@@ -15,6 +16,7 @@ import {
   getOrCreatePrivateConversation,
   joinChat,
   markChatRead,
+  messagePreview,
   sendChatMessage,
   sortConversationsByActivity,
   subscribeToChatMessages,
@@ -26,7 +28,7 @@ import {
   incrementUnreadMessageCount,
 } from "@/lib/data/message-notifications";
 import { useCurrentUser } from "@/lib/data/auth";
-import type { ChatMessage, Conversation } from "@/lib/types";
+import type { ChatMessage, Conversation, MessageAttachment } from "@/lib/types";
 
 export default function MessagesPage() {
   const { user: currentUser } = useCurrentUser();
@@ -237,7 +239,7 @@ export default function MessagesPage() {
       updateConversationPreview(
         messageChatId,
         message.senderId,
-        message.content,
+        messagePreview(message),
         message.createdAt,
         {
           incrementUnread:
@@ -263,9 +265,10 @@ export default function MessagesPage() {
     });
   }, [effectiveConv]);
 
-  async function handleSend() {
+  async function handleSend(attachmentIds: number[] = []) {
     const text = inputText.trim();
-    if (!text || !effectiveConv || !currentUser) return;
+    if ((!text && attachmentIds.length === 0) || !effectiveConv || !currentUser)
+      return;
 
     try {
       const conversation = activeId.startsWith("user:")
@@ -277,7 +280,7 @@ export default function MessagesPage() {
       }
 
       joinChat(conversation.id);
-      sendChatMessage(conversation.id, text);
+      sendChatMessage(conversation.id, text, attachmentIds);
       setInputText("");
     } catch (error) {
       setChatError(
@@ -494,7 +497,7 @@ export default function MessagesPage() {
             <div className="text-[12.5px] text-red-400">{chatError}</div>
           )}
           {messages.map((msg, idx) => (
-            <div key={idx}>
+            <div key={msg.id ?? idx}>
               <div
                 className={`mb-[5px] text-[11px] font-medium text-text-muted ${msg.me ? "pr-[39px] text-right" : "pl-[39px]"}`}
               >
@@ -511,7 +514,19 @@ export default function MessagesPage() {
                       : "border border-border-default bg-bg-secondary text-text-primary"
                   }`}
                 >
-                  {msg.text}
+                  {msg.text && <div>{msg.text}</div>}
+                  {msg.attachments && msg.attachments.length > 0 && (
+                    <div
+                      className={`mt-2 grid gap-2 ${msg.text ? "" : "mt-0"}`}
+                    >
+                      {msg.attachments.map((attachment) => (
+                        <MessageAttachmentCard
+                          key={attachment.id}
+                          attachment={attachment}
+                        />
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <span className="hidden shrink-0 px-1 text-[10.5px] text-text-dimmed sm:inline">
                   {msg.time}
@@ -581,6 +596,48 @@ function UnreadBadge({ count }: { count: number }) {
     <span className="shrink-0 rounded-[10px] bg-text-primary px-1.5 py-px text-[10px] font-semibold text-bg-tertiary">
       {count}
     </span>
+  );
+}
+
+function MessageAttachmentCard({
+  attachment,
+}: {
+  attachment: MessageAttachment;
+}) {
+  const canPreview =
+    attachment.category === "image" ||
+    attachment.mimeType === "application/pdf" ||
+    attachment.mimeType === "text/plain";
+
+  return (
+    <a
+      href={fileUrl(
+        canPreview ? attachment.previewUrl : attachment.downloadUrl,
+      )}
+      target="_blank"
+      rel="noreferrer"
+      className="flex min-w-0 items-center gap-2 rounded-[8px] border border-border-default bg-bg-hover/60 p-2 text-left transition-colors hover:border-border-strong"
+    >
+      {attachment.category === "image" ? (
+        <img
+          src={fileUrl(attachment.previewUrl)}
+          alt={attachment.originalName}
+          className="h-12 w-12 shrink-0 rounded-[6px] object-cover"
+        />
+      ) : (
+        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[6px] bg-bg-secondary text-[10px] font-semibold uppercase text-text-muted">
+          {attachment.type === "archive" ? "zip" : "file"}
+        </span>
+      )}
+      <span className="min-w-0">
+        <span className="block truncate text-[12px] font-medium text-text-primary">
+          {attachment.originalName}
+        </span>
+        <span className="mt-0.5 block text-[11px] text-text-muted">
+          {formatFileSize(attachment.sizeBytes)}
+        </span>
+      </span>
+    </a>
   );
 }
 

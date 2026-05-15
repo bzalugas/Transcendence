@@ -4,7 +4,12 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import type { ChatType, MessageType } from '@prisma/client';
+import type {
+  AttachmentType,
+  ChatType,
+  FileCategory,
+  MessageType,
+} from '@prisma/client';
 import {
   createCipheriv,
   createDecipheriv,
@@ -12,6 +17,7 @@ import {
   randomBytes,
 } from 'node:crypto';
 import { BlocksService } from '../blocks/blocks.service';
+import { FilesService } from '../files/files.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 export interface ChatDto {
@@ -45,6 +51,19 @@ export interface MessageDto {
   type: MessageType;
   createdAt: string;
   sender: ChatUserDto;
+  attachments: MessageAttachmentDto[];
+}
+
+export interface MessageAttachmentDto {
+  id: string;
+  fileId: number;
+  originalName: string;
+  mimeType: string;
+  sizeBytes: number;
+  category: FileCategory;
+  type: AttachmentType;
+  previewUrl: string;
+  downloadUrl: string;
 }
 
 export interface CreateMessageResult {
@@ -57,6 +76,7 @@ export class ChatsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly blocksService: BlocksService,
+    private readonly filesService: FilesService,
   ) {}
 
   async findAccessibleChats(userId: string): Promise<ChatDto[]> {
@@ -203,29 +223,58 @@ export class ChatsService {
     userId: string,
     chatId: number,
     content?: string,
+    attachmentIds?: number[],
   ): Promise<CreateMessageResult> {
     const trimmedContent = content?.trim();
+    const fileAssets = await this.findAttachableFiles(userId, attachmentIds);
 
-    if (!trimmedContent) {
-      throw new BadRequestException('Message content is required');
+    if (!trimmedContent && fileAssets.length === 0) {
+      throw new BadRequestException(
+        'Message content or attachment is required',
+      );
     }
 
     const chat = await this.assertChatAccess(userId, chatId);
     const encryptedContent =
-      chat.type === 'Private'
+      chat.type === 'Private' && trimmedContent
         ? this.encryptPrivateMessage(trimmedContent)
         : undefined;
 
-    const message = await this.prisma.message.create({
-      data: {
-        chatId,
-        senderId: userId,
-        content: encryptedContent?.content ?? trimmedContent,
-        encrypted: Boolean(encryptedContent),
-        encryptionIv: encryptedContent?.iv,
-        encryptionTag: encryptedContent?.tag,
-      },
-      include: this.messageInclude(),
+    const message = await this.prisma.$transaction(async (tx) => {
+      const createdMessage = await tx.message.create({
+        data: {
+          chatId,
+          senderId: userId,
+          content: encryptedContent?.content ?? trimmedContent ?? '',
+          encrypted: Boolean(encryptedContent),
+          encryptionIv: encryptedContent?.iv,
+          encryptionTag: encryptedContent?.tag,
+          attachments: fileAssets.length
+            ? {
+                create: fileAssets.map((file) => ({
+                  fileId: file.id,
+                  type: file.attachmentType,
+                })),
+              }
+            : undefined,
+        },
+        include: this.messageInclude(),
+      });
+
+      if (fileAssets.length > 0) {
+        await tx.fileAsset.updateMany({
+          where: {
+            id: {
+              in: fileAssets.map((file) => file.id),
+            },
+          },
+          data: {
+            status: 'attached',
+          },
+        });
+      }
+
+      return createdMessage;
     });
 
     const notificationUserIds = await this.findMessageNotificationUserIds(
@@ -477,7 +526,64 @@ export class ChatsService {
           profile: true,
         },
       },
+      attachments: {
+        include: {
+          file: true,
+        },
+      },
     } as const;
+  }
+
+  // Verifies uploaded files belong to the sender and are not already attached.
+  private async findAttachableFiles(userId: string, attachmentIds?: number[]) {
+    const uniqueIds = this.validateAttachmentIds(attachmentIds);
+
+    if (uniqueIds.length === 0) return [];
+
+    const files = await this.prisma.fileAsset.findMany({
+      where: {
+        id: {
+          in: uniqueIds,
+        },
+        ownerId: userId,
+        status: 'uploaded',
+      },
+      include: {
+        attachments: true,
+      },
+    });
+
+    const orderedFiles = uniqueIds
+      .map((id) => files.find((file) => file.id === id))
+      .filter((file): file is NonNullable<typeof file> => Boolean(file));
+
+    if (
+      orderedFiles.length !== uniqueIds.length ||
+      orderedFiles.some((file) => file.attachments.length > 0)
+    ) {
+      throw new BadRequestException('One or more files cannot be attached');
+    }
+
+    return orderedFiles;
+  }
+
+  private validateAttachmentIds(attachmentIds?: number[]): number[] {
+    if (!attachmentIds) return [];
+    if (!Array.isArray(attachmentIds)) {
+      throw new BadRequestException('Message attachment ids must be a list');
+    }
+    if (attachmentIds.length > 4) {
+      throw new BadRequestException(
+        'Only four message attachments are supported',
+      );
+    }
+
+    const uniqueIds = Array.from(new Set(attachmentIds));
+    if (uniqueIds.some((id) => !Number.isInteger(id) || id <= 0)) {
+      throw new BadRequestException('Message attachment ids are invalid');
+    }
+
+    return uniqueIds;
   }
 
   private toChatDto(
@@ -535,6 +641,21 @@ export class ChatsService {
       type: message.type,
       createdAt: message.createdAt.toISOString(),
       sender: this.toUserDto(message.sender),
+      attachments: message.attachments.map((attachment) => {
+        const file = this.filesService.toDto(attachment.file);
+
+        return {
+          id: String(attachment.id),
+          fileId: attachment.fileId,
+          originalName: file.originalName,
+          mimeType: file.mimeType,
+          sizeBytes: file.sizeBytes,
+          category: file.category,
+          type: attachment.type,
+          previewUrl: file.previewUrl,
+          downloadUrl: file.downloadUrl,
+        };
+      }),
     };
   }
 
@@ -671,4 +792,17 @@ interface MessageRecord {
   encryptionTag: string | null;
   createdAt: Date;
   sender: ChatUserRecord;
+  attachments: Array<{
+    id: number;
+    type: AttachmentType;
+    fileId: number;
+    file: {
+      id: number;
+      originalName: string;
+      mimeType: string;
+      sizeBytes: number;
+      category: FileCategory;
+      attachmentType: AttachmentType;
+    };
+  }>;
 }

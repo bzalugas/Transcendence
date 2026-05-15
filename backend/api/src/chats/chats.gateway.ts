@@ -70,13 +70,23 @@ export class ChatsGateway implements OnGatewayConnection {
   @SubscribeMessage('chat:message')
   async createMessage(
     @ConnectedSocket() client: AuthenticatedSocket,
-    @MessageBody() payload: { chatId?: number | string; content?: string },
+    @MessageBody()
+    payload: {
+      chatId?: number | string;
+      content?: string;
+      attachmentIds?: number[];
+    },
   ) {
     try {
       const userId = this.requireSocketUserId(client);
       const chatId = this.parseChatId(payload?.chatId);
       const { message, notificationUserIds } =
-        await this.chatsService.createMessage(userId, chatId, payload?.content);
+        await this.chatsService.createMessage(
+          userId,
+          chatId,
+          payload?.content,
+          payload?.attachmentIds,
+        );
 
       client.to(this.chatRoom(chatId)).emit('chat:message', message);
       if (notificationUserIds.length > 0) {

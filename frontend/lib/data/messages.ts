@@ -3,7 +3,7 @@ import { API_BASE_URL, API_ORIGIN } from "@/lib/api-url";
 import { getJoinedChannels } from "@/lib/data/channels";
 import { getFriends } from "@/lib/data/friends";
 import { notifyNavBadgesUpdated } from "@/lib/data/nav-events";
-import type { ChatMessage, Conversation } from "@/lib/types";
+import type { ChatMessage, Conversation, MessageAttachment } from "@/lib/types";
 
 // Pending conversation to open when navigating to /messages.
 // Stores full user info so the header renders even without an existing conv.
@@ -55,7 +55,7 @@ export async function getFriendConversations(): Promise<Conversation[]> {
         avatarUrl: friend.avatarUrl,
         level: friend.level,
         otherUserId: friend.id,
-        preview: lastMessage?.content ?? "",
+        preview: messagePreview(lastMessage),
         time: lastMessage ? formatTime(lastMessage.createdAt) : "",
         lastMessageAt: lastMessage?.createdAt,
         unread: privateChat?.unreadCount,
@@ -92,7 +92,7 @@ export async function getChannelConversations(): Promise<Conversation[]> {
         initials: initials(channel.label),
         channelSlug: channel.slug,
         channelColor: channel.color,
-        preview: lastMessage?.content ?? "",
+        preview: messagePreview(lastMessage),
         time: lastMessage ? formatTime(lastMessage.createdAt) : "",
         lastMessageAt: lastMessage?.createdAt,
         unread: chat.unreadCount,
@@ -167,10 +167,14 @@ export function leaveChat(chatId: string): void {
   getChatSocket().emit("chat:leave", { chatId });
 }
 
-export function sendChatMessage(chatId: string, content: string): void {
+export function sendChatMessage(
+  chatId: string,
+  content: string,
+  attachmentIds: number[] = [],
+): void {
   const socket = getChatSocket();
   if (!socket.connected) socket.connect();
-  socket.emit("chat:message", { chatId, content });
+  socket.emit("chat:message", { chatId, content, attachmentIds });
 }
 
 export async function markChatRead(chatId: string | number): Promise<void> {
@@ -212,7 +216,18 @@ export function toChatMessage(
     time: formatTime(message.createdAt),
     createdAt: message.createdAt,
     me: message.senderId === currentUserId,
+    attachments: message.attachments,
   };
+}
+
+export function messagePreview(message?: ApiMessage): string {
+  if (!message) return "";
+  if (message.content) return message.content;
+  if (!message.attachments || message.attachments.length === 0) return "";
+
+  return message.attachments.length === 1
+    ? `Attachment: ${message.attachments[0].originalName}`
+    : `${message.attachments.length} attachments`;
 }
 
 export function sortConversationsByActivity(
@@ -338,6 +353,7 @@ export interface ApiMessage {
   type: "Normal" | "Auto";
   createdAt: string;
   sender: ApiChatUser;
+  attachments: MessageAttachment[];
 }
 
 function initials(value: string): string {

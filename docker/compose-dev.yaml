@@ -7,6 +7,7 @@ services:
     volumes:
       - ../frontend/:/app:z
       - frontend-node-modules:/app/node_modules
+      - frontend-next-cache:/app/.next
     networks:
       - transcendence-net
     command: bun run dev
@@ -36,9 +37,11 @@ services:
       - transcendence-net
 
   adminer:
-    image: adminer:5.4.2
+    image: adminer:4.8.1
     container_name: transcendence_adminer
     env_file: .env
+    environment:
+      ADMINER_DEFAULT_SERVER: db
     ports:
       - "8081:8080"
     networks:
@@ -56,5 +59,7 @@ networks:
 volumes:
   frontend-node-modules:
     name: transcendence-frontend-node-modules
+  frontend-next-cache:
+    name: transcendence-frontend-next-cache
   api-node-modules:
     name: transcendence-api-node-modules

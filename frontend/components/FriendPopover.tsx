@@ -4,8 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Friend } from "@/lib/types";
-import { addChatMessage, setPendingConv } from "@/lib/data/messages";
-import { useCurrentUser } from "@/lib/data/auth";
+import { setPendingConv } from "@/lib/data/messages";
 import { fileUrl } from "@/lib/data/files";
 import GameModal from "@/components/GameModal";
 import UserActionMenu from "@/components/UserActionMenu";
@@ -28,7 +27,6 @@ export default function FriendPopover({
   onBlock,
 }: FriendPopoverProps) {
   const router = useRouter();
-  const { user: currentUser } = useCurrentUser();
   const [msgText, setMsgText] = useState("");
   const popRef = useRef<HTMLDivElement>(null);
   const subMoreRef = useRef<HTMLDivElement>(null);
@@ -41,9 +39,11 @@ export default function FriendPopover({
       if (confirmActionOpen || showGameModal) return;
       const target = e.target as Node;
       if (
-        popRef.current && !popRef.current.contains(target) &&
+        popRef.current &&
+        !popRef.current.contains(target) &&
         (!subMoreRef.current || !subMoreRef.current.contains(target)) &&
-        anchorElement && !anchorElement.contains(target)
+        anchorElement &&
+        !anchorElement.contains(target)
       ) {
         onClose();
       }
@@ -56,22 +56,15 @@ export default function FriendPopover({
 
   function handleSendMessage() {
     const text = msgText.trim();
-    if (!text || !currentUser) return;
-    const convId = `fr-${friend.name}`;
-    const now = new Date();
-    addChatMessage(convId, {
-      sender: currentUser.username,
-      initials: currentUser.initials,
-      text,
-      time: `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`,
-      me: true,
-    });
+    if (!text) return;
     setPendingConv({
-      id: convId,
+      id: friend.id ? `user:${friend.id}` : `fr-${friend.name}`,
+      otherUserId: friend.id,
       name: friend.name,
       initials: friend.initials,
       avatarUrl: friend.avatarUrl,
       level: friend.level,
+      initialMessage: text,
     });
     onClose();
     router.push("/messages");
@@ -88,9 +81,15 @@ export default function FriendPopover({
         {/* Header */}
         <div className="flex items-center gap-2.5 rounded-t-[8px] px-3.5 py-[14px] pb-[10px]">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#1a1a18] text-[12px] font-medium text-white">
-            {friend.avatarUrl
-              ? <img src={fileUrl(friend.avatarUrl)} alt={friend.name} className="h-9 w-9 rounded-full object-cover" />
-              : initials}
+            {friend.avatarUrl ? (
+              <img
+                src={fileUrl(friend.avatarUrl)}
+                alt={friend.name}
+                className="h-9 w-9 rounded-full object-cover"
+              />
+            ) : (
+              initials
+            )}
           </div>
           <div className="min-w-0 flex-1">
             <Link
@@ -100,12 +99,17 @@ export default function FriendPopover({
             >
               {friend.name}
             </Link>
-            <div className="mt-px text-[11px] text-[#888888]">Level {friend.level}</div>
+            <div className="mt-px text-[11px] text-[#888888]">
+              Level {friend.level}
+            </div>
           </div>
           {(onRemove || onBlock) && (
             <button
               type="button"
-              onClick={(e) => { e.stopPropagation(); setShowSubMore(!showSubMore); }}
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowSubMore(!showSubMore);
+              }}
               className="rounded-[4px] px-1.5 py-0.5 text-[16px] leading-none text-[#666666] transition-colors hover:bg-[#1a1a19] hover:text-white"
             >
               ···
@@ -121,7 +125,9 @@ export default function FriendPopover({
             type="text"
             value={msgText}
             onChange={(e) => setMsgText(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") handleSendMessage(); }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleSendMessage();
+            }}
             placeholder="Send a message…"
             className="w-full rounded-[6px] border border-white/10 bg-[#1a1a19] px-2.5 py-2 text-[12px] text-white outline-none placeholder:text-[#666666] focus:border-white/20"
           />
@@ -159,10 +165,12 @@ export default function FriendPopover({
       {showGameModal && (
         <GameModal
           friendName={friend.name}
-          onClose={() => { setShowGameModal(false); onClose(); }}
+          onClose={() => {
+            setShowGameModal(false);
+            onClose();
+          }}
         />
       )}
-
     </>
   );
 }

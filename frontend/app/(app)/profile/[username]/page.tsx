@@ -108,8 +108,10 @@ export default function ProfilePage({ params }: ProfilePageProps) {
 
   useEffect(() => {
     if (!currentUser || isCurrentUserProfile) {
-      setMyInterests([]);
-      setMyFriends([]);
+      queueMicrotask(() => {
+        setMyInterests([]);
+        setMyFriends([]);
+      });
       return;
     }
 
@@ -131,12 +133,16 @@ export default function ProfilePage({ params }: ProfilePageProps) {
 
   useEffect(() => {
     if (!viewedUsername || isCurrentUserProfile) {
-      setSentFriendRequest(null);
+      queueMicrotask(() => {
+        setSentFriendRequest(null);
+      });
       return;
     }
 
     let active = true;
-    setSentFriendRequest(null);
+    queueMicrotask(() => {
+      if (active) setSentFriendRequest(null);
+    });
 
     getSentRequests()
       .then((requests) => {

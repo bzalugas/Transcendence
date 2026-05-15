@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import { use, useCallback, useEffect, useState } from "react";
 import { notFound, useRouter } from "next/navigation";
 import Post from "@/components/Post";
 import ChannelHeader from "@/components/channel/ChannelHeader";
@@ -16,9 +16,19 @@ import {
   updateChannelPost,
   deleteChannelPost,
   leaveChannel,
+  joinChannelRealtime,
+  leaveChannelRealtime,
+  subscribeToChannelPosts,
+  subscribeToChannelReplies,
 } from "@/lib/data/channels";
+import { appendUniqueComment } from "@/lib/data/comments";
 import { useCurrentUser } from "@/lib/data/auth";
-import type { Channel, ChannelFeedItem, ChannelMember } from "@/lib/types";
+import type {
+  Channel,
+  ChannelFeedItem,
+  ChannelMember,
+  Comment,
+} from "@/lib/types";
 
 interface ChannelPageProps {
   params: Promise<{ slug: string }>;
@@ -36,6 +46,25 @@ export default function ChannelPage({ params }: ChannelPageProps) {
   const [loaded, setLoaded] = useState(false);
   const [panelOpen, setPanelOpen] = useState(true);
 
+  const appendCommentToFeed = useCallback(
+    (postId: string, comment: Comment) => {
+      setFeed((items) =>
+        items.map((item) =>
+          item.kind === "post" && item.post.id === postId
+            ? {
+                kind: "post",
+                post: {
+                  ...item.post,
+                  comments: appendUniqueComment(item.post.comments, comment),
+                },
+              }
+            : item,
+        ),
+      );
+    },
+    [],
+  );
+
   // Reset feed when navigating to a different channel
   useEffect(() => {
     let active = true;
@@ -43,14 +72,20 @@ export default function ChannelPage({ params }: ChannelPageProps) {
     queueMicrotask(() => {
       if (active) setLoaded(false);
     });
-    Promise.all([getChannelBySlug(slug), getChannelMembers(slug), getChannelFeed(slug)])
+    Promise.all([
+      getChannelBySlug(slug),
+      getChannelMembers(slug),
+      getChannelFeed(slug),
+    ])
       .then(([nextChannel, nextMembers, nextFeed]) => {
         if (!active) return;
         setChannel(nextChannel ?? null);
-        setMembers(nextMembers.map((m) => ({
-          ...m,
-          isSelf: currentUser ? m.username === currentUser.username : false,
-        })));
+        setMembers(
+          nextMembers.map((m) => ({
+            ...m,
+            isSelf: currentUser ? m.username === currentUser.username : false,
+          })),
+        );
         setFeed(nextFeed);
       })
       .catch(() => {
@@ -66,7 +101,38 @@ export default function ChannelPage({ params }: ChannelPageProps) {
     return () => {
       active = false;
     };
-  }, [slug]);
+  }, [slug, currentUser]);
+
+  useEffect(() => {
+    joinChannelRealtime(slug);
+
+    const unsubscribePosts = subscribeToChannelPosts((event) => {
+      if (event.slug !== slug) return;
+
+      setFeed((items) => {
+        if (
+          items.some(
+            (item) => item.kind === "post" && item.post.id === event.post.id,
+          )
+        ) {
+          return items;
+        }
+
+        return [{ kind: "post", post: event.post }, ...items];
+      });
+    });
+    const unsubscribeReplies = subscribeToChannelReplies((event) => {
+      if (event.slug !== slug) return;
+
+      appendCommentToFeed(event.postId, event.comment);
+    });
+
+    return () => {
+      unsubscribePosts();
+      unsubscribeReplies();
+      leaveChannelRealtime(slug);
+    };
+  }, [slug, appendCommentToFeed]);
 
   if (loaded && !channel) notFound();
 
@@ -81,8 +147,17 @@ export default function ChannelPage({ params }: ChannelPageProps) {
   // Persists a new channel post and prepends the returned DB-backed post to the feed.
   async function handlePost(body: string, attachmentIds: number[]) {
     if (!currentUser) return;
-    const post = await createChannelPost(slug, body, currentUser, attachmentIds);
-    setFeed((items) => [{ kind: "post", post }, ...items]);
+    const post = await createChannelPost(
+      slug,
+      body,
+      currentUser,
+      attachmentIds,
+    );
+    setFeed((items) =>
+      items.some((item) => item.kind === "post" && item.post.id === post.id)
+        ? items
+        : [{ kind: "post", post }, ...items],
+    );
   }
 
   async function handleDeletePost(postId: string) {
@@ -92,7 +167,11 @@ export default function ChannelPage({ params }: ChannelPageProps) {
     );
   }
 
-  async function handleUpdatePost(postId: string, body: string, attachmentIds: number[]) {
+  async function handleUpdatePost(
+    postId: string,
+    body: string,
+    attachmentIds: number[],
+  ) {
     const post = await updateChannelPost(slug, postId, body, attachmentIds);
     setFeed((items) =>
       items.map((item) =>
@@ -103,16 +182,24 @@ export default function ChannelPage({ params }: ChannelPageProps) {
     );
   }
 
+  async function handleReply(postId: string, replyBody: string) {
+    const comment = await createChannelReply(slug, postId, replyBody);
+    appendCommentToFeed(postId, comment);
+    return comment;
+  }
+
   async function refreshChannelVisibility() {
     const [nextMembers, nextFeed] = await Promise.all([
       getChannelMembers(slug),
       getChannelFeed(slug),
     ]);
 
-    setMembers(nextMembers.map((m) => ({
-      ...m,
-      isSelf: currentUser ? m.username === currentUser.username : false,
-    })));
+    setMembers(
+      nextMembers.map((m) => ({
+        ...m,
+        isSelf: currentUser ? m.username === currentUser.username : false,
+      })),
+    );
     setFeed(nextFeed);
   }
 
@@ -138,9 +225,7 @@ export default function ChannelPage({ params }: ChannelPageProps) {
                 <Post
                   key={item.post.id}
                   {...item.post}
-                  onReply={(postId, replyBody) =>
-                    createChannelReply(slug, postId, replyBody)
-                  }
+                  onReply={handleReply}
                   onUpdate={handleUpdatePost}
                   onDelete={handleDeletePost}
                 />
@@ -169,7 +254,6 @@ export default function ChannelPage({ params }: ChannelPageProps) {
           />
         </div>
       )}
-
     </>
   );
 }

@@ -88,10 +88,18 @@ export class ChannelsService {
     const channels = await this.prisma.channel.findMany({
       include: this.channelInclude(),
     });
-    const rootPostCounts = await this.getRootPostCounts(channels.map((channel) => channel.id));
+    const rootPostCounts = await this.getRootPostCounts(
+      channels.map((channel) => channel.id),
+    );
 
     return channels
-      .map((channel) => this.toChannelDto(channel, undefined, rootPostCounts.get(channel.id) ?? 0))
+      .map((channel) =>
+        this.toChannelDto(
+          channel,
+          undefined,
+          rootPostCounts.get(channel.id) ?? 0,
+        ),
+      )
       .sort((a, b) => a.label.localeCompare(b.label));
   }
 
@@ -111,10 +119,14 @@ export class ChannelsService {
 
     return joinedChannels
       .map((joinedChannel) =>
-        this.toChannelDto(joinedChannel.channel, {
-          joined: true,
-          isFavorite: joinedChannel.isFavorite,
-        }, rootPostCounts.get(joinedChannel.channel.id) ?? 0),
+        this.toChannelDto(
+          joinedChannel.channel,
+          {
+            joined: true,
+            isFavorite: joinedChannel.isFavorite,
+          },
+          rootPostCounts.get(joinedChannel.channel.id) ?? 0,
+        ),
       )
       .sort((a, b) => a.label.localeCompare(b.label));
   }
@@ -122,7 +134,11 @@ export class ChannelsService {
   // Finds one channel from the public slug derived from its interest name.
   async findBySlug(slug: string): Promise<ChannelDto> {
     const channel = await this.findChannelBySlug(slug);
-    return this.toChannelDto(channel, undefined, await this.countRootPosts(channel.id));
+    return this.toChannelDto(
+      channel,
+      undefined,
+      await this.countRootPosts(channel.id),
+    );
   }
 
   // Lists users who joined the channel identified by slug.
@@ -160,7 +176,10 @@ export class ChannelsService {
         id: membership.user.id,
         username: this.userDisplayName(membership.user),
         initials: this.initials(this.userDisplayName(membership.user)),
-        avatarUrl: membership.user.profile?.avatarUri ?? membership.user.image ?? undefined,
+        avatarUrl:
+          membership.user.profile?.avatarUri ??
+          membership.user.image ??
+          undefined,
         level: membership.user.profile?.level ?? 0,
         joinedAt: membership.joinedAt.toISOString(),
         isFavorite: membership.isFavorite,
@@ -205,6 +224,11 @@ export class ChannelsService {
         post: this.toPostDto(visiblePost, channel),
       };
     });
+  }
+
+  async assertChannelAccessBySlug(userId: string, slug: string): Promise<void> {
+    const channel = await this.findChannelBySlug(slug);
+    await this.assertChannelMembership(userId, channel.id);
   }
 
   // Persists a new root post in a channel for one authenticated user.
@@ -292,7 +316,9 @@ export class ChannelsService {
       throw new BadRequestException('Cannot reply to a reply');
     }
 
-    if (await this.blocksService.isBlockedBetween(userId, parentPost.authorId)) {
+    if (
+      await this.blocksService.isBlockedBetween(userId, parentPost.authorId)
+    ) {
       throw new NotFoundException('Post not found');
     }
 
@@ -371,8 +397,12 @@ export class ChannelsService {
     const removedAttachments = existingPost.attachments.filter(
       (attachment) => !nextFileIdSet.has(attachment.fileId),
     );
-    const removedFileIds = removedAttachments.map((attachment) => attachment.fileId);
-    const removedStorageKeys = removedAttachments.map((attachment) => attachment.file.storageKey);
+    const removedFileIds = removedAttachments.map(
+      (attachment) => attachment.fileId,
+    );
+    const removedStorageKeys = removedAttachments.map(
+      (attachment) => attachment.file.storageKey,
+    );
 
     const updatedPost = await this.prisma.$transaction(async (tx) => {
       await tx.post.update({
@@ -479,7 +509,9 @@ export class ChannelsService {
     }
 
     const postIds = [post.id, ...post.children.map((child) => child.id)];
-    const storageKeys = post.attachments.map((attachment) => attachment.file.storageKey);
+    const storageKeys = post.attachments.map(
+      (attachment) => attachment.file.storageKey,
+    );
     const fileIds = post.attachments.map((attachment) => attachment.fileId);
 
     await this.prisma.$transaction([
@@ -555,10 +587,14 @@ export class ChannelsService {
       update: {},
     });
 
-    return this.toChannelDto(channel, {
-      joined: true,
-      isFavorite: membership.isFavorite,
-    }, await this.countRootPosts(channel.id));
+    return this.toChannelDto(
+      channel,
+      {
+        joined: true,
+        isFavorite: membership.isFavorite,
+      },
+      await this.countRootPosts(channel.id),
+    );
   }
 
   // Leaves both the channel and its owning interest for one user.
@@ -583,7 +619,10 @@ export class ChannelsService {
   }
 
   // Ensures a user joined a channel before allowing write actions.
-  private async assertChannelMembership(userId: string, channelId: number): Promise<void> {
+  private async assertChannelMembership(
+    userId: string,
+    channelId: number,
+  ): Promise<void> {
     const membership = await this.prisma.user_Channel.findUnique({
       where: {
         userId_channelId: {
@@ -637,7 +676,9 @@ export class ChannelsService {
   }
 
   // Counts top-level posts for a set of channels in one grouped query.
-  private async getRootPostCounts(channelIds: number[]): Promise<Map<number, number>> {
+  private async getRootPostCounts(
+    channelIds: number[],
+  ): Promise<Map<number, number>> {
     if (channelIds.length === 0) return new Map();
 
     const counts = await this.prisma.post.groupBy({
@@ -803,7 +844,8 @@ export class ChannelsService {
       createdAt: post.createdAt.toISOString(),
       authorId: post.authorId,
       initials: this.initials(author),
-      avatarUrl: post.author.profile?.avatarUri ?? post.author.image ?? undefined,
+      avatarUrl:
+        post.author.profile?.avatarUri ?? post.author.image ?? undefined,
       author,
       time: this.relativeTime(post.createdAt),
       channelSlug: this.toSlug(channel.interest.name),
@@ -848,7 +890,8 @@ export class ChannelsService {
     return {
       id: String(comment.id),
       initials: this.initials(commentAuthor),
-      avatarUrl: comment.author.profile?.avatarUri ?? comment.author.image ?? undefined,
+      avatarUrl:
+        comment.author.profile?.avatarUri ?? comment.author.image ?? undefined,
       author: commentAuthor,
       text: comment.content,
       time: this.relativeTime(comment.createdAt),
@@ -906,7 +949,10 @@ export class ChannelsService {
       },
     });
 
-    if (files.length !== uniqueIds.length || files.some((file) => file.attachments.length > 0)) {
+    if (
+      files.length !== uniqueIds.length ||
+      files.some((file) => file.attachments.length > 0)
+    ) {
       throw new BadRequestException('One or more files cannot be attached');
     }
 
@@ -969,7 +1015,10 @@ export class ChannelsService {
 
   // Formats a creation date into a compact relative label for feed cards.
   private relativeTime(date: Date): string {
-    const elapsedSeconds = Math.max(0, Math.floor((Date.now() - date.getTime()) / 1000));
+    const elapsedSeconds = Math.max(
+      0,
+      Math.floor((Date.now() - date.getTime()) / 1000),
+    );
 
     if (elapsedSeconds < 60) return 'just now';
 

@@ -2,13 +2,14 @@
 
 import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import MessageNotificationsProvider from "@/components/MessageNotificationsProvider";
 import Sidebar from "@/components/Sidebar";
 import { useCurrentUser } from "@/lib/data/auth";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { isPending, isAuthenticated, isBanned } = useCurrentUser();
+  const { user: currentUser, isPending, isAuthenticated, isBanned } = useCurrentUser();
   const isAdminPage = pathname?.startsWith("/admin");
 
   useEffect(() => {
@@ -22,7 +23,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     }
   }, [isPending, isAuthenticated, isBanned, router]);
 
-  if (isPending || !isAuthenticated) {
+  if (isPending || !isAuthenticated || !currentUser) {
     return (
       <div className="flex h-screen items-center justify-center bg-bg-tertiary text-[13px] text-text-muted">
         Loading session...
@@ -32,6 +33,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex h-dvh overflow-hidden">
+      <MessageNotificationsProvider currentUserId={currentUser.id} />
       {!isAdminPage && <Sidebar />}
       <div
         className={`flex flex-1 flex-col overflow-hidden md:flex-row ${

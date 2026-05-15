@@ -110,6 +110,8 @@ export interface PostAttachment {
   downloadUrl: string;
 }
 
+export type MessageAttachment = PostAttachment;
+
 export interface Post {
   id: string;
   createdAt?: string;
@@ -180,7 +182,9 @@ export interface Conversation {
   name: string;
   preview: string;
   time: string;
+  lastMessageAt?: string;
   unread?: number;
+  otherUserId?: string;
   // Friend-specific
   initials?: string;
   avatarUrl?: string;
@@ -190,11 +194,15 @@ export interface Conversation {
 }
 
 export interface ChatMessage {
+  id?: string;
+  chatId?: string;
   sender: string;
   initials: string;
   text: string;
   time: string;
+  createdAt?: string;
   me?: boolean;
+  attachments?: MessageAttachment[];
 }
 
 export interface Friend {

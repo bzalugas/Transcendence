@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Avatar from "@/components/Avatar";
 import ConfirmModal from "@/components/ConfirmModal";
+import { appendUniqueComment } from "@/lib/data/comments";
 import type { Comment, FileAsset, Post as PostType } from "@/lib/types";
 import { useCurrentUser } from "@/lib/data/auth";
 import {
@@ -59,7 +60,7 @@ export default function Post({
   const { user: currentUser } = useCurrentUser();
   const [isLiked, setIsLiked] = useState(liked ?? false);
   const [count, setCount] = useState(likeCount);
-  const [localComments, setLocalComments] = useState<Comment[]>([...comments]);
+  const [optimisticComments, setOptimisticComments] = useState<Comment[]>([]);
   const [commentText, setCommentText] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -92,6 +93,7 @@ export default function Post({
     .filter((upload) => upload.status === "uploaded" && upload.asset)
     .map((upload) => upload.asset as FileAsset);
   const isUploadingEdit = editUploads.some((upload) => upload.status === "uploading");
+  const visibleComments = mergeComments(comments, optimisticComments);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -129,7 +131,9 @@ export default function Post({
           time: "just now",
         };
 
-    setLocalComments([...localComments, newComment]);
+    setOptimisticComments((currentComments) =>
+      appendUniqueComment(currentComments, newComment),
+    );
     setCommentText("");
   }
 
@@ -679,10 +683,10 @@ export default function Post({
       </div>
 
       {/* Comments */}
-      {localComments.length > 0 && (
+      {visibleComments.length > 0 && (
         <div className="border-t border-border-default px-4 py-2.5">
-          {localComments.map((c, i) => (
-            <div key={i} className="flex gap-2.5 py-1.5">
+          {visibleComments.map((c, i) => (
+            <div key={c.id ?? i} className="flex gap-2.5 py-1.5">
               <Avatar initials={c.initials} avatarUrl={c.avatarUrl} size="sm" />
               <div className="min-w-0">
                 <Link
@@ -804,4 +808,11 @@ export default function Post({
       )}
     </div>
   );
+}
+
+function mergeComments(
+  comments: Comment[],
+  optimisticComments: Comment[],
+): Comment[] {
+  return optimisticComments.reduce(appendUniqueComment, comments);
 }

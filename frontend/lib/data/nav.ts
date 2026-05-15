@@ -5,13 +5,20 @@ interface ApiFriendRequest {
   id: number;
 }
 
+interface ApiChat {
+  unreadCount?: number;
+}
+
 // Loads sidebar badge counts from API-backed user data.
 export async function getNavBadges(): Promise<NavBadges> {
-  const receivedRequests = await request<ApiFriendRequest[]>("/friendships/requests/received");
+  const [receivedRequests, chats] = await Promise.all([
+    request<ApiFriendRequest[]>("/friendships/requests/received"),
+    request<ApiChat[]>("/chats"),
+  ]);
 
   return {
     suggestions: receivedRequests.length,
-    messages: 0,
+    messages: chats.reduce((total, chat) => total + (chat.unreadCount ?? 0), 0),
   };
 }
 

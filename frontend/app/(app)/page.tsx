@@ -1,17 +1,24 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Post from "@/components/Post";
 import FriendsPanel from "@/components/FriendsPanel";
 import PanelToggleIcon from "@/components/icons/PanelToggleIcon";
 import { getHomeFeed, type HomePostFeedItem } from "@/lib/data/feed";
 import { listenForChannelsUpdated } from "@/lib/data/channel-events";
+import { appendUniqueComment } from "@/lib/data/comments";
 import { useCurrentUser } from "@/lib/data/auth";
 import {
   createChannelReply,
   deleteChannelPost,
+  getJoinedChannels,
+  joinChannelRealtime,
+  leaveChannelRealtime,
+  subscribeToChannelPosts,
+  subscribeToChannelReplies,
   updateChannelPost,
 } from "@/lib/data/channels";
+import type { Comment } from "@/lib/types";
 
 export default function HomePage() {
   const [showPanel, setShowPanel] = useState(true);
@@ -19,6 +26,25 @@ export default function HomePage() {
   const [loadingFeed, setLoadingFeed] = useState(true);
   const [feedError, setFeedError] = useState("");
   const { user: currentUser } = useCurrentUser();
+
+  const appendCommentToFeed = useCallback(
+    (postId: string, comment: Comment) => {
+      setFeed((items) =>
+        items.map((item) =>
+          item.post.id === postId
+            ? {
+                ...item,
+                post: {
+                  ...item.post,
+                  comments: appendUniqueComment(item.post.comments, comment),
+                },
+              }
+            : item,
+        ),
+      );
+    },
+    [],
+  );
 
   useEffect(() => {
     let active = true;
@@ -50,6 +76,48 @@ export default function HomePage() {
     };
   }, []);
 
+  useEffect(() => {
+    let active = true;
+    const joinedSlugs = new Set<string>();
+
+    getJoinedChannels()
+      .then((channels) => {
+        if (!active) return;
+
+        for (const channel of channels) {
+          joinedSlugs.add(channel.slug);
+          joinChannelRealtime(channel.slug);
+        }
+      })
+      .catch(() => {});
+
+    const unsubscribePosts = subscribeToChannelPosts((event) => {
+      if (!joinedSlugs.has(event.slug)) return;
+
+      setFeed((items) => {
+        if (items.some((item) => item.post.id === event.post.id)) return items;
+
+        return [{ kind: "post" as const, post: event.post }, ...items].sort(
+          (first, second) => postTimestamp(second) - postTimestamp(first),
+        );
+      });
+    });
+    const unsubscribeReplies = subscribeToChannelReplies((event) => {
+      if (!joinedSlugs.has(event.slug)) return;
+
+      appendCommentToFeed(event.postId, event.comment);
+    });
+
+    return () => {
+      active = false;
+      unsubscribePosts();
+      unsubscribeReplies();
+      for (const slug of joinedSlugs) {
+        leaveChannelRealtime(slug);
+      }
+    };
+  }, [appendCommentToFeed]);
+
   function removePostFromFeed(postId: string) {
     setFeed((items) => items.filter((item) => item.post.id !== postId));
   }
@@ -65,17 +133,30 @@ export default function HomePage() {
     body: string,
     attachmentIds: number[],
   ) {
-    const post = await updateChannelPost(channelSlug, postId, body, attachmentIds);
+    const post = await updateChannelPost(
+      channelSlug,
+      postId,
+      body,
+      attachmentIds,
+    );
     setFeed((items) =>
       items.map((item) =>
-        item.post.id === postId
-          ? { kind: "post", post }
-          : item,
+        item.post.id === postId ? { kind: "post", post } : item,
       ),
     );
   }
 
-//   IF NOT LOGGED -> REDIRECT TO SIGN IN SIGN UP
+  async function handleReply(
+    channelSlug: string,
+    postId: string,
+    replyBody: string,
+  ) {
+    const comment = await createChannelReply(channelSlug, postId, replyBody);
+    appendCommentToFeed(postId, comment);
+    return comment;
+  }
+
+  //   IF NOT LOGGED -> REDIRECT TO SIGN IN SIGN UP
   if (!currentUser) return null;
 
   return (
@@ -118,10 +199,15 @@ export default function HomePage() {
               key={item.post.id}
               {...item.post}
               onReply={(postId, replyBody) =>
-                createChannelReply(item.post.channelSlug, postId, replyBody)
+                handleReply(item.post.channelSlug, postId, replyBody)
               }
               onUpdate={(postId, body, attachmentIds) =>
-                handleUpdatePost(item.post.channelSlug, postId, body, attachmentIds)
+                handleUpdatePost(
+                  item.post.channelSlug,
+                  postId,
+                  body,
+                  attachmentIds,
+                )
               }
               onDelete={(postId) =>
                 handleDeletePost(item.post.channelSlug, postId)
@@ -138,4 +224,8 @@ export default function HomePage() {
       )}
     </>
   );
+}
+
+function postTimestamp(item: HomePostFeedItem): number {
+  return item.post.createdAt ? new Date(item.post.createdAt).getTime() : 0;
 }

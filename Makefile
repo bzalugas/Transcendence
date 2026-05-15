@@ -6,7 +6,7 @@ BACKEND_DIR     := backend/api
 API_CONTAINER   := transcendence_api
 DB_CONTAINER    := transcendence_db
 
-all: prod-up
+all: up
 
 # --- PROD PART ---
 up:

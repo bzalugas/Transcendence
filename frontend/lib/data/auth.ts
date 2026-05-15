@@ -33,14 +33,19 @@ export function useCurrentUser(): {
   const sessionUser = session.data?.user as BetterAuthSessionUser | undefined;
   const sessionUserId = sessionUser?.id;
   const [profileUser, setProfileUser] = useState<User | null>(null);
+  const [isProfilePending, setIsProfilePending] = useState(false);
 
   useEffect(() => {
     if (!sessionUserId) {
-      queueMicrotask(() => setProfileUser(null));
+      queueMicrotask(() => {
+        setProfileUser(null);
+        setIsProfilePending(false);
+      });
       return;
     }
 
     let active = true;
+    setIsProfilePending(true);
 
     fetch(`${API_BASE_URL}/profiles/me`, {
       credentials: "include",
@@ -54,6 +59,9 @@ export function useCurrentUser(): {
       })
       .catch(() => {
         if (active) setProfileUser(null);
+      })
+      .finally(() => {
+        if (active) setIsProfilePending(false);
       });
 
     return () => {
@@ -62,10 +70,12 @@ export function useCurrentUser(): {
   }, [sessionUserId]);
 
   const user = profileUser;
+  const isResolvingProfile =
+    Boolean(sessionUserId) && (isProfilePending || profileUser?.id !== sessionUserId);
 
   return {
     user,
-    isPending: session.isPending,
+    isPending: session.isPending || isResolvingProfile,
     isAuthenticated: Boolean(user),
   };
 }

@@ -109,6 +109,7 @@ export class InterestsService {
     const joinedInterest = await this.prisma.interest.findUniqueOrThrow({
       where: { id: interestId },
       include: {
+        channel: true,
         _count: {
           select: {
             interestedUsers: true,

@@ -20,6 +20,17 @@ const apiBaseUrl =
   "http://localhost:3000";
 const frontendBaseUrl =
   process.env.NEXT_PUBLIC_FRONTEND_URL ?? "http://localhost:8080";
+const fortyTwoRedirectUri =
+  process.env.FORTY_TWO_REDIRECT_URI ??
+  `${apiBaseUrl.replace(/\/+$/, "")}/api/auth/oauth2/callback/42school`;
+const trustedOrigins = Array.from(
+  new Set([
+    frontendBaseUrl,
+    "https://localhost",
+    "http://localhost",
+    "http://localhost:8080",
+  ]),
+);
 
 interface FortyTwoUserInfo {
   id: number;
@@ -207,7 +218,7 @@ export const auth = betterAuth({
     provider: "postgresql",
   }),
 
-  trustedOrigins: [frontendBaseUrl],
+  trustedOrigins,
 
   emailAndPassword: {
     enabled: true,
@@ -314,6 +325,7 @@ export const auth = betterAuth({
           clientSecret: process.env.FORTY_TWO_CLIENT_SECRET!,
           authorizationUrl: "https://api.intra.42.fr/oauth/authorize",
           tokenUrl: "https://api.intra.42.fr/oauth/token",
+          redirectURI: fortyTwoRedirectUri,
           scopes: ["public"],
           overrideUserInfo: true,
 

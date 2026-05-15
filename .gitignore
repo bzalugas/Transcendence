@@ -6,3 +6,4 @@ node_modules
 *.tsbuildinfo
 subject.pdf
 backend/api/uploads
+DEV_DOC.md

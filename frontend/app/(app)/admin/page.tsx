@@ -23,13 +23,26 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="flex flex-1 flex-col bg-bg-tertiary px-4 py-5 sm:px-6 md:px-8 md:py-7">
-      <div className="text-[20px] font-semibold text-text-primary">
-        Admin panel
+    <>
+      <div className="flex flex-1 items-center justify-center bg-bg-tertiary px-6 md:hidden">
+        <div className="max-w-[320px] text-center">
+          <div className="text-[18px] font-semibold text-text-primary">
+            Admin panel unavailable on mobile
+          </div>
+          <div className="mt-2 text-[13px] leading-relaxed text-text-muted">
+            Please use a desktop screen to manage users, channels, and requests.
+          </div>
+        </div>
       </div>
-      <div className="mt-1 text-[13px] text-text-muted">
-        Management tools will live here.
+
+      <div className="hidden flex-1 flex-col bg-bg-tertiary px-8 py-7 md:flex">
+        <div className="text-[20px] font-semibold text-text-primary">
+          Admin panel
+        </div>
+        <div className="mt-1 text-[13px] text-text-muted">
+          Management tools will live here.
+        </div>
       </div>
-    </div>
+    </>
   );
 }

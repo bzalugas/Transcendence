@@ -2,6 +2,7 @@ import { io, type Socket } from "socket.io-client";
 import { API_BASE_URL, API_ORIGIN } from "@/lib/api-url";
 import { getJoinedChannels } from "@/lib/data/channels";
 import { getFriends } from "@/lib/data/friends";
+import { notifyNavBadgesUpdated } from "@/lib/data/nav-events";
 import type { ChatMessage, Conversation } from "@/lib/types";
 
 // Pending conversation to open when navigating to /messages.
@@ -57,6 +58,7 @@ export async function getFriendConversations(): Promise<Conversation[]> {
         preview: lastMessage?.content ?? "",
         time: lastMessage ? formatTime(lastMessage.createdAt) : "",
         lastMessageAt: lastMessage?.createdAt,
+        unread: privateChat?.unreadCount,
       };
     }),
   );
@@ -93,6 +95,7 @@ export async function getChannelConversations(): Promise<Conversation[]> {
         preview: lastMessage?.content ?? "",
         time: lastMessage ? formatTime(lastMessage.createdAt) : "",
         lastMessageAt: lastMessage?.createdAt,
+        unread: chat.unreadCount,
       };
     }),
   );
@@ -168,6 +171,13 @@ export function sendChatMessage(chatId: string, content: string): void {
   const socket = getChatSocket();
   if (!socket.connected) socket.connect();
   socket.emit("chat:message", { chatId, content });
+}
+
+export async function markChatRead(chatId: string | number): Promise<void> {
+  await request(`/chats/${chatId}/read`, {
+    method: "POST",
+  });
+  notifyNavBadgesUpdated();
 }
 
 export function subscribeToChatMessages(
@@ -289,9 +299,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     );
   }
 
-  if (response.status === 204) return undefined as T;
+  const body = await response.text();
+  if (!body) return undefined as T;
 
-  return response.json();
+  return JSON.parse(body);
 }
 
 let chatSocket: Socket | null = null;
@@ -316,6 +327,7 @@ export interface ApiChat {
   };
   users: ApiChatUser[];
   lastMessage?: ApiMessage;
+  unreadCount: number;
 }
 
 export interface ApiMessage {

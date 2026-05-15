@@ -14,6 +14,7 @@ import {
   clearPendingConv,
   getOrCreatePrivateConversation,
   joinChat,
+  markChatRead,
   sendChatMessage,
   sortConversationsByActivity,
   subscribeToChatMessages,
@@ -154,6 +155,8 @@ export default function MessagesPage() {
         if (!active) return;
         setMessages(nextMessages);
         setActiveId(conversation.id);
+        clearUnreadMessageCount(conversation.id);
+        void markChatRead(conversation.id);
         setFriendConvs((conversations) =>
           conversations.map((candidate) =>
             candidate.id === effectiveConv.id
@@ -216,6 +219,8 @@ export default function MessagesPage() {
           setActiveId(messageChatId);
           joinChat(messageChatId);
         }
+        clearUnreadMessageCount(messageChatId);
+        void markChatRead(messageChatId);
 
         setMessages((currentMessages) => {
           if (
@@ -285,7 +290,10 @@ export default function MessagesPage() {
     setActiveId(id);
     setMobileView("chat");
     clearConversationUnread(id);
-    clearUnreadMessageCount(id);
+    if (!id.startsWith("user:")) {
+      clearUnreadMessageCount(id);
+      void markChatRead(id);
+    }
   }
 
   function updateConversationPreview(
@@ -585,6 +593,8 @@ function ConversationRow({
   active: boolean;
   onClick: () => void;
 }) {
+  const unreadCount = conv.unread ?? 0;
+
   return (
     <button
       type="button"
@@ -604,9 +614,9 @@ function ConversationRow({
       </div>
       <div className="flex flex-col items-end gap-1">
         <span className="text-[11px] text-text-dimmed">{conv.time}</span>
-        {conv.unread && (
+        {unreadCount > 0 && (
           <span className="flex h-[17px] w-[17px] items-center justify-center rounded-full bg-contrast-soft-bg text-[10px] font-semibold text-contrast-soft-text">
-            {conv.unread}
+            {unreadCount}
           </span>
         )}
       </div>

@@ -27,6 +27,7 @@ export interface ChatDto {
   };
   users: ChatUserDto[];
   lastMessage?: MessageDto;
+  unreadCount: number;
 }
 
 export interface ChatUserDto {
@@ -88,16 +89,22 @@ export class ChatsService {
       },
     });
 
-    return chats
-      .filter(
-        (chat) =>
-          chat.type !== 'Private' ||
-          chat.users.every(
-            (participant) =>
-              participant.id === userId || !blockedUserIds.has(participant.id),
-          ),
-      )
-      .map((chat) => this.toChatDto(chat, userId));
+    const visibleChats = chats.filter(
+      (chat) =>
+        chat.type !== 'Private' ||
+        chat.users.every(
+          (participant) =>
+            participant.id === userId || !blockedUserIds.has(participant.id),
+        ),
+    );
+    const unreadCounts = await this.findUnreadMessageCounts(
+      userId,
+      visibleChats.map((chat) => chat.id),
+    );
+
+    return visibleChats.map((chat) =>
+      this.toChatDto(chat, userId, unreadCounts.get(chat.id) ?? 0),
+    );
   }
 
   async findMessages(userId: string, chatId: number): Promise<MessageDto[]> {
@@ -114,6 +121,22 @@ export class ChatsService {
     });
 
     return messages.map((message) => this.toMessageDto(message));
+  }
+
+  async markChatRead(userId: string, chatId: number): Promise<void> {
+    await this.assertChatAccess(userId, chatId);
+
+    await this.prisma.notification.deleteMany({
+      where: {
+        userId,
+        type: 'ChatMessage',
+        message: {
+          is: {
+            chatId,
+          },
+        },
+      },
+    });
   }
 
   async findOrCreateChannelChat(
@@ -136,7 +159,7 @@ export class ChatsService {
       include: this.chatInclude(),
     });
 
-    return this.toChatDto(chat, userId);
+    return this.toChatDto(chat, userId, 0);
   }
 
   async findOrCreatePrivateChat(
@@ -173,7 +196,7 @@ export class ChatsService {
       include: this.chatInclude(),
     });
 
-    return this.toChatDto(chat, userId);
+    return this.toChatDto(chat, userId, 0);
   }
 
   async createMessage(
@@ -205,14 +228,15 @@ export class ChatsService {
       include: this.messageInclude(),
     });
 
+    const notificationUserIds = await this.findMessageNotificationUserIds(
+      chat,
+      userId,
+    );
+    await this.createMessageNotifications(message.id, notificationUserIds);
+
     return {
       message: this.toMessageDto(message),
-      notificationUserIds:
-        chat.type === 'Private'
-          ? chat.users
-              .map((participant) => participant.id)
-              .filter((participantId) => participantId !== userId)
-          : [],
+      notificationUserIds,
     };
   }
 
@@ -282,6 +306,94 @@ export class ChatsService {
     });
 
     return memberships.map((membership) => membership.channelId);
+  }
+
+  private async findUnreadMessageCounts(
+    userId: string,
+    chatIds: number[],
+  ): Promise<Map<number, number>> {
+    if (chatIds.length === 0) return new Map();
+
+    const notifications = await this.prisma.notification.findMany({
+      where: {
+        userId,
+        type: 'ChatMessage',
+        message: {
+          is: {
+            chatId: {
+              in: chatIds,
+            },
+          },
+        },
+      },
+      select: {
+        message: {
+          select: {
+            chatId: true,
+          },
+        },
+      },
+    });
+    const counts = new Map<number, number>();
+
+    for (const notification of notifications) {
+      if (!notification.message) continue;
+      counts.set(
+        notification.message.chatId,
+        (counts.get(notification.message.chatId) ?? 0) + 1,
+      );
+    }
+
+    return counts;
+  }
+
+  private async findMessageNotificationUserIds(
+    chat: {
+      id: number;
+      type: ChatType;
+      channelId: number | null;
+      users: { id: string }[];
+    },
+    senderId: string,
+  ): Promise<string[]> {
+    if (chat.type === 'Private') {
+      return chat.users
+        .map((participant) => participant.id)
+        .filter((participantId) => participantId !== senderId);
+    }
+
+    if (chat.type === 'Interest' && chat.channelId) {
+      const memberships = await this.prisma.user_Channel.findMany({
+        where: {
+          channelId: chat.channelId,
+          userId: {
+            not: senderId,
+          },
+        },
+        select: {
+          userId: true,
+        },
+      });
+
+      return memberships.map((membership) => membership.userId);
+    }
+
+    return [];
+  }
+
+  private async createMessageNotifications(
+    messageId: number,
+    userIds: string[],
+  ): Promise<void> {
+    if (userIds.length === 0) return;
+
+    await this.prisma.notification.createMany({
+      data: userIds.map((userId) => ({
+        type: 'ChatMessage',
+        userId,
+        messageId,
+      })),
+    });
   }
 
   private async assertChannelMembership(
@@ -385,6 +497,7 @@ export class ChatsService {
       messages: MessageRecord[];
     },
     currentUserId: string,
+    unreadCount: number,
   ): ChatDto {
     const lastMessage = chat.messages[0];
     const otherParticipant = chat.users.find(
@@ -409,6 +522,7 @@ export class ChatsService {
         : undefined,
       users: chat.users.map((user) => this.toUserDto(user)),
       lastMessage: lastMessage ? this.toMessageDto(lastMessage) : undefined,
+      unreadCount,
     };
   }
 

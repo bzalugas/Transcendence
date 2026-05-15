@@ -667,6 +667,7 @@ async function main() {
   }
 
   await seedFriendships();
+  await seedPrivateChatsForAcceptedFriendships();
   await seedChannelPosts();
 }
 
@@ -966,6 +967,41 @@ async function seedBootstrapFriendshipsForNonSeededUsers(
         },
       });
     }
+  }
+}
+
+async function seedPrivateChatsForAcceptedFriendships() {
+  const acceptedFriendships = await prisma.friendRequest.findMany({
+    where: {
+      status: 'Accepted',
+    },
+    select: {
+      senderId: true,
+      receiverId: true,
+    },
+  });
+
+  for (const friendship of acceptedFriendships) {
+    await prisma.chat.upsert({
+      where: {
+        privateKey: friendPairKey(friendship.senderId, friendship.receiverId),
+      },
+      create: {
+        name: 'Private chat',
+        type: 'Private',
+        privateKey: friendPairKey(friendship.senderId, friendship.receiverId),
+        users: {
+          connect: [{ id: friendship.senderId }, { id: friendship.receiverId }],
+        },
+      },
+      update: {
+        name: 'Private chat',
+        type: 'Private',
+        users: {
+          connect: [{ id: friendship.senderId }, { id: friendship.receiverId }],
+        },
+      },
+    });
   }
 }
 

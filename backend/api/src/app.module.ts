@@ -13,6 +13,7 @@ import { EmailModule } from './email/email.module';
 import { AdminModule } from './admin/admin.module';
 import { ProjectsModule } from './projects/projects.module';
 import { BlocksModule } from './blocks/blocks.module';
+import { ChatsModule } from './chats/chats.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { BlocksModule } from './blocks/blocks.module';
     ProfilesModule,
     FriendshipsModule,
     BlocksModule,
+    ChatsModule,
     FilesModule,
     ProjectsModule,
     PrivacyModule,

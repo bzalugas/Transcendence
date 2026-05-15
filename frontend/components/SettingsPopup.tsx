@@ -72,7 +72,9 @@ export default function SettingsPopup({
     if (!open) return;
 
     let active = true;
-    setBlockedLoading(true);
+    queueMicrotask(() => {
+      if (active) setBlockedLoading(true);
+    });
 
     getBlockedUsers()
       .then((users) => {

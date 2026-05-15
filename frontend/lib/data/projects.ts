@@ -1,8 +1,11 @@
 import { API_BASE_URL } from "@/lib/api-url";
 
 export interface ProjectDiscussionMessage {
+  id?: string;
+  senderId?: string;
   sender: string;
   initials: string;
+  avatarUrl?: string;
   text: string;
   time: string;
   daysAgo: number;
@@ -24,6 +27,7 @@ interface ApiProject {
   name: string;
   color: string;
   description: string;
+  messages?: ProjectDiscussionMessage[];
 }
 
 export async function getAllProjects(): Promise<ProjectGridItem[]> {
@@ -44,6 +48,27 @@ export async function getAllProjects(): Promise<ProjectGridItem[]> {
   }
 }
 
+export async function createProjectMessage(
+  slug: string,
+  content: string,
+): Promise<ProjectDiscussionMessage> {
+  const response = await fetch(
+    `${API_BASE_URL}/projects/${encodeURIComponent(slug)}/messages`,
+    {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content }),
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(`POST /projects/${slug}/messages failed with ${response.status}`);
+  }
+
+  return response.json();
+}
+
 function toProjectGridItem(project: ApiProject): ProjectGridItem {
   return {
     id: project.id,
@@ -51,6 +76,6 @@ function toProjectGridItem(project: ApiProject): ProjectGridItem {
     slug: project.slug,
     color: project.color,
     description: project.description,
-    messages: [],
+    messages: project.messages ?? [],
   };
 }

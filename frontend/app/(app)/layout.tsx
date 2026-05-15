@@ -1,13 +1,15 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import { useCurrentUser } from "@/lib/data/auth";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const { isPending, isAuthenticated } = useCurrentUser();
+  const isAdminPage = pathname?.startsWith("/admin");
 
   useEffect(() => {
     if (!isPending && !isAuthenticated) {
@@ -25,8 +27,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex h-dvh overflow-hidden">
-      <Sidebar />
-      <div className="flex flex-1 flex-col overflow-hidden pb-16 md:flex-row md:pb-0">{children}</div>
+      {!isAdminPage && <Sidebar />}
+      <div
+        className={`flex flex-1 flex-col overflow-hidden md:flex-row ${
+          isAdminPage ? "pb-0" : "pb-16 md:pb-0"
+        }`}
+      >
+        {children}
+      </div>
     </div>
   );
 }

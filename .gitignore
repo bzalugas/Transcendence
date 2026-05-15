@@ -7,3 +7,4 @@ node_modules
 subject.pdf
 backend/api/uploads
 DEV_DOC.md
+.vscode

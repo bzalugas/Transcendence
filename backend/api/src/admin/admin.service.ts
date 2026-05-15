@@ -5,14 +5,18 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { FilesService } from '../files/files.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class AdminService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly filesService: FilesService,
+  ) {}
 
   async findAllUsers() {
-    return this.prisma.user.findMany({
+    const users = await this.prisma.user.findMany({
       select: {
         id: true,
         email: true,
@@ -20,17 +24,222 @@ export class AdminService {
         name: true,
         role: true,
         createdAt: true,
+        bannedAt: true,
+        moderationReason: true,
         profile: {
           select: {
             firstname: true,
             lastname: true,
             pseudo: true,
             avatarUri: true,
+            level: true,
+            bio: true,
+            socials: true,
+          },
+        },
+        _count: {
+          select: {
+            posts: true,
+            channels: true,
+            interests: true,
           },
         },
       },
       orderBy: { createdAt: 'desc' },
     });
+    const friendCounts = await this.getFriendCounts(users.map((user) => user.id));
+
+    return users.map((user) => ({
+      ...user,
+      friendCount: friendCounts.get(user.id) ?? 0,
+    }));
+  }
+
+  async findUserPosts(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true },
+    });
+    if (!user) throw new NotFoundException('User not found');
+
+    const posts = await this.prisma.post.findMany({
+      where: { authorId: userId },
+      include: {
+        channel: {
+          include: {
+            interest: true,
+          },
+        },
+        parent: {
+          select: {
+            id: true,
+            content: true,
+          },
+        },
+        _count: {
+          select: {
+            children: true,
+            reactions: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 300,
+    });
+
+    const projectMessages = await this.findUserProjectMessages(userId);
+
+    const channelItems = posts.map((post) => ({
+      id: String(post.id),
+      kind: post.parentId === null ? 'post' : 'comment',
+      source: 'channel',
+      sourceLabel: post.channel.interest.name,
+      channelId: post.channelId,
+      parentId: post.parentId ? String(post.parentId) : null,
+      parentPreview: post.parent?.content ?? null,
+      body: post.content,
+      createdAt: post.createdAt.toISOString(),
+      replyCount: post._count.children,
+      reactionCount: post._count.reactions,
+    }));
+
+    const projectItems = projectMessages.map((message) => ({
+      id: String(message.id),
+      kind: 'message',
+      source: 'project',
+      sourceLabel: message.project.name,
+      projectId: message.projectId,
+      parentId: null,
+      parentPreview: null,
+      body: message.content,
+      createdAt: message.createdAt.toISOString(),
+      replyCount: 0,
+      reactionCount: 0,
+    }));
+
+    return [...channelItems, ...projectItems].sort(
+      (a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt),
+    );
+  }
+
+  private async findUserProjectMessages(userId: string) {
+    try {
+      return await this.prisma.projectMessage.findMany({
+        where: { senderId: userId },
+        include: {
+          project: true,
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 300,
+      });
+    } catch {
+      return [];
+    }
+  }
+
+  async banUser(requesterId: string, userId: string, reason?: string) {
+    await this.assertCanModerateUser(requesterId, userId);
+
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        bannedAt: new Date(),
+        moderationReason: this.normalizeReason(reason),
+      },
+      select: {
+        id: true,
+        bannedAt: true,
+        moderationReason: true,
+      },
+    });
+  }
+
+  async unbanUser(requesterId: string, userId: string) {
+    await this.assertCanModerateUser(requesterId, userId);
+
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        bannedAt: null,
+        moderationReason: null,
+      },
+      select: {
+        id: true,
+        bannedAt: true,
+        moderationReason: true,
+      },
+    });
+  }
+
+  async deletePost(postId: number): Promise<{ deleted: true }> {
+    const post = await this.prisma.post.findUnique({
+      where: { id: postId },
+      select: {
+        id: true,
+        parentId: true,
+        children: {
+          select: {
+            id: true,
+          },
+        },
+        attachments: {
+          select: {
+            fileId: true,
+            file: {
+              select: {
+                storageKey: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!post) throw new NotFoundException('Post not found');
+
+    const postIds =
+      post.parentId === null
+        ? [post.id, ...post.children.map((child) => child.id)]
+        : [post.id];
+    const storageKeys = post.attachments.map((attachment) => attachment.file.storageKey);
+    const fileIds = post.attachments.map((attachment) => attachment.fileId);
+
+    await this.prisma.$transaction([
+      this.prisma.reaction.deleteMany({
+        where: { postId: { in: postIds } },
+      }),
+      this.prisma.notification.deleteMany({
+        where: { postId: { in: postIds } },
+      }),
+      this.prisma.fileAsset.deleteMany({
+        where: { id: { in: fileIds } },
+      }),
+      this.prisma.post.deleteMany({
+        where: { id: { in: postIds.filter((id) => id !== post.id) } },
+      }),
+      this.prisma.post.delete({
+        where: { id: post.id },
+      }),
+    ]);
+
+    await this.filesService.deleteStorageKeys(storageKeys);
+
+    return { deleted: true };
+  }
+
+  async deleteProjectMessage(messageId: number): Promise<{ deleted: true }> {
+    const message = await this.prisma.projectMessage.findUnique({
+      where: { id: messageId },
+      select: { id: true },
+    });
+
+    if (!message) throw new NotFoundException('Project message not found');
+
+    await this.prisma.projectMessage.delete({
+      where: { id: messageId },
+    });
+
+    return { deleted: true };
   }
 
   async deleteUser(requesterId: string, userId: string) {
@@ -163,5 +372,57 @@ export class AdminService {
     await this.prisma.user_Interest.deleteMany({
       where: { userId, interestId: channel.interestId },
     });
+  }
+
+  private async assertCanModerateUser(requesterId: string, userId: string) {
+    if (requesterId === userId) {
+      throw new ForbiddenException('Cannot moderate your own account');
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, role: true },
+    });
+
+    if (!user) throw new NotFoundException('User not found');
+    if (user.role === 'ADMIN') {
+      throw new ForbiddenException('Cannot moderate another admin account');
+    }
+  }
+
+  private normalizeReason(reason?: string): string | null {
+    const normalizedReason = reason?.trim();
+    return normalizedReason ? normalizedReason.slice(0, 500) : null;
+  }
+
+  private async getFriendCounts(userIds: string[]): Promise<Map<string, number>> {
+    if (userIds.length === 0) return new Map();
+
+    const userIdSet = new Set(userIds);
+    const counts = new Map(userIds.map((userId) => [userId, 0]));
+    const friendRequests = await this.prisma.friendRequest.findMany({
+      where: {
+        status: 'Accepted',
+        OR: [
+          { senderId: { in: userIds } },
+          { receiverId: { in: userIds } },
+        ],
+      },
+      select: {
+        senderId: true,
+        receiverId: true,
+      },
+    });
+
+    for (const request of friendRequests) {
+      if (userIdSet.has(request.senderId)) {
+        counts.set(request.senderId, (counts.get(request.senderId) ?? 0) + 1);
+      }
+      if (userIdSet.has(request.receiverId)) {
+        counts.set(request.receiverId, (counts.get(request.receiverId) ?? 0) + 1);
+      }
+    }
+
+    return counts;
   }
 }

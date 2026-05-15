@@ -1,9 +1,22 @@
 import { API_BASE_URL } from "@/lib/api-url";
-import {
-  allProjects,
-  trendingProjects,
-  type ProjectGridItem,
-} from "@/lib/mocks/projects";
+
+export interface ProjectDiscussionMessage {
+  sender: string;
+  initials: string;
+  text: string;
+  time: string;
+  daysAgo: number;
+  me?: boolean;
+}
+
+export interface ProjectGridItem {
+  id: number;
+  name: string;
+  slug: string;
+  color: string;
+  description: string;
+  messages: ProjectDiscussionMessage[];
+}
 
 interface ApiProject {
   id: number;
@@ -27,30 +40,17 @@ export async function getAllProjects(): Promise<ProjectGridItem[]> {
 
     return projects.map(toProjectGridItem);
   } catch {
-    return allProjects;
+    return [];
   }
 }
 
-export function getLfgPosts(): [] {
-  return [];
-}
-
-export function getTrendingProjects() {
-  return trendingProjects;
-}
-
 function toProjectGridItem(project: ApiProject): ProjectGridItem {
-  const fallback = allProjects.find((item) => item.slug === project.slug);
-
   return {
+    id: project.id,
     name: project.name,
     slug: project.slug,
     color: project.color,
     description: project.description,
-    members: fallback?.members ?? 0,
-    activeNow: fallback?.activeNow ?? 0,
-    unread: false,
-    lastMessage: fallback?.lastMessage ?? "",
-    messages: fallback?.messages ?? [],
+    messages: [],
   };
 }

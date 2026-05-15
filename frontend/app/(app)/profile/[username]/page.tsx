@@ -63,9 +63,7 @@ export default function ProfilePage({ params }: ProfilePageProps) {
           isSelf: false as const,
           interests: [],
           friends: [],
-          activity: [],
           socials: effectiveViewedUser.socials ?? [],
-          currentProjects: [],
         }
     : null;
 

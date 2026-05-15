@@ -105,6 +105,19 @@ export type AdminChannel = {
   memberCount: number;
 };
 
+type AdminChannelMemberResponse = {
+  id: string;
+  username: string;
+  initials: string;
+  avatarUrl?: string;
+  email: string;
+  role: "GUEST" | "USER" | "ADMIN";
+  level: number;
+  joinedAt: string;
+};
+
+export type AdminChannelMember = AdminChannelMemberResponse;
+
 type AdminInterestRequestResponse = {
   id: number;
   name: string;
@@ -281,6 +294,37 @@ export async function deleteAdminChannel(channelId: number): Promise<void> {
 
   if (!response.ok) {
     throw new Error(`DELETE /admin/channels/${channelId} failed with ${response.status}`);
+  }
+}
+
+export async function getAdminChannelMembers(
+  channelId: number,
+): Promise<AdminChannelMember[]> {
+  const response = await fetch(`${API_BASE_URL}/admin/channels/${channelId}/members`, {
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error(`GET /admin/channels/${channelId}/members failed with ${response.status}`);
+  }
+
+  return response.json();
+}
+
+export async function removeAdminUserFromChannel(
+  userId: string,
+  channelId: number,
+): Promise<void> {
+  const response = await fetch(
+    `${API_BASE_URL}/admin/users/${userId}/channels/${channelId}`,
+    {
+      method: "DELETE",
+      credentials: "include",
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(`DELETE /admin/users/${userId}/channels/${channelId} failed with ${response.status}`);
   }
 }
 

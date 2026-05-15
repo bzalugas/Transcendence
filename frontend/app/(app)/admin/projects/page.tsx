@@ -179,7 +179,7 @@ export default function AdminProjectsPage() {
 
             <Link
               href="/"
-              className="rounded-[7px] border border-border-default bg-bg-secondary px-3.5 py-2 text-[12.5px] font-medium text-text-secondary transition-colors hover:border-border-strong hover:bg-bg-hover hover:text-text-primary"
+              className="rounded-[7px] bg-accent-blue px-3.5 py-2 text-[12.5px] font-semibold text-white transition-opacity hover:opacity-85"
             >
               Back to app
             </Link>
@@ -245,7 +245,7 @@ export default function AdminProjectsPage() {
                           color: event.target.value,
                         }))
                       }
-                      className="h-9 w-12 rounded-[7px] border border-border-default bg-bg-tertiary p-1"
+                      className="h-9 w-9 rounded-[7px] border border-border-default bg-bg-tertiary p-1"
                       aria-label="Project color"
                     />
                     <input

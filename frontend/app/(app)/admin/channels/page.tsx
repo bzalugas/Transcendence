@@ -2,15 +2,19 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
+import Avatar from "@/components/Avatar";
 import ConfirmModal from "@/components/ConfirmModal";
 import {
   approveAdminInterestRequest,
   createAdminChannel,
   deleteAdminChannel,
+  getAdminChannelMembers,
   getAdminChannels,
   getAdminInterestRequests,
   rejectAdminInterestRequest,
+  removeAdminUserFromChannel,
   type AdminChannel,
+  type AdminChannelMember,
   type AdminInterestRequest,
 } from "@/lib/data/admin";
 import { useCurrentUser } from "@/lib/data/auth";
@@ -45,15 +49,45 @@ export default function AdminChannelsPage() {
   );
   const [channelsError, setChannelsError] = useState<string | null>(null);
   const [requestsError, setRequestsError] = useState<string | null>(null);
+  const [channelSearch, setChannelSearch] = useState("");
   const [form, setForm] = useState(initialForm);
   const [formStatus, setFormStatus] = useState<"idle" | "saving">("idle");
   const [formError, setFormError] = useState<string | null>(null);
   const [createdChannel, setCreatedChannel] = useState<AdminChannel | null>(null);
   const [channelToDelete, setChannelToDelete] = useState<AdminChannel | null>(null);
+  const [membersChannel, setMembersChannel] = useState<AdminChannel | null>(null);
+  const [members, setMembers] = useState<AdminChannelMember[]>([]);
+  const [membersStatus, setMembersStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [membersError, setMembersError] = useState<string | null>(null);
+  const [memberSearch, setMemberSearch] = useState("");
+  const [kickingUserId, setKickingUserId] = useState<string | null>(null);
   const [requestToEdit, setRequestToEdit] = useState<AdminInterestRequest | null>(null);
   const [requestForm, setRequestForm] = useState(initialRequestForm);
   const [requestEditError, setRequestEditError] = useState<string | null>(null);
   const [busyRequestId, setBusyRequestId] = useState<number | null>(null);
+  const normalizedMemberSearch = memberSearch.trim().toLowerCase();
+  const normalizedChannelSearch = channelSearch.trim().toLowerCase();
+  const channelSearchTerms = normalizedChannelSearch.split(/\s+/).filter(Boolean);
+  const filteredChannels = normalizedChannelSearch
+    ? channels.filter((channel) => {
+        const searchableText = [channel.name, channel.description]
+          .join(" ")
+          .toLowerCase();
+        const searchableWords = searchableText.split(/[^a-z0-9]+/).filter(Boolean);
+
+        return channelSearchTerms.every((term) =>
+          searchableWords.some((word) => word.startsWith(term)),
+        );
+      })
+    : channels;
+  const filteredMembers = normalizedMemberSearch
+    ? members.filter((member) =>
+        [member.username, member.email, member.role]
+          .join(" ")
+          .toLowerCase()
+          .includes(normalizedMemberSearch),
+      )
+    : members;
 
   async function loadChannels() {
     setChannelsStatus("loading");
@@ -111,6 +145,47 @@ export default function AdminChannelsPage() {
     } catch (error) {
       setChannelsError(error instanceof Error ? error.message : "Unable to delete channel");
       setChannelToDelete(null);
+    }
+  }
+
+  async function openMembersModal(channel: AdminChannel) {
+    setMembersChannel(channel);
+    setMemberSearch("");
+    setMembers([]);
+    setMembersStatus("loading");
+    setMembersError(null);
+
+    try {
+      setMembers(await getAdminChannelMembers(channel.id));
+      setMembersStatus("ready");
+    } catch (error) {
+      setMembersError(error instanceof Error ? error.message : "Unable to load members");
+      setMembersStatus("error");
+    }
+  }
+
+  async function kickMember(member: AdminChannelMember) {
+    if (!membersChannel || kickingUserId) return;
+
+    setKickingUserId(member.id);
+    setMembersError(null);
+
+    try {
+      await removeAdminUserFromChannel(member.id, membersChannel.id);
+      setMembers((currentMembers) =>
+        currentMembers.filter((currentMember) => currentMember.id !== member.id),
+      );
+      setChannels((currentChannels) =>
+        currentChannels.map((channel) =>
+          channel.id === membersChannel.id
+            ? { ...channel, memberCount: Math.max(0, channel.memberCount - 1) }
+            : channel,
+        ),
+      );
+    } catch (error) {
+      setMembersError(error instanceof Error ? error.message : "Unable to kick member");
+    } finally {
+      setKickingUserId(null);
     }
   }
 
@@ -267,7 +342,7 @@ export default function AdminChannelsPage() {
 
             <Link
               href="/"
-              className="rounded-[7px] border border-border-default bg-bg-secondary px-3.5 py-2 text-[12.5px] font-medium text-text-secondary transition-colors hover:border-border-strong hover:bg-bg-hover hover:text-text-primary"
+              className="rounded-[7px] bg-accent-blue px-3.5 py-2 text-[12.5px] font-semibold text-white transition-opacity hover:opacity-85"
             >
               Back to app
             </Link>
@@ -282,7 +357,9 @@ export default function AdminChannelsPage() {
                   </div>
                   <div className="text-[11.5px] text-text-dimmed">
                     {channelsStatus === "ready"
-                      ? `${channels.length} channels`
+                      ? normalizedChannelSearch
+                        ? `${filteredChannels.length} of ${channels.length} channels`
+                        : `${channels.length} channels`
                       : "Loading channels"}
                   </div>
                 </div>
@@ -293,6 +370,20 @@ export default function AdminChannelsPage() {
                 >
                   Refresh
                 </button>
+              </div>
+
+              <div className="shrink-0 border-b border-border-default px-4 py-3">
+                <label className="sr-only" htmlFor="admin-channel-search">
+                  Search channels
+                </label>
+                <input
+                  id="admin-channel-search"
+                  type="search"
+                  value={channelSearch}
+                  onChange={(event) => setChannelSearch(event.target.value)}
+                  placeholder="Search channels..."
+                  className="h-9 w-full rounded-[7px] border border-border-default bg-bg-tertiary px-3 text-[12.5px] text-text-primary outline-none transition-colors placeholder:text-text-dimmed focus:border-border-strong focus:bg-bg-hover"
+                />
               </div>
 
               <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
@@ -312,11 +403,30 @@ export default function AdminChannelsPage() {
                   </div>
                 ) : null}
 
+                {channelsStatus === "ready" &&
+                channels.length > 0 &&
+                filteredChannels.length === 0 ? (
+                  <div className="px-2 py-6 text-[12.5px] text-text-muted">
+                    No channels match this search.
+                  </div>
+                ) : null}
+
                 <div className="flex flex-col gap-2">
-                  {channels.map((channel) => (
+                  {filteredChannels.map((channel) => (
                     <article
                       key={channel.id}
-                      className="rounded-[8px] border border-border-subtle bg-bg-tertiary px-3 py-3"
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => {
+                        void openMembersModal(channel);
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          void openMembersModal(channel);
+                        }
+                      }}
+                      className="rounded-[8px] border border-border-subtle bg-bg-tertiary px-3 py-3 text-left transition-colors hover:border-border-strong hover:bg-bg-hover"
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
@@ -341,7 +451,10 @@ export default function AdminChannelsPage() {
                         </div>
                         <button
                           type="button"
-                          onClick={() => setChannelToDelete(channel)}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setChannelToDelete(channel);
+                          }}
                           className="shrink-0 rounded-[6px] border border-danger/35 px-3 py-1.5 text-[11.5px] font-semibold text-danger transition-colors hover:bg-danger hover:text-white"
                         >
                           Delete
@@ -365,7 +478,7 @@ export default function AdminChannelsPage() {
                   Create a channel directly without going through a request.
                 </div>
 
-                <div className="mt-4 grid grid-cols-[minmax(0,1fr)_112px] gap-3">
+                <div className="mt-4 grid grid-cols-[minmax(0,1fr)_48px] gap-3">
                   <label className="block text-[12px] font-medium text-text-secondary">
                     Name
                     <input
@@ -395,7 +508,7 @@ export default function AdminChannelsPage() {
                           color: event.target.value,
                         }))
                       }
-                      className="mt-1.5 h-9 w-full rounded-[7px] border border-border-default bg-bg-tertiary p-1"
+                      className="mt-1.5 h-9 w-9 rounded-[7px] border border-border-default bg-bg-tertiary p-1"
                       aria-label="Channel color"
                     />
                   </label>
@@ -540,6 +653,119 @@ export default function AdminChannelsPage() {
           onCancel={() => setChannelToDelete(null)}
           onConfirm={confirmDeleteChannel}
         />
+      ) : null}
+
+      {membersChannel ? (
+        <div
+          className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/60 backdrop-blur-[4px]"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setMembersChannel(null);
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") setMembersChannel(null);
+          }}
+        >
+          <div className="flex max-h-[78vh] w-[620px] flex-col rounded-[14px] border border-white/[0.12] bg-[#0f0f0e] shadow-[0_20px_60px_rgba(0,0,0,0.6)]">
+            <div className="flex shrink-0 items-start justify-between gap-4 border-b border-border-default px-5 py-4">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <span
+                    className="h-2.5 w-2.5 shrink-0 rounded-full"
+                    style={{ backgroundColor: membersChannel.color }}
+                    aria-hidden="true"
+                  />
+                  <div className="truncate text-[16px] font-semibold text-white">
+                    {membersChannel.name}
+                  </div>
+                </div>
+                <div className="mt-1 text-[12px] text-text-muted">
+                  {members.length} members
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setMembersChannel(null)}
+                className="rounded-[6px] px-2 py-1 text-[18px] text-text-dimmed transition-colors hover:bg-bg-hover hover:text-text-primary"
+                aria-label="Close members modal"
+              >
+                x
+              </button>
+            </div>
+
+            <div className="shrink-0 border-b border-border-default px-5 py-3">
+              <label className="sr-only" htmlFor="channel-member-search">
+                Search members
+              </label>
+              <input
+                id="channel-member-search"
+                type="search"
+                value={memberSearch}
+                onChange={(event) => setMemberSearch(event.target.value)}
+                placeholder="Search members..."
+                className="h-9 w-full rounded-[7px] border border-border-default bg-bg-tertiary px-3 text-[12.5px] text-text-primary outline-none transition-colors placeholder:text-text-dimmed focus:border-border-strong focus:bg-bg-hover"
+              />
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+              {membersError ? (
+                <div className="mb-3 text-[12px] text-danger">{membersError}</div>
+              ) : null}
+
+              {membersStatus === "loading" ? (
+                <div className="py-6 text-center text-[13px] text-text-muted">
+                  Loading members...
+                </div>
+              ) : null}
+
+              {membersStatus === "ready" && members.length === 0 ? (
+                <div className="py-6 text-center text-[13px] text-text-muted">
+                  No members in this channel.
+                </div>
+              ) : null}
+
+              {membersStatus === "ready" &&
+              members.length > 0 &&
+              filteredMembers.length === 0 ? (
+                <div className="py-6 text-center text-[13px] text-text-muted">
+                  No members match this search.
+                </div>
+              ) : null}
+
+              <div className="flex flex-col gap-2">
+                {filteredMembers.map((member) => (
+                  <div
+                    key={member.id}
+                    className="flex items-center gap-3 rounded-[8px] border border-border-subtle bg-bg-tertiary px-3 py-3"
+                  >
+                    <Avatar
+                      initials={member.initials}
+                      avatarUrl={member.avatarUrl}
+                      size="md"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-[13px] font-medium text-text-primary">
+                        {member.username}
+                      </div>
+                      <div className="truncate text-[11.5px] text-text-dimmed">
+                        {member.email} - {member.role}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={kickingUserId === member.id}
+                      onClick={() => {
+                        void kickMember(member);
+                      }}
+                      className="shrink-0 rounded-[6px] border border-danger/35 px-3 py-1.5 text-[11.5px] font-semibold text-danger transition-colors hover:bg-danger hover:text-white disabled:cursor-not-allowed disabled:opacity-45"
+                    >
+                      {kickingUserId === member.id ? "Kicking..." : "Kick out from channel"}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
       ) : null}
 
       {createdChannel ? (

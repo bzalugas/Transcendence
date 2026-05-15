@@ -441,6 +441,47 @@ export class AdminService {
     await this.prisma.interest.delete({ where: { id: channel.interestId } });
   }
 
+  async findChannelMembers(channelId: number) {
+    const channel = await this.prisma.channel.findUnique({
+      where: { id: channelId },
+      select: { id: true },
+    });
+    if (!channel) throw new NotFoundException('Channel not found');
+
+    const memberships = await this.prisma.user_Channel.findMany({
+      where: { channelId },
+      include: {
+        user: {
+          include: {
+            profile: {
+              select: {
+                avatarUri: true,
+                level: true,
+                pseudo: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: { joinedAt: 'asc' },
+    });
+
+    return memberships.map((membership) => {
+      const username = this.userDisplayName(membership.user);
+
+      return {
+        id: membership.user.id,
+        username,
+        initials: this.initials(username),
+        avatarUrl: membership.user.profile?.avatarUri ?? membership.user.image ?? undefined,
+        email: membership.user.email,
+        role: membership.user.role,
+        level: membership.user.profile?.level ?? 0,
+        joinedAt: membership.joinedAt.toISOString(),
+      };
+    });
+  }
+
   async addUserToChannel(userId: string, channelId: number) {
     const [channel, user] = await Promise.all([
       this.prisma.channel.findUnique({ where: { id: channelId } }),
@@ -634,6 +675,16 @@ export class AdminService {
     profile?: { pseudo: string | null } | null;
   }): string {
     return user.profile?.pseudo ?? user.login ?? user.name ?? user.email.split('@')[0];
+  }
+
+  private initials(value: string): string {
+    return value
+      .trim()
+      .split(/[\s._-]+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase())
+      .join('') || '?';
   }
 
   private async getFriendCounts(userIds: string[]): Promise<Map<string, number>> {

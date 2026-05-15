@@ -14,7 +14,12 @@ import { useCurrentUser } from "@/lib/data/auth";
 import { getProfileFriends } from "@/lib/data/friends";
 import { getMyInterests, getProfileInterests, leaveMyInterest } from "@/lib/data/interests";
 import { setPendingConv } from "@/lib/data/messages";
-import { sendFriendRequest } from "@/lib/data/suggestions";
+import {
+  cancelSentRequest,
+  getSentRequests,
+  sendFriendRequest,
+  type FriendRequest,
+} from "@/lib/data/suggestions";
 import type { Friend, ProfileInterest, User } from "@/lib/types";
 
 interface ProfilePageProps {
@@ -33,7 +38,9 @@ export default function ProfilePage({ params }: ProfilePageProps) {
   const [interestsLoading, setInterestsLoading] = useState(false);
   const [viewedUser, setViewedUser] = useState<User | null | undefined>(undefined);
   const [profileFriends, setProfileFriends] = useState<Friend[]>([]);
-  const [friendRequestSent, setFriendRequestSent] = useState(false);
+  const [sentFriendRequest, setSentFriendRequest] = useState<FriendRequest | null>(null);
+  const [friendRequestBusy, setFriendRequestBusy] = useState(false);
+  const [requestButtonHovered, setRequestButtonHovered] = useState(false);
   const isCurrentUserProfile =
     currentUser &&
     normalizeProfileKey(username) === normalizeProfileKey(currentUser.username);
@@ -93,6 +100,34 @@ export default function ProfilePage({ params }: ProfilePageProps) {
   }, [viewedUsername]);
 
   useEffect(() => {
+    if (!viewedUsername || isCurrentUserProfile) {
+      setSentFriendRequest(null);
+      return;
+    }
+
+    let active = true;
+    setSentFriendRequest(null);
+
+    getSentRequests()
+      .then((requests) => {
+        if (!active) return;
+
+        const matchingRequest = requests.find(
+          (request) =>
+            normalizeProfileKey(request.name) === normalizeProfileKey(viewedUsername),
+        );
+        setSentFriendRequest(matchingRequest ?? null);
+      })
+      .catch(() => {
+        if (active) setSentFriendRequest(null);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [isCurrentUserProfile, viewedUsername]);
+
+  useEffect(() => {
     if (!viewedUsername) return;
 
     let active = true;
@@ -146,8 +181,44 @@ export default function ProfilePage({ params }: ProfilePageProps) {
 
   // Sends a real friend request for the profile currently being viewed.
   async function handleAddFriend() {
-    await sendFriendRequest(user.username);
-    setFriendRequestSent(true);
+    if (friendRequestBusy || sentFriendRequest) return;
+
+    setFriendRequestBusy(true);
+    try {
+      const request = await sendFriendRequest(user.username);
+      setSentFriendRequest(request);
+    } finally {
+      setFriendRequestBusy(false);
+    }
+  }
+
+  async function handleCancelFriendRequest() {
+    if (!sentFriendRequest || friendRequestBusy) return;
+
+    setFriendRequestBusy(true);
+    try {
+      await cancelSentRequest(sentFriendRequest.id);
+      setSentFriendRequest(null);
+      setRequestButtonHovered(false);
+    } finally {
+      setFriendRequestBusy(false);
+    }
+  }
+
+  function handleFriendAction() {
+    if (isAlreadyFriend) return;
+    if (sentFriendRequest) {
+      void handleCancelFriendRequest();
+      return;
+    }
+    void handleAddFriend();
+  }
+
+  function friendActionLabel() {
+    if (isAlreadyFriend) return "Friend";
+    if (friendRequestBusy) return sentFriendRequest ? "Canceling..." : "Sending...";
+    if (sentFriendRequest) return requestButtonHovered ? "Cancel request" : "Request sent";
+    return "Add friend";
   }
 
   return (
@@ -248,11 +319,19 @@ export default function ProfilePage({ params }: ProfilePageProps) {
                   </button>
                   <button
                     type="button"
-                    disabled={isAlreadyFriend || friendRequestSent}
-                    onClick={handleAddFriend}
-                    className="rounded-[7px] bg-text-primary px-[18px] py-[7px] text-[13px] font-medium text-bg-primary transition-opacity hover:opacity-90 disabled:cursor-default disabled:opacity-60"
+                    disabled={isAlreadyFriend || friendRequestBusy}
+                    onClick={handleFriendAction}
+                    onMouseEnter={() => setRequestButtonHovered(true)}
+                    onMouseLeave={() => setRequestButtonHovered(false)}
+                    onFocus={() => setRequestButtonHovered(true)}
+                    onBlur={() => setRequestButtonHovered(false)}
+                    className={`rounded-[7px] px-[18px] py-[7px] text-[13px] font-medium transition-colors disabled:cursor-default disabled:opacity-60 ${
+                      sentFriendRequest
+                        ? "border border-border-default bg-transparent text-text-primary hover:border-away/35 hover:bg-away/10 hover:text-away"
+                        : "bg-text-primary text-bg-primary hover:opacity-90"
+                    }`}
                   >
-                    {isAlreadyFriend ? "Friend" : friendRequestSent ? "Request sent" : "Add friend"}
+                    {friendActionLabel()}
                   </button>
                 </div>
               )}

@@ -21,6 +21,7 @@ export interface ProfileSocialDto {
 export interface ProfileStatsDto {
   students: number;
   topInterest: string;
+  mostActive: string;
   activeGroups: number;
 }
 
@@ -30,15 +31,17 @@ export class ProfilesService {
 
   // Builds aggregate values shown in the shared cohort stats side panel.
   async getStats(): Promise<ProfileStatsDto> {
-    const [students, topInterest, activeGroups] = await Promise.all([
+    const [students, topInterest, mostActive, activeGroups] = await Promise.all([
       this.prisma.user.count(),
       this.getTopInterestName(),
+      this.getMostActiveInterestName(),
       this.prisma.channel.count(),
     ]);
 
     return {
       students,
       topInterest,
+      mostActive,
       activeGroups,
     };
   }
@@ -303,5 +306,44 @@ export class ProfilesService {
     });
 
     return interest?.name ?? 'None';
+  }
+
+  // Finds the interest whose channel has the most posts in the last 30 days.
+  private async getMostActiveInterestName(): Promise<string> {
+    const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const [topChannel] = await this.prisma.post.groupBy({
+      by: ['channelId'],
+      where: {
+        createdAt: {
+          gte: since,
+        },
+      },
+      _count: {
+        id: true,
+      },
+      orderBy: {
+        _count: {
+          id: 'desc',
+        },
+      },
+      take: 1,
+    });
+
+    if (!topChannel) return 'None';
+
+    const channel = await this.prisma.channel.findUnique({
+      where: {
+        id: topChannel.channelId,
+      },
+      select: {
+        interest: {
+          select: {
+            name: true,
+          },
+        },
+      },
+    });
+
+    return channel?.interest.name ?? 'None';
   }
 }

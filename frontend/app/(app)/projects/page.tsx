@@ -3,9 +3,9 @@
 import { useState } from "react";
 import Link from "next/link";
 import Avatar from "@/components/Avatar";
-import CohortStatsPanel from "@/components/CohortStatsPanel";
+import FriendsPanel from "@/components/FriendsPanel";
 import PanelToggleIcon from "@/components/icons/PanelToggleIcon";
-import { getLfgPosts, getAllProjects, getTrendingProjects } from "@/lib/data/projects";
+import { getLfgPosts, getAllProjects } from "@/lib/data/projects";
 import type { LfgPost } from "@/lib/mocks/projects";
 import { useCurrentUser } from "@/lib/data/auth";
 
@@ -176,8 +176,8 @@ export default function ProjectsPage() {
       </div>
 
       {showPanel && (
-        <div className="hidden w-[280px] shrink-0 xl:flex">
-          <ProjectsPanel />
+        <div className="hidden w-[260px] shrink-0 xl:flex">
+          <FriendsPanel />
         </div>
       )}
     </>
@@ -269,33 +269,5 @@ function LfgCard({ post, applied, onApply }: { post: LfgPost; applied: boolean; 
         )}
       </div>
     </div>
-  );
-}
-
-function ProjectsPanel() {
-  const trendingProjects = getTrendingProjects();
-  return (
-    <aside className="flex w-full flex-col overflow-y-auto border-l border-border-default bg-bg-secondary px-[18px] py-6">
-      <div className="mb-3 text-[10.5px] font-semibold uppercase tracking-wider text-text-muted">
-        Trending Projects this week
-      </div>
-      <div className="flex flex-col gap-0.5">
-        {trendingProjects.map((t, idx) => (
-          <div
-            key={t.name}
-            className="flex cursor-pointer items-center gap-2.5 rounded-[7px] px-2 py-[7px] transition-colors hover:bg-bg-hover"
-          >
-            <span className="w-3.5 text-center text-[11px] font-semibold text-text-dimmed">{idx + 1}</span>
-            <span className="flex-1 text-[13px] text-text-secondary">{t.name}</span>
-            <span className="text-[11px] text-text-dimmed">{t.messages} msgs</span>
-          </div>
-        ))}
-      </div>
-
-      <div className="sticky bottom-0 mt-auto bg-bg-secondary pt-1">
-        <div className="my-4 h-px bg-border-default" />
-        <CohortStatsPanel />
-      </div>
-    </aside>
   );
 }

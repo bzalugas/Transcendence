@@ -7,6 +7,7 @@ import {
   joinMyInterest,
   requestNewInterest,
 } from "@/lib/data/interests";
+import { useCurrentUser } from "@/lib/data/auth";
 
 interface Props {
   joined: ProfileInterest[];
@@ -17,6 +18,7 @@ interface Props {
 const PREVIEW_COUNT = 12;
 
 export default function InterestPickerModal({ joined, onJoin, onClose }: Props) {
+  const { user: currentUser } = useCurrentUser();
   const [search, setSearch] = useState("");
   const [detail, setDetail] = useState<AvailableInterest | null>(null);
   const [showAll, setShowAll] = useState(false);
@@ -76,7 +78,8 @@ export default function InterestPickerModal({ joined, onJoin, onClose }: Props) 
     ? filtered
     : filtered.slice(0, PREVIEW_COUNT);
 
-  const showRequest = isSearching && filtered.length === 0;
+  const canRequestNewInterest = currentUser?.role !== "GUEST";
+  const showRequest = canRequestNewInterest && isSearching && filtered.length === 0;
   const canRequestInterest = requestDesc.trim().length > 0;
 
   async function handleJoin(interest: AvailableInterest) {

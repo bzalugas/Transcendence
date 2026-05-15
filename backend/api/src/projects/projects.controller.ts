@@ -1,6 +1,6 @@
 import { Controller, Get, Req } from '@nestjs/common';
 import type { Request } from 'express';
-import { getSessionUserId } from '../auth/session';
+import { getSessionUserWithRole } from '../auth/session';
 import { ProjectsService } from './projects.service';
 
 @Controller('projects')
@@ -9,7 +9,7 @@ export class ProjectsController {
 
   @Get()
   async findAll(@Req() req: Request) {
-    await getSessionUserId(req);
+    await getSessionUserWithRole(req, ['USER', 'ADMIN']);
     return this.projectsService.findAll();
   }
 }

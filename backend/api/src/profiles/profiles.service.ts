@@ -9,6 +9,7 @@ export interface ProfileUserDto {
   avatarUrl?: string;
   bio?: string;
   level: number;
+  role?: 'GUEST' | 'USER' | 'ADMIN';
   socials: ProfileSocialDto[];
 }
 
@@ -61,7 +62,7 @@ export class ProfilesService {
       throw new NotFoundException('Profile not found');
     }
 
-    return this.toDto(user);
+    return this.toDto(user, { includeRole: true });
   }
 
   // Updates editable profile fields and returns the refreshed public user shape.
@@ -161,6 +162,7 @@ export class ProfilesService {
     login: string | null;
     name: string | null;
     image: string | null;
+    role: 'GUEST' | 'USER' | 'ADMIN';
     profile: {
       avatarUri: string | null;
       bio: string | null;
@@ -172,7 +174,7 @@ export class ProfilesService {
         url: string;
       }[];
     } | null;
-  }): ProfileUserDto {
+  }, options: { includeRole?: boolean } = {}): ProfileUserDto {
     const username = this.userDisplayName(user);
 
     return {
@@ -182,6 +184,7 @@ export class ProfilesService {
       avatarUrl: user.profile?.avatarUri ?? user.image ?? undefined,
       bio: user.profile?.bio ?? undefined,
       level: user.profile?.level ?? 0,
+      ...(options.includeRole ? { role: user.role } : {}),
       socials: user.profile?.socials ?? [],
     };
   }

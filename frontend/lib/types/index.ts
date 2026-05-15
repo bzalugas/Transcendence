@@ -5,6 +5,7 @@ export interface User {
   avatarUrl?: string;
   bio?: string;
   level: number;
+  role?: "GUEST" | "USER" | "ADMIN";
   socials?: ProfileSocial[];
 }
 

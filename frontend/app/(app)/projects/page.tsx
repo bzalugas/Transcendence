@@ -64,7 +64,7 @@ export default function ProjectsPage() {
   }, [blockedNames, localMessages, projects]);
 
   useEffect(() => {
-    if (!currentUser) return;
+    if (!currentUser || currentUser.role === "GUEST") return;
 
     let mounted = true;
     setProjectsLoading(true);
@@ -85,7 +85,7 @@ export default function ProjectsPage() {
   }, [currentUser]);
 
   useEffect(() => {
-    if (!currentUser) return;
+    if (!currentUser || currentUser.role === "GUEST") return;
 
     let mounted = true;
 
@@ -118,6 +118,9 @@ export default function ProjectsPage() {
   }, [activeMessages.length, activeProject]);
 
   if (!currentUser) return null;
+  if (currentUser.role === "GUEST") {
+    return <LockedProjectsView />;
+  }
 
   function handleSend() {
     const text = draft.trim();
@@ -288,6 +291,25 @@ export default function ProjectsPage() {
         </div>
       )}
     </>
+  );
+}
+
+function LockedProjectsView() {
+  return (
+    <div className="flex min-w-0 flex-1 items-center justify-center bg-bg-tertiary px-6">
+      <div className="max-w-[420px] text-center">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border border-border-default bg-bg-secondary text-[22px]">
+          🔒
+        </div>
+        <div className="mt-4 text-[20px] font-semibold text-text-primary">
+          Projects locked
+        </div>
+        <div className="mt-2 text-[13px] leading-relaxed text-text-muted">
+          Project discussions are reserved for accounts connected with 42.
+          Guest accounts can keep using the rest of the site.
+        </div>
+      </div>
+    </div>
   );
 }
 

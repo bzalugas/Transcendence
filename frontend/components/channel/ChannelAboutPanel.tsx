@@ -8,6 +8,7 @@ import FriendsList from "@/components/FriendsList";
 import ConfirmModal from "@/components/ConfirmModal";
 import UserActionMenu from "@/components/UserActionMenu";
 import { blockUser } from "@/lib/data/blocks";
+import { useCurrentUser } from "@/lib/data/auth";
 import { fileUrl } from "@/lib/data/files";
 import type {
   Channel,
@@ -35,6 +36,7 @@ export default function ChannelAboutPanel({
   onLeave,
   onBlock,
 }: ChannelAboutPanelProps) {
+  const { user: currentUser } = useCurrentUser();
   const [confirmLeave, setConfirmLeave] = useState(false);
   const [blockedNames, setBlockedNames] = useState<Set<string>>(new Set());
   const [activeMember, setActiveMember] = useState<ChannelMember | null>(null);
@@ -44,25 +46,28 @@ export default function ChannelAboutPanel({
   const friendMembers = useMemo<Friend[]>(
     () =>
       members
-        .filter((m) => !m.isSelf && m.isFriend)
+        .filter((m) => !isCurrentMember(m, currentUser) && m.isFriend)
         .map((m) => ({
           initials: m.initials,
           avatarUrl: m.avatarUrl,
           name: m.username,
           level: m.level,
         })),
-    [members],
+    [currentUser, members],
   );
 
   const otherMembers = useMemo(
     () =>
       members.filter(
-        (m) => !m.isSelf && !m.isFriend && !blockedNames.has(m.username),
+        (m) =>
+          !isCurrentMember(m, currentUser) &&
+          !m.isFriend &&
+          !blockedNames.has(m.username),
       ),
-    [blockedNames, members],
+    [blockedNames, currentUser, members],
   );
 
-  const total = channel.memberCount ?? members.length;
+  const total = friendMembers.length + otherMembers.length;
 
   return (
     <>
@@ -190,6 +195,20 @@ export default function ChannelAboutPanel({
       )}
     </>
   );
+}
+
+function isCurrentMember(member: ChannelMember, currentUser?: { id: string; username: string } | null) {
+  if (member.isSelf) return true;
+  if (!currentUser) return false;
+
+  return (
+    member.id === currentUser.id ||
+    normalizeMemberName(member.username) === normalizeMemberName(currentUser.username)
+  );
+}
+
+function normalizeMemberName(name: string) {
+  return name.trim().toLowerCase();
 }
 
 function InfoRow({ label, value }: { label: string; value: string }) {

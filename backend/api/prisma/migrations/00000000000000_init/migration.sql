@@ -2,7 +2,7 @@
 CREATE SCHEMA IF NOT EXISTS "public";
 
 -- CreateEnum
-CREATE TYPE "UserRole" AS ENUM ('USER', 'MODERATOR', 'ADMIN');
+CREATE TYPE "UserRole" AS ENUM ('GUEST', 'USER', 'ADMIN');
 
 -- CreateEnum
 CREATE TYPE "FriendRequestStatus" AS ENUM ('Pending', 'Accepted', 'Rejected');
@@ -26,7 +26,10 @@ CREATE TYPE "DataRequestType" AS ENUM ('export', 'deletion');
 CREATE TYPE "DataRequestStatus" AS ENUM ('pending', 'confirmed', 'processing', 'completed', 'cancelled', 'expired');
 
 -- CreateEnum
-CREATE TYPE "ChatType" AS ENUM ('Interest', 'Group', 'Private');
+CREATE TYPE "InterestRequestStatus" AS ENUM ('pending', 'approved', 'rejected');
+
+-- CreateEnum
+CREATE TYPE "ChatType" AS ENUM ('Group', 'Private');
 
 -- CreateEnum
 CREATE TYPE "MessageType" AS ENUM ('Normal', 'Auto');
@@ -47,6 +50,8 @@ CREATE TABLE "user" (
     "login" TEXT,
     "role" "UserRole" NOT NULL DEFAULT 'USER',
     "name" TEXT,
+    "bannedAt" TIMESTAMP(3),
+    "moderationReason" TEXT,
     "emailVerified" BOOLEAN NOT NULL DEFAULT false,
     "image" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -95,6 +100,15 @@ CREATE TABLE "FriendRequest" (
 );
 
 -- CreateTable
+CREATE TABLE "BlockedUser" (
+    "blockerId" TEXT NOT NULL,
+    "blockedId" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "BlockedUser_pkey" PRIMARY KEY ("blockerId","blockedId")
+);
+
+-- CreateTable
 CREATE TABLE "Interest" (
     "id" SERIAL NOT NULL,
     "name" TEXT NOT NULL,
@@ -103,6 +117,21 @@ CREATE TABLE "Interest" (
     "parentId" INTEGER,
 
     CONSTRAINT "Interest_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "InterestRequest" (
+    "id" SERIAL NOT NULL,
+    "requesterId" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "normalizedName" TEXT NOT NULL,
+    "description" TEXT NOT NULL,
+    "status" "InterestRequestStatus" NOT NULL DEFAULT 'pending',
+    "requestedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "reviewedAt" TIMESTAMP(3),
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "InterestRequest_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -118,8 +147,35 @@ CREATE TABLE "User_Interest" (
 CREATE TABLE "Channel" (
     "id" SERIAL NOT NULL,
     "interestId" INTEGER NOT NULL,
+    "description" TEXT,
 
     CONSTRAINT "Channel_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Project" (
+    "id" SERIAL NOT NULL,
+    "slug" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "color" TEXT NOT NULL,
+    "description" TEXT NOT NULL,
+    "sortOrder" INTEGER NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "Project_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "ProjectMessage" (
+    "id" SERIAL NOT NULL,
+    "projectId" INTEGER NOT NULL,
+    "senderId" TEXT NOT NULL,
+    "content" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "ProjectMessage_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -188,6 +244,7 @@ CREATE TABLE "Chat" (
     "id" SERIAL NOT NULL,
     "name" TEXT NOT NULL,
     "type" "ChatType" NOT NULL,
+    "privateKey" TEXT,
 
     CONSTRAINT "Chat_pkey" PRIMARY KEY ("id")
 );
@@ -198,6 +255,9 @@ CREATE TABLE "Message" (
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "content" TEXT NOT NULL,
     "type" "MessageType" NOT NULL DEFAULT 'Normal',
+    "encrypted" BOOLEAN NOT NULL DEFAULT false,
+    "encryptionIv" TEXT,
+    "encryptionTag" TEXT,
     "senderId" TEXT NOT NULL,
     "chatId" INTEGER NOT NULL,
 
@@ -341,10 +401,31 @@ CREATE UNIQUE INDEX "Profile_userId_key" ON "Profile"("userId");
 CREATE UNIQUE INDEX "FriendRequest_pairKey_key" ON "FriendRequest"("pairKey");
 
 -- CreateIndex
+CREATE INDEX "BlockedUser_blockedId_idx" ON "BlockedUser"("blockedId");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "Interest_name_key" ON "Interest"("name");
 
 -- CreateIndex
+CREATE INDEX "InterestRequest_status_requestedAt_idx" ON "InterestRequest"("status", "requestedAt");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "InterestRequest_requesterId_normalizedName_key" ON "InterestRequest"("requesterId", "normalizedName");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "Channel_interestId_key" ON "Channel"("interestId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Project_slug_key" ON "Project"("slug");
+
+-- CreateIndex
+CREATE INDEX "Project_sortOrder_idx" ON "Project"("sortOrder");
+
+-- CreateIndex
+CREATE INDEX "ProjectMessage_projectId_createdAt_idx" ON "ProjectMessage"("projectId", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "ProjectMessage_senderId_createdAt_idx" ON "ProjectMessage"("senderId", "createdAt");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "FileAsset_storageKey_key" ON "FileAsset"("storageKey");
@@ -360,6 +441,9 @@ CREATE INDEX "Attachment_postId_idx" ON "Attachment"("postId");
 
 -- CreateIndex
 CREATE INDEX "Attachment_messageId_idx" ON "Attachment"("messageId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Chat_privateKey_key" ON "Chat"("privateKey");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "DataRequest_confirmationTokenHash_key" ON "DataRequest"("confirmationTokenHash");
@@ -401,7 +485,16 @@ ALTER TABLE "FriendRequest" ADD CONSTRAINT "FriendRequest_senderId_fkey" FOREIGN
 ALTER TABLE "FriendRequest" ADD CONSTRAINT "FriendRequest_receiverId_fkey" FOREIGN KEY ("receiverId") REFERENCES "user"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "BlockedUser" ADD CONSTRAINT "BlockedUser_blockerId_fkey" FOREIGN KEY ("blockerId") REFERENCES "user"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "BlockedUser" ADD CONSTRAINT "BlockedUser_blockedId_fkey" FOREIGN KEY ("blockedId") REFERENCES "user"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "Interest" ADD CONSTRAINT "Interest_parentId_fkey" FOREIGN KEY ("parentId") REFERENCES "Interest"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "InterestRequest" ADD CONSTRAINT "InterestRequest_requesterId_fkey" FOREIGN KEY ("requesterId") REFERENCES "user"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "User_Interest" ADD CONSTRAINT "User_Interest_userId_fkey" FOREIGN KEY ("userId") REFERENCES "user"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -411,6 +504,12 @@ ALTER TABLE "User_Interest" ADD CONSTRAINT "User_Interest_interestId_fkey" FOREI
 
 -- AddForeignKey
 ALTER TABLE "Channel" ADD CONSTRAINT "Channel_interestId_fkey" FOREIGN KEY ("interestId") REFERENCES "Interest"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ProjectMessage" ADD CONSTRAINT "ProjectMessage_projectId_fkey" FOREIGN KEY ("projectId") REFERENCES "Project"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ProjectMessage" ADD CONSTRAINT "ProjectMessage_senderId_fkey" FOREIGN KEY ("senderId") REFERENCES "user"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "User_Channel" ADD CONSTRAINT "User_Channel_userId_fkey" FOREIGN KEY ("userId") REFERENCES "user"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -489,3 +588,4 @@ ALTER TABLE "_ChatToUser" ADD CONSTRAINT "_ChatToUser_A_fkey" FOREIGN KEY ("A") 
 
 -- AddForeignKey
 ALTER TABLE "_ChatToUser" ADD CONSTRAINT "_ChatToUser_B_fkey" FOREIGN KEY ("B") REFERENCES "user"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+

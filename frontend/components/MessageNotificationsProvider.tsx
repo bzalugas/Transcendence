@@ -3,7 +3,6 @@
 import { useEffect } from "react";
 import { usePathname } from "next/navigation";
 import {
-  getChannelConversations,
   getFriendConversations,
   joinChat,
   leaveChat,
@@ -23,14 +22,11 @@ export default function MessageNotificationsProvider({
     let active = true;
     const joinedChatIds = new Set<string>();
 
-    Promise.all([getFriendConversations(), getChannelConversations()])
-      .then(([friendConversations, channelConversations]) => {
+    getFriendConversations()
+      .then((friendConversations) => {
         if (!active) return;
 
-        for (const conversation of [
-          ...friendConversations,
-          ...channelConversations,
-        ]) {
+        for (const conversation of friendConversations) {
           if (!conversation.id || conversation.id.startsWith("user:")) {
             continue;
           }

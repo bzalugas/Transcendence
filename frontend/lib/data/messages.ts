@@ -1,6 +1,5 @@
 import { io, type Socket } from "socket.io-client";
 import { API_BASE_URL, API_ORIGIN } from "@/lib/api-url";
-import { getJoinedChannels } from "@/lib/data/channels";
 import { getFriends } from "@/lib/data/friends";
 import { notifyNavBadgesUpdated } from "@/lib/data/nav-events";
 import type { ChatMessage, Conversation, MessageAttachment } from "@/lib/types";
@@ -64,53 +63,10 @@ export async function getFriendConversations(): Promise<Conversation[]> {
   );
 }
 
-export async function getChannelConversations(): Promise<Conversation[]> {
-  const [joinedChannels, chats] = await Promise.all([
-    getJoinedChannels(),
-    request<ApiChat[]>("/chats"),
-  ]);
-  const channelChats = chats.filter((chat) => chat.type === "Interest");
-
-  const conversations = await Promise.all(
-    joinedChannels.map(async (channel) => {
-      const chat =
-        channelChats.find(
-          (candidate) => candidate.channel?.slug === channel.slug,
-        ) ??
-        (await request<ApiChat>(
-          `/chats/channel/${encodeURIComponent(channel.slug)}`,
-          {
-            method: "POST",
-          },
-        ));
-      const lastMessage = chat.lastMessage;
-
-      return {
-        id: String(chat.id),
-        type: "channel" as const,
-        name: channel.label,
-        initials: initials(channel.label),
-        channelSlug: channel.slug,
-        channelColor: channel.color,
-        preview: messagePreview(lastMessage),
-        time: lastMessage ? formatTime(lastMessage.createdAt) : "",
-        lastMessageAt: lastMessage?.createdAt,
-        unread: chat.unreadCount,
-      };
-    }),
-  );
-
-  return sortConversationsByActivity(conversations);
-}
-
 export async function getConversationById(
   id: string,
 ): Promise<Conversation | undefined> {
-  const [friendConversations, channelConversations] = await Promise.all([
-    getFriendConversations(),
-    getChannelConversations(),
-  ]);
-  const conversations = [...friendConversations, ...channelConversations];
+  const conversations = await getFriendConversations();
   return conversations.find((conversation) => conversation.id === id);
 }
 
@@ -147,12 +103,6 @@ export async function getOrCreatePrivateConversation(
   };
 }
 
-export async function getOrCreateChannelChat(slug: string): Promise<ApiChat> {
-  return request<ApiChat>(`/chats/channel/${encodeURIComponent(slug)}`, {
-    method: "POST",
-  });
-}
-
 export async function getChatMessagesById(
   chatId: string | number,
   currentUserId?: string,
@@ -174,7 +124,7 @@ export function leaveChat(chatId: string): void {
 export function sendChatMessage(
   chatId: string,
   content: string,
-  chatType: "Private" | "Interest",
+  chatType: "Private",
   attachmentIds: number[] = [],
 ): void {
   const socket = getChatSocket();
@@ -290,18 +240,6 @@ function assertChatMatchesConversation(
     throw new Error("Selected conversation is not a private chat");
   }
 
-  if (conversation.type === "channel") {
-    if (chat.type !== "Interest") {
-      throw new Error("Selected conversation is not a channel chat");
-    }
-
-    if (
-      conversation.channelSlug &&
-      chat.channel?.slug !== conversation.channelSlug
-    ) {
-      throw new Error("Selected channel chat does not match the channel");
-    }
-  }
 }
 
 function getOtherUser(
@@ -364,14 +302,7 @@ interface ApiChatUser {
 export interface ApiChat {
   id: number;
   name: string;
-  type: "Interest" | "Group" | "Private";
-  channel?: {
-    id: number;
-    slug: string;
-    label: string;
-    color: string;
-    imageUri: string | null;
-  };
+  type: "Group" | "Private";
   users: ApiChatUser[];
   lastMessage?: ApiMessage;
   unreadCount: number;
@@ -380,24 +311,11 @@ export interface ApiChat {
 export interface ApiMessage {
   id: number;
   chatId: number;
-  chatType: "Interest" | "Group" | "Private";
+  chatType: "Group" | "Private";
   senderId: string;
   content: string;
   type: "Normal" | "Auto";
   createdAt: string;
   sender: ApiChatUser;
   attachments: MessageAttachment[];
-}
-
-function initials(value: string): string {
-  const parts = value
-    .trim()
-    .split(/[\s._-]+/)
-    .filter(Boolean);
-
-  if (parts.length >= 2) {
-    return `${parts[0][0]}${parts[1][0]}`.toLowerCase();
-  }
-
-  return value.slice(0, 2).toLowerCase();
 }

@@ -38,15 +38,6 @@ export class ChatsController {
     await this.chatsService.markChatRead(userId, chatId);
   }
 
-  @Post('channel/:slug')
-  async findOrCreateChannelChat(
-    @Req() req: Request,
-    @Param('slug') slug: string,
-  ) {
-    const userId = await getSessionUserId(req);
-    return this.chatsService.findOrCreateChannelChat(userId, slug);
-  }
-
   @Post('private/:userId')
   async findOrCreatePrivateChat(
     @Req() req: Request,

@@ -140,7 +140,6 @@ model Channel {
   interest    Interest       @relation(name: "mainInterest", fields: [interestId], references: [id])
   posts       Post[]
   users       User_Channel[]
-  chat        Chat?
   //imageUri    String?               // déplacé dans Interest
   //title       String      @unique   // supprimé  (redondant avec Interest.name)
   //tags        Interest[]            // supprimé
@@ -249,9 +248,7 @@ model Chat {
   id         Int       @id @default(autoincrement())
   name       String
   type       ChatType
-  channelId  Int?      @unique
   privateKey String?   @unique
-  channel    Channel?  @relation(fields: [channelId], references: [id], onDelete: SetNull)
   messages   Message[]
   users      User[]
 }
@@ -397,7 +394,6 @@ enum InterestRequestStatus {
 }
 
 enum ChatType {
-  Interest
   Group
   Private
 }

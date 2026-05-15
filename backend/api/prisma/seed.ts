@@ -761,7 +761,7 @@ async function upsertInterestWithChannel(
     },
   });
 
-  const channel = await prisma.channel.upsert({
+  await prisma.channel.upsert({
     where: { interestId: interest.id },
     create: {
       interestId: interest.id,
@@ -769,19 +769,6 @@ async function upsertInterestWithChannel(
     },
     update: {
       description: seedInterest.description,
-    },
-  });
-
-  await prisma.chat.upsert({
-    where: { channelId: channel.id },
-    create: {
-      name: `${seedInterest.name} chats`,
-      type: 'Interest',
-      channelId: channel.id,
-    },
-    update: {
-      name: `${seedInterest.name} chats`,
-      type: 'Interest',
     },
   });
 }

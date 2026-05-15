@@ -8,7 +8,6 @@ import MessageComposer from "@/components/MessageComposer";
 import PanelToggleIcon from "@/components/icons/PanelToggleIcon";
 import { fileUrl, formatFileSize } from "@/lib/data/files";
 import {
-  getChannelConversations,
   getFriendConversations,
   getChatMessages,
   getPendingConv,
@@ -35,12 +34,8 @@ export default function MessagesPage() {
   const [showPanel, setShowPanel] = useState(true);
   const pending = getPendingConv();
   const [friendConvs, setFriendConvs] = useState<Conversation[]>([]);
-  const [channelConvs, setChannelConvs] = useState<Conversation[]>([]);
   const [conversationsLoading, setConversationsLoading] = useState(true);
   const [activeId, setActiveId] = useState<string>(() => pending?.id ?? "");
-  const [activeType, setActiveType] = useState<Conversation["type"]>(() =>
-    pending ? "friend" : "friend",
-  );
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
@@ -53,15 +48,10 @@ export default function MessagesPage() {
   const composerInputRef = useRef<HTMLInputElement | null>(null);
   const pendingInitialMessageRef = useRef(pending?.initialMessage ?? "");
   const activeIdRef = useRef(activeId);
-  const activeTypeRef = useRef(activeType);
 
   useEffect(() => {
     activeIdRef.current = activeId;
   }, [activeId]);
-
-  useEffect(() => {
-    activeTypeRef.current = activeType;
-  }, [activeType]);
 
   // Clear pending after reading — safe to call multiple times
   useEffect(() => {
@@ -71,28 +61,17 @@ export default function MessagesPage() {
   useEffect(() => {
     let active = true;
 
-    Promise.all([getFriendConversations(), getChannelConversations()])
-      .then(([friendConversations, channelConversations]) => {
+    getFriendConversations()
+      .then((friendConversations) => {
         if (!active) return;
         setFriendConvs(
           sortConversationsByActivity(
             withUnreadCounts(friendConversations, getUnreadMessageCounts()),
           ),
         );
-        setChannelConvs(
-          sortConversationsByActivity(
-            withUnreadCounts(channelConversations, getUnreadMessageCounts()),
-          ),
-        );
         setActiveId((currentActiveId) => {
           if (currentActiveId) return currentActiveId;
-          setActiveType(friendConversations[0] ? "friend" : "channel");
-          return (
-            pending?.id ??
-            friendConversations[0]?.id ??
-            channelConversations[0]?.id ??
-            ""
-          );
+          return pending?.id ?? friendConversations[0]?.id ?? "";
         });
       })
       .finally(() => {
@@ -104,10 +83,9 @@ export default function MessagesPage() {
     };
   }, [pending?.id]);
 
-  const activeConv =
-    activeType === "friend"
-      ? friendConvs.find((conversation) => conversation.id === activeId)
-      : channelConvs.find((conversation) => conversation.id === activeId);
+  const activeConv = friendConvs.find(
+    (conversation) => conversation.id === activeId,
+  );
 
   // If no stored conv exists, build a virtual one from pending data so the header always renders
   const effectiveConv: Conversation | undefined = useMemo(
@@ -136,8 +114,6 @@ export default function MessagesPage() {
   const effectiveConvAvatarUrl = effectiveConv?.avatarUrl;
   const effectiveConvLevel = effectiveConv?.level;
   const effectiveConvOtherUserId = effectiveConv?.otherUserId;
-  const effectiveConvChannelSlug = effectiveConv?.channelSlug;
-  const effectiveConvChannelColor = effectiveConv?.channelColor;
   const messageLoadConversation: Conversation | undefined = useMemo(() => {
     if (!effectiveConvId || !effectiveConvType || !effectiveConvName) {
       return undefined;
@@ -151,15 +127,11 @@ export default function MessagesPage() {
       avatarUrl: effectiveConvAvatarUrl,
       level: effectiveConvLevel,
       otherUserId: effectiveConvOtherUserId,
-      channelSlug: effectiveConvChannelSlug,
-      channelColor: effectiveConvChannelColor,
       preview: "",
       time: "",
     };
   }, [
     effectiveConvAvatarUrl,
-    effectiveConvChannelColor,
-    effectiveConvChannelSlug,
     effectiveConvId,
     effectiveConvInitials,
     effectiveConvLevel,
@@ -176,16 +148,7 @@ export default function MessagesPage() {
       conv.preview.toLowerCase().includes(q)
     );
   });
-  const filteredChannelConvs = channelConvs.filter((conv) => {
-    const q = search.trim().toLowerCase();
-    if (!q) return true;
-
-    return (
-      conv.name.toLowerCase().includes(q) ||
-      conv.preview.toLowerCase().includes(q)
-    );
-  });
-  const totalUnreadMessages = [...friendConvs, ...channelConvs].reduce(
+  const totalUnreadMessages = friendConvs.reduce(
     (total, conversation) => total + (conversation.unread ?? 0),
     0,
   );
@@ -193,7 +156,6 @@ export default function MessagesPage() {
   const updateConversationPreview = useCallback(
     (
       conversationId: string,
-      chatType: "Private" | "Interest" | "Group",
       senderId: string,
       preview: string,
       createdAt: string,
@@ -207,32 +169,10 @@ export default function MessagesPage() {
       setFriendConvs((conversations) =>
         sortConversationsByActivity(
           conversations.map((conversation) =>
-            chatType === "Private" &&
-            isFriendConversationForMessage(
-              conversation,
-              conversationId,
-              senderId,
-            )
+            isFriendConversationForMessage(conversation, conversationId, senderId)
               ? {
                   ...conversation,
                   id: conversationId,
-                  preview,
-                  time,
-                  lastMessageAt: createdAt,
-                  unread: options.incrementUnread
-                    ? (conversation.unread ?? 0) + 1
-                    : conversation.unread,
-                }
-              : conversation,
-          ),
-        ),
-      );
-      setChannelConvs((conversations) =>
-        sortConversationsByActivity(
-          conversations.map((conversation) =>
-            chatType === "Interest" && conversation.id === conversationId
-              ? {
-                  ...conversation,
                   preview,
                   time,
                   lastMessageAt: createdAt,
@@ -272,7 +212,6 @@ export default function MessagesPage() {
         if (!active) return;
         setMessages(nextMessages);
         setActiveId(conversation.id);
-        setActiveType(conversation.type);
         clearUnreadMessageCount(conversation.id);
         void markChatRead(conversation.id);
         setFriendConvs((conversations) =>
@@ -284,17 +223,6 @@ export default function MessagesPage() {
                   id: conversation.id,
                   otherUserId:
                     conversation.otherUserId ?? candidate.otherUserId,
-                }
-              : candidate,
-          ),
-        );
-        setChannelConvs((conversations) =>
-          conversations.map((candidate) =>
-            selectedConversation.type === "channel" &&
-            candidate.id === selectedConversation.id
-              ? {
-                  ...candidate,
-                  id: conversation.id,
                 }
               : candidate,
           ),
@@ -323,24 +251,21 @@ export default function MessagesPage() {
     if (
       !initialMessage ||
       !activeId ||
-      activeType !== "friend" ||
       activeId.startsWith("user:")
     )
       return;
 
     pendingInitialMessageRef.current = "";
     sendChatMessage(activeId, initialMessage, "Private");
-  }, [activeId, activeType]);
+  }, [activeId]);
 
   useEffect(() => {
     return subscribeToChatMessages((message) => {
       const messageChatId = String(message.chatId);
       const isActiveConversation = isMessageForActiveConversation(
         messageChatId,
-        message.chatType,
         message.senderId,
         activeIdRef.current,
-        activeTypeRef.current,
         currentUser?.id,
       );
 
@@ -367,7 +292,6 @@ export default function MessagesPage() {
       }
       updateConversationPreview(
         messageChatId,
-        message.chatType,
         message.senderId,
         messagePreview(message),
         message.createdAt,
@@ -401,19 +325,16 @@ export default function MessagesPage() {
       return;
 
     try {
-      const conversation =
-        effectiveConv.type === "friend" && effectiveConv.id.startsWith("user:")
-          ? await getOrCreatePrivateConversation(effectiveConv)
-          : effectiveConv;
+      const conversation = effectiveConv.id.startsWith("user:")
+        ? await getOrCreatePrivateConversation(effectiveConv)
+        : effectiveConv;
 
       if (conversation.id !== activeId) {
         setActiveId(conversation.id);
-        setActiveType(conversation.type);
       }
 
-      const chatType = conversation.type === "friend" ? "Private" : "Interest";
       joinChat(conversation.id);
-      sendChatMessage(conversation.id, text, chatType, attachmentIds);
+      sendChatMessage(conversation.id, text, "Private", attachmentIds);
       setInputText("");
     } catch (error) {
       setChatError(
@@ -424,9 +345,8 @@ export default function MessagesPage() {
 
   function selectConversation(conversation: Conversation) {
     setActiveId(conversation.id);
-    setActiveType(conversation.type);
     setMobileView("chat");
-    clearConversationUnread(conversation.id, conversation.type);
+    clearConversationUnread(conversation.id);
     if (!conversation.id.startsWith("user:")) {
       clearUnreadMessageCount(conversation.id);
       void markChatRead(conversation.id);
@@ -435,18 +355,10 @@ export default function MessagesPage() {
 
   function clearConversationUnread(
     conversationId: string,
-    conversationType: Conversation["type"],
   ) {
     setFriendConvs((conversations) =>
       conversations.map((conversation) =>
-        conversationType === "friend" && conversation.id === conversationId
-          ? { ...conversation, unread: undefined }
-          : conversation,
-      ),
-    );
-    setChannelConvs((conversations) =>
-      conversations.map((conversation) =>
-        conversationType === "channel" && conversation.id === conversationId
+        conversation.id === conversationId
           ? { ...conversation, unread: undefined }
           : conversation,
       ),
@@ -479,7 +391,7 @@ export default function MessagesPage() {
               Messages
             </div>
             <div className="mt-0.5 text-[11.5px] text-text-muted">
-              Direct and channel chats
+              Direct messages
             </div>
           </div>
           {totalUnreadMessages > 0 && (
@@ -526,35 +438,13 @@ export default function MessagesPage() {
             <ConversationRow
               key={`friend:${c.id}`}
               conv={c}
-              active={activeType === "friend" && activeId === c.id}
+              active={activeId === c.id}
               onClick={() => selectConversation(c)}
             />
           ))}
           {!conversationsLoading && filteredFriendConvs.length === 0 && (
             <div className="px-4 py-3 text-[12.5px] text-text-muted">
               No conversation found.
-            </div>
-          )}
-
-          <div className="px-4 pb-1.5 pt-5 text-[10.5px] font-semibold uppercase tracking-wider text-text-muted">
-            Channel chats
-          </div>
-          {conversationsLoading && (
-            <div className="px-4 py-3 text-[12.5px] text-text-muted">
-              Loading channel chats...
-            </div>
-          )}
-          {filteredChannelConvs.map((c) => (
-            <ConversationRow
-              key={`channel:${c.id}`}
-              conv={c}
-              active={activeType === "channel" && activeId === c.id}
-              onClick={() => selectConversation(c)}
-            />
-          ))}
-          {!conversationsLoading && filteredChannelConvs.length === 0 && (
-            <div className="px-4 py-3 text-[12.5px] text-text-muted">
-              No channel chat found.
             </div>
           )}
         </div>
@@ -655,20 +545,14 @@ function withUnreadCounts(
 
 function isMessageForActiveConversation(
   messageChatId: string,
-  chatType: "Private" | "Interest" | "Group",
   senderId: string,
   activeId: string,
-  activeType: Conversation["type"],
   currentUserId?: string,
 ): boolean {
   if (messageChatId === activeId) return true;
   if (senderId === currentUserId) return false;
 
-  return (
-    chatType === "Private" &&
-    activeType === "friend" &&
-    activeId === `user:${senderId}`
-  );
+  return activeId === `user:${senderId}`;
 }
 
 function isFriendConversationForMessage(

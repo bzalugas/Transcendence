@@ -24,13 +24,6 @@ export interface ChatDto {
   id: number;
   name: string;
   type: ChatType;
-  channel?: {
-    id: number;
-    slug: string;
-    label: string;
-    color: string;
-    imageUri: string | null;
-  };
   users: ChatUserDto[];
   lastMessage?: MessageDto;
   unreadCount: number;
@@ -81,28 +74,17 @@ export class ChatsService {
   ) {}
 
   async findAccessibleChats(userId: string): Promise<ChatDto[]> {
-    const joinedChannelIds = await this.findJoinedChannelIds(userId);
     const blockedUserIds = new Set(
       await this.blocksService.getBlockedPairUserIds(userId),
     );
     const chats = await this.prisma.chat.findMany({
       where: {
-        OR: [
-          {
-            type: 'Private',
-            users: {
-              some: {
-                id: userId,
-              },
-            },
+        type: 'Private',
+        users: {
+          some: {
+            id: userId,
           },
-          {
-            type: 'Interest',
-            channelId: {
-              in: joinedChannelIds,
-            },
-          },
-        ],
+        },
       },
       include: this.chatInclude(),
       orderBy: {
@@ -158,29 +140,6 @@ export class ChatsService {
         },
       },
     });
-  }
-
-  async findOrCreateChannelChat(
-    userId: string,
-    slug: string,
-  ): Promise<ChatDto> {
-    const channel = await this.findChannelBySlug(slug);
-    await this.assertChannelMembership(userId, channel.id);
-
-    const chat = await this.prisma.chat.upsert({
-      where: {
-        channelId: channel.id,
-      },
-      create: {
-        name: `${channel.interest.name} chats`,
-        type: 'Interest',
-        channelId: channel.id,
-      },
-      update: {},
-      include: this.chatInclude(),
-    });
-
-    return this.toChatDto(chat, userId, 0);
   }
 
   async findOrCreatePrivateChat(
@@ -300,7 +259,6 @@ export class ChatsService {
   ): Promise<{
     id: number;
     type: ChatType;
-    channelId: number | null;
     users: { id: string }[];
   }> {
     const chat = await this.prisma.chat.findUnique({
@@ -318,15 +276,6 @@ export class ChatsService {
 
     if (!chat) {
       throw new NotFoundException('Chat not found');
-    }
-
-    if (chat.type === 'Interest') {
-      if (!chat.channelId) {
-        throw new ForbiddenException('Channel chat is not available');
-      }
-
-      await this.assertChannelMembership(userId, chat.channelId);
-      return chat;
     }
 
     const participantIds = chat.users.map((participant) => participant.id);
@@ -347,19 +296,6 @@ export class ChatsService {
     }
 
     return chat;
-  }
-
-  private async findJoinedChannelIds(userId: string): Promise<number[]> {
-    const memberships = await this.prisma.user_Channel.findMany({
-      where: {
-        userId,
-      },
-      select: {
-        channelId: true,
-      },
-    });
-
-    return memberships.map((membership) => membership.channelId);
   }
 
   private async findUnreadMessageCounts(
@@ -405,34 +341,13 @@ export class ChatsService {
     chat: {
       id: number;
       type: ChatType;
-      channelId: number | null;
       users: { id: string }[];
     },
     senderId: string,
   ): Promise<string[]> {
-    if (chat.type === 'Private') {
-      return chat.users
-        .map((participant) => participant.id)
-        .filter((participantId) => participantId !== senderId);
-    }
-
-    if (chat.type === 'Interest' && chat.channelId) {
-      const memberships = await this.prisma.user_Channel.findMany({
-        where: {
-          channelId: chat.channelId,
-          userId: {
-            not: senderId,
-          },
-        },
-        select: {
-          userId: true,
-        },
-      });
-
-      return memberships.map((membership) => membership.userId);
-    }
-
-    return [];
+    return chat.users
+      .map((participant) => participant.id)
+      .filter((participantId) => participantId !== senderId);
   }
 
   private async createMessageNotifications(
@@ -448,41 +363,6 @@ export class ChatsService {
         messageId,
       })),
     });
-  }
-
-  private async assertChannelMembership(
-    userId: string,
-    channelId: number,
-  ): Promise<void> {
-    const membership = await this.prisma.user_Channel.findUnique({
-      where: {
-        userId_channelId: {
-          userId,
-          channelId,
-        },
-      },
-    });
-
-    if (!membership) {
-      throw new ForbiddenException('Join the channel before using its chats');
-    }
-  }
-
-  private async findChannelBySlug(slug: string) {
-    const channels = await this.prisma.channel.findMany({
-      include: {
-        interest: true,
-      },
-    });
-    const channel = channels.find(
-      (candidate) => this.toSlug(candidate.interest.name) === slug,
-    );
-
-    if (!channel) {
-      throw new NotFoundException('Channel not found');
-    }
-
-    return channel;
   }
 
   private async findUserForChat(userId: string) {
@@ -504,11 +384,6 @@ export class ChatsService {
 
   private chatInclude() {
     return {
-      channel: {
-        include: {
-          interest: true,
-        },
-      },
       users: {
         include: {
           profile: true,
@@ -601,14 +476,6 @@ export class ChatsService {
       id: number;
       name: string;
       type: ChatType;
-      channel: {
-        id: number;
-        interest: {
-          name: string;
-          color: string | null;
-          imageUri: string | null;
-        };
-      } | null;
       users: ChatUserRecord[];
       messages: MessageRecord[];
     },
@@ -627,15 +494,6 @@ export class ChatsService {
           ? this.userDisplayName(otherParticipant)
           : chat.name,
       type: chat.type,
-      channel: chat.channel
-        ? {
-            id: chat.channel.id,
-            slug: this.toSlug(chat.channel.interest.name),
-            label: chat.channel.interest.name,
-            color: chat.channel.interest.color ?? '#6B7280',
-            imageUri: chat.channel.interest.imageUri,
-          }
-        : undefined,
       users: chat.users.map((user) => this.toUserDto(user)),
       lastMessage: lastMessage ? this.toMessageDto(lastMessage) : undefined,
       unreadCount,
@@ -679,16 +537,6 @@ export class ChatsService {
       initials: this.initials(username),
       avatarUrl: user.profile?.avatarUri ?? user.image ?? undefined,
     };
-  }
-
-  private toSlug(value: string): string {
-    return value
-      .normalize('NFKD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .toLowerCase()
-      .trim()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '');
   }
 
   private userDisplayName(user: {

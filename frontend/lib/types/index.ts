@@ -180,6 +180,7 @@ export interface Conversation {
   name: string;
   preview: string;
   time: string;
+  lastMessageAt?: string;
   unread?: number;
   otherUserId?: string;
   // Friend-specific

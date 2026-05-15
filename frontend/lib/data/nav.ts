@@ -1,4 +1,5 @@
 import { API_BASE_URL } from "@/lib/api-url";
+import { getUnreadMessageCount } from "@/lib/data/message-notifications";
 import type { NavBadges } from "@/lib/types";
 
 interface ApiFriendRequest {
@@ -7,11 +8,13 @@ interface ApiFriendRequest {
 
 // Loads sidebar badge counts from API-backed user data.
 export async function getNavBadges(): Promise<NavBadges> {
-  const receivedRequests = await request<ApiFriendRequest[]>("/friendships/requests/received");
+  const receivedRequests = await request<ApiFriendRequest[]>(
+    "/friendships/requests/received",
+  );
 
   return {
     suggestions: receivedRequests.length,
-    messages: 0,
+    messages: getUnreadMessageCount(),
   };
 }
 

@@ -14,11 +14,16 @@ import {
   clearPendingConv,
   getOrCreatePrivateConversation,
   joinChat,
-  leaveChat,
   sendChatMessage,
+  sortConversationsByActivity,
   subscribeToChatMessages,
   toChatMessage,
 } from "@/lib/data/messages";
+import {
+  clearUnreadMessageCount,
+  getUnreadMessageCounts,
+  incrementUnreadMessageCount,
+} from "@/lib/data/message-notifications";
 import { useCurrentUser } from "@/lib/data/auth";
 import type { ChatMessage, Conversation } from "@/lib/types";
 
@@ -58,8 +63,16 @@ export default function MessagesPage() {
     Promise.all([getFriendConversations(), getChannelConversations()])
       .then(([friendConversations, channelConversations]) => {
         if (!active) return;
-        setFriendConvs(friendConversations);
-        setChannelConvs(channelConversations);
+        setFriendConvs(
+          sortConversationsByActivity(
+            withUnreadCounts(friendConversations, getUnreadMessageCounts()),
+          ),
+        );
+        setChannelConvs(
+          sortConversationsByActivity(
+            withUnreadCounts(channelConversations, getUnreadMessageCounts()),
+          ),
+        );
         setActiveId((currentActiveId) => {
           if (currentActiveId) return currentActiveId;
           return (
@@ -121,6 +134,10 @@ export default function MessagesPage() {
       conv.preview.toLowerCase().includes(q)
     );
   });
+  const totalUnreadMessages = [...friendConvs, ...channelConvs].reduce(
+    (total, conversation) => total + (conversation.unread ?? 0),
+    0,
+  );
 
   useEffect(() => {
     if (!effectiveConv) {
@@ -176,24 +193,6 @@ export default function MessagesPage() {
   }, [currentUser?.id, effectiveConv?.id]);
 
   useEffect(() => {
-    const chatIds = new Set(
-      [...friendConvs, ...channelConvs]
-        .map((conversation) => conversation.id)
-        .filter((id) => id && !id.startsWith("user:")),
-    );
-
-    for (const chatId of chatIds) {
-      joinChat(chatId);
-    }
-
-    return () => {
-      for (const chatId of chatIds) {
-        leaveChat(chatId);
-      }
-    };
-  }, [friendConvs, channelConvs]);
-
-  useEffect(() => {
     const initialMessage = pendingInitialMessageRef.current.trim();
     if (!initialMessage || !activeId || activeId.startsWith("user:")) return;
 
@@ -204,9 +203,20 @@ export default function MessagesPage() {
   useEffect(() => {
     return subscribeToChatMessages((message) => {
       const messageChatId = String(message.chatId);
-      const isActiveConversation = messageChatId === activeIdRef.current;
+      const isActiveConversation = isMessageForActiveConversation(
+        messageChatId,
+        message.senderId,
+        activeIdRef.current,
+        currentUser?.id,
+      );
 
       if (isActiveConversation) {
+        if (activeIdRef.current !== messageChatId) {
+          activeIdRef.current = messageChatId;
+          setActiveId(messageChatId);
+          joinChat(messageChatId);
+        }
+
         setMessages((currentMessages) => {
           if (
             currentMessages.some(
@@ -221,6 +231,7 @@ export default function MessagesPage() {
       }
       updateConversationPreview(
         messageChatId,
+        message.senderId,
         message.content,
         message.createdAt,
         {
@@ -228,6 +239,9 @@ export default function MessagesPage() {
             !isActiveConversation && message.senderId !== currentUser?.id,
         },
       );
+      if (!isActiveConversation && message.senderId !== currentUser?.id) {
+        incrementUnreadMessageCount(messageChatId);
+      }
     }, setChatError);
   }, [currentUser?.id]);
 
@@ -271,10 +285,12 @@ export default function MessagesPage() {
     setActiveId(id);
     setMobileView("chat");
     clearConversationUnread(id);
+    clearUnreadMessageCount(id);
   }
 
   function updateConversationPreview(
     conversationId: string,
+    senderId: string,
     preview: string,
     createdAt: string,
     options: { incrementUnread?: boolean } = {},
@@ -285,31 +301,38 @@ export default function MessagesPage() {
       : `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
 
     setFriendConvs((conversations) =>
-      conversations.map((conversation) =>
-        conversation.id === conversationId
-          ? {
-              ...conversation,
-              preview,
-              time,
-              unread: options.incrementUnread
-                ? (conversation.unread ?? 0) + 1
-                : conversation.unread,
-            }
-          : conversation,
+      sortConversationsByActivity(
+        conversations.map((conversation) =>
+          isFriendConversationForMessage(conversation, conversationId, senderId)
+            ? {
+                ...conversation,
+                id: conversationId,
+                preview,
+                time,
+                lastMessageAt: createdAt,
+                unread: options.incrementUnread
+                  ? (conversation.unread ?? 0) + 1
+                  : conversation.unread,
+              }
+            : conversation,
+        ),
       ),
     );
     setChannelConvs((conversations) =>
-      conversations.map((conversation) =>
-        conversation.id === conversationId
-          ? {
-              ...conversation,
-              preview,
-              time,
-              unread: options.incrementUnread
-                ? (conversation.unread ?? 0) + 1
-                : conversation.unread,
-            }
-          : conversation,
+      sortConversationsByActivity(
+        conversations.map((conversation) =>
+          conversation.id === conversationId
+            ? {
+                ...conversation,
+                preview,
+                time,
+                lastMessageAt: createdAt,
+                unread: options.incrementUnread
+                  ? (conversation.unread ?? 0) + 1
+                  : conversation.unread,
+              }
+            : conversation,
+        ),
       ),
     );
   }
@@ -338,12 +361,31 @@ export default function MessagesPage() {
         className={`${mobileView === "chat" ? "hidden" : "flex"} min-h-0 w-full shrink-0 flex-col overflow-hidden bg-bg-secondary md:flex md:h-auto md:w-[270px] md:border-r md:border-border-default`}
       >
         <div className="border-b border-border-default px-4 pb-3.5 pt-5 md:hidden">
-          <div className="text-[20px] font-semibold text-text-primary">
-            Messages
+          <div className="flex items-center justify-between gap-3">
+            <div className="text-[20px] font-semibold text-text-primary">
+              Messages
+            </div>
+            {totalUnreadMessages > 0 && (
+              <UnreadBadge count={totalUnreadMessages} />
+            )}
           </div>
           <div className="mt-1 text-[12.5px] text-text-muted">
             Direct messages
           </div>
+        </div>
+
+        <div className="hidden h-[62px] items-center justify-between gap-3 border-b border-border-default px-4 md:flex">
+          <div className="min-w-0">
+            <div className="text-[15px] font-semibold text-text-primary">
+              Messages
+            </div>
+            <div className="mt-0.5 text-[11.5px] text-text-muted">
+              Direct and channel chats
+            </div>
+          </div>
+          {totalUnreadMessages > 0 && (
+            <UnreadBadge count={totalUnreadMessages} />
+          )}
         </div>
 
         {/* Search */}
@@ -487,6 +529,50 @@ export default function MessagesPage() {
         </div>
       )}
     </>
+  );
+}
+
+function withUnreadCounts(
+  conversations: Conversation[],
+  unreadCounts: Record<string, number>,
+): Conversation[] {
+  return conversations.map((conversation) => ({
+    ...conversation,
+    unread: unreadCounts[conversation.id] || conversation.unread,
+  }));
+}
+
+function isMessageForActiveConversation(
+  messageChatId: string,
+  senderId: string,
+  activeId: string,
+  currentUserId?: string,
+): boolean {
+  if (messageChatId === activeId) return true;
+  if (senderId === currentUserId) return false;
+
+  return activeId === `user:${senderId}`;
+}
+
+function isFriendConversationForMessage(
+  conversation: Conversation,
+  messageChatId: string,
+  senderId: string,
+): boolean {
+  if (conversation.id === messageChatId) return true;
+  if (conversation.type !== "friend") return false;
+
+  return (
+    conversation.id === `user:${senderId}` ||
+    conversation.otherUserId === senderId
+  );
+}
+
+function UnreadBadge({ count }: { count: number }) {
+  return (
+    <span className="shrink-0 rounded-[10px] bg-text-primary px-1.5 py-px text-[10px] font-semibold text-bg-tertiary">
+      {count}
+    </span>
   );
 }
 

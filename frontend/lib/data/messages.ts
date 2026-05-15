@@ -37,26 +37,29 @@ export async function getFriendConversations(): Promise<Conversation[]> {
   ]);
   const privateChats = chats.filter((chat) => chat.type === "Private");
 
-  return friends.map((friend) => {
-    const privateChat = privateChats.find((chat) =>
-      chat.users.some((user) => user.id === friend.id),
-    );
-    const lastMessage = privateChat?.lastMessage;
+  return sortConversationsByActivity(
+    friends.map((friend) => {
+      const privateChat = privateChats.find((chat) =>
+        chat.users.some((user) => user.id === friend.id),
+      );
+      const lastMessage = privateChat?.lastMessage;
 
-    return {
-      id: privateChat
-        ? String(privateChat.id)
-        : toPendingConversationId(friend.id),
-      type: "friend",
-      name: friend.name,
-      initials: friend.initials,
-      avatarUrl: friend.avatarUrl,
-      level: friend.level,
-      otherUserId: friend.id,
-      preview: lastMessage?.content ?? "",
-      time: lastMessage ? formatTime(lastMessage.createdAt) : "",
-    };
-  });
+      return {
+        id: privateChat
+          ? String(privateChat.id)
+          : toPendingConversationId(friend.id),
+        type: "friend",
+        name: friend.name,
+        initials: friend.initials,
+        avatarUrl: friend.avatarUrl,
+        level: friend.level,
+        otherUserId: friend.id,
+        preview: lastMessage?.content ?? "",
+        time: lastMessage ? formatTime(lastMessage.createdAt) : "",
+        lastMessageAt: lastMessage?.createdAt,
+      };
+    }),
+  );
 }
 
 export async function getChannelConversations(): Promise<Conversation[]> {
@@ -66,7 +69,7 @@ export async function getChannelConversations(): Promise<Conversation[]> {
   ]);
   const channelChats = chats.filter((chat) => chat.type === "Interest");
 
-  return Promise.all(
+  const conversations = await Promise.all(
     joinedChannels.map(async (channel) => {
       const chat =
         channelChats.find(
@@ -89,9 +92,12 @@ export async function getChannelConversations(): Promise<Conversation[]> {
         channelColor: channel.color,
         preview: lastMessage?.content ?? "",
         time: lastMessage ? formatTime(lastMessage.createdAt) : "",
+        lastMessageAt: lastMessage?.createdAt,
       };
     }),
   );
+
+  return sortConversationsByActivity(conversations);
 }
 
 export async function getConversationById(
@@ -197,6 +203,22 @@ export function toChatMessage(
     createdAt: message.createdAt,
     me: message.senderId === currentUserId,
   };
+}
+
+export function sortConversationsByActivity(
+  conversations: Conversation[],
+): Conversation[] {
+  return [...conversations].sort((left, right) => {
+    const leftTime = left.lastMessageAt
+      ? new Date(left.lastMessageAt).getTime()
+      : 0;
+    const rightTime = right.lastMessageAt
+      ? new Date(right.lastMessageAt).getTime()
+      : 0;
+
+    if (leftTime !== rightTime) return rightTime - leftTime;
+    return left.name.localeCompare(right.name);
+  });
 }
 
 function toPendingConversationId(userId?: string): string {

@@ -3,9 +3,10 @@ import {
   MessageBody,
   OnGatewayConnection,
   SubscribeMessage,
+  WebSocketServer,
   WebSocketGateway,
 } from '@nestjs/websockets';
-import type { Socket } from 'socket.io';
+import type { Server, Socket } from 'socket.io';
 import { auth } from '../../lib/auth';
 import { ChatsService } from './chats.service';
 
@@ -23,11 +24,15 @@ interface AuthenticatedSocket extends Socket {
   },
 })
 export class ChatsGateway implements OnGatewayConnection {
+  @WebSocketServer()
+  private readonly server!: Server;
+
   constructor(private readonly chatsService: ChatsService) {}
 
   async handleConnection(client: AuthenticatedSocket) {
     try {
       client.data.userId = await this.getSocketUserId(client);
+      await client.join(this.userRoom(client.data.userId));
     } catch {
       client.emit('chat:error', { message: 'Authentication required' });
       client.disconnect(true);
@@ -70,13 +75,20 @@ export class ChatsGateway implements OnGatewayConnection {
     try {
       const userId = this.requireSocketUserId(client);
       const chatId = this.parseChatId(payload?.chatId);
-      const message = await this.chatsService.createMessage(
-        userId,
-        chatId,
-        payload?.content,
-      );
+      const { message, notificationUserIds } =
+        await this.chatsService.createMessage(userId, chatId, payload?.content);
 
       client.to(this.chatRoom(chatId)).emit('chat:message', message);
+      if (notificationUserIds.length > 0) {
+        this.server
+          .to(
+            notificationUserIds.map((recipientId) =>
+              this.userRoom(recipientId),
+            ),
+          )
+          .except(this.chatRoom(chatId))
+          .emit('chat:message', message);
+      }
       client.emit('chat:message', message);
     } catch (error) {
       this.emitError(client, error);
@@ -133,6 +145,10 @@ export class ChatsGateway implements OnGatewayConnection {
 
   private chatRoom(chatId: number): string {
     return `chat:${chatId}`;
+  }
+
+  private userRoom(userId: string): string {
+    return `user:${userId}`;
   }
 
   private emitError(client: Socket, error: unknown) {

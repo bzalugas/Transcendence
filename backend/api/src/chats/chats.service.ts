@@ -46,6 +46,11 @@ export interface MessageDto {
   sender: ChatUserDto;
 }
 
+export interface CreateMessageResult {
+  message: MessageDto;
+  notificationUserIds: string[];
+}
+
 @Injectable()
 export class ChatsService {
   constructor(
@@ -175,7 +180,7 @@ export class ChatsService {
     userId: string,
     chatId: number,
     content?: string,
-  ): Promise<MessageDto> {
+  ): Promise<CreateMessageResult> {
     const trimmedContent = content?.trim();
 
     if (!trimmedContent) {
@@ -200,13 +205,26 @@ export class ChatsService {
       include: this.messageInclude(),
     });
 
-    return this.toMessageDto(message);
+    return {
+      message: this.toMessageDto(message),
+      notificationUserIds:
+        chat.type === 'Private'
+          ? chat.users
+              .map((participant) => participant.id)
+              .filter((participantId) => participantId !== userId)
+          : [],
+    };
   }
 
   async assertChatAccess(
     userId: string,
     chatId: number,
-  ): Promise<{ id: number; type: ChatType }> {
+  ): Promise<{
+    id: number;
+    type: ChatType;
+    channelId: number | null;
+    users: { id: string }[];
+  }> {
     const chat = await this.prisma.chat.findUnique({
       where: {
         id: chatId,

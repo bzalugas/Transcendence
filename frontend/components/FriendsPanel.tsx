@@ -46,7 +46,7 @@ export default function FriendsPanel() {
       </div>
 
       {/* Cohort stats (fixed footer) */}
-      <div className="shrink-0 border-t border-border-default px-[18px] py-4">
+      <div className="sticky bottom-0 shrink-0 border-t border-border-default bg-bg-secondary px-[18px] py-4">
         <CohortStatsPanel />
 
         {/* Legal links */}

@@ -292,7 +292,7 @@ function ProjectsPanel() {
         ))}
       </div>
 
-      <div className="mt-auto">
+      <div className="sticky bottom-0 mt-auto bg-bg-secondary pt-1">
         <div className="my-4 h-px bg-border-default" />
         <CohortStatsPanel />
       </div>

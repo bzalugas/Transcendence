@@ -41,6 +41,11 @@ export default function MessagesPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const composerInputRef = useRef<HTMLInputElement | null>(null);
   const pendingInitialMessageRef = useRef(pending?.initialMessage ?? "");
+  const activeIdRef = useRef(activeId);
+
+  useEffect(() => {
+    activeIdRef.current = activeId;
+  }, [activeId]);
 
   // Clear pending after reading — safe to call multiple times
   useEffect(() => {
@@ -171,13 +176,22 @@ export default function MessagesPage() {
   }, [currentUser?.id, effectiveConv?.id]);
 
   useEffect(() => {
-    if (!activeId || activeId.startsWith("user:")) return;
+    const chatIds = new Set(
+      [...friendConvs, ...channelConvs]
+        .map((conversation) => conversation.id)
+        .filter((id) => id && !id.startsWith("user:")),
+    );
 
-    joinChat(activeId);
+    for (const chatId of chatIds) {
+      joinChat(chatId);
+    }
+
     return () => {
-      leaveChat(activeId);
+      for (const chatId of chatIds) {
+        leaveChat(chatId);
+      }
     };
-  }, [activeId]);
+  }, [friendConvs, channelConvs]);
 
   useEffect(() => {
     const initialMessage = pendingInitialMessageRef.current.trim();
@@ -189,25 +203,33 @@ export default function MessagesPage() {
 
   useEffect(() => {
     return subscribeToChatMessages((message) => {
-      if (String(message.chatId) !== activeId) return;
-      setMessages((currentMessages) => {
-        if (
-          currentMessages.some(
-            (currentMessage) => currentMessage.id === String(message.id),
-          )
-        ) {
-          return currentMessages;
-        }
+      const messageChatId = String(message.chatId);
+      const isActiveConversation = messageChatId === activeIdRef.current;
 
-        return [...currentMessages, toChatMessage(message, currentUser?.id)];
-      });
+      if (isActiveConversation) {
+        setMessages((currentMessages) => {
+          if (
+            currentMessages.some(
+              (currentMessage) => currentMessage.id === String(message.id),
+            )
+          ) {
+            return currentMessages;
+          }
+
+          return [...currentMessages, toChatMessage(message, currentUser?.id)];
+        });
+      }
       updateConversationPreview(
-        String(message.chatId),
+        messageChatId,
         message.content,
         message.createdAt,
+        {
+          incrementUnread:
+            !isActiveConversation && message.senderId !== currentUser?.id,
+        },
       );
     }, setChatError);
-  }, [activeId, currentUser?.id]);
+  }, [currentUser?.id]);
 
   // Scroll to bottom on new message
   useEffect(() => {
@@ -248,12 +270,14 @@ export default function MessagesPage() {
   function selectConversation(id: string) {
     setActiveId(id);
     setMobileView("chat");
+    clearConversationUnread(id);
   }
 
   function updateConversationPreview(
     conversationId: string,
     preview: string,
     createdAt: string,
+    options: { incrementUnread?: boolean } = {},
   ) {
     const date = new Date(createdAt);
     const time = Number.isNaN(date.getTime())
@@ -263,14 +287,45 @@ export default function MessagesPage() {
     setFriendConvs((conversations) =>
       conversations.map((conversation) =>
         conversation.id === conversationId
-          ? { ...conversation, preview, time }
+          ? {
+              ...conversation,
+              preview,
+              time,
+              unread: options.incrementUnread
+                ? (conversation.unread ?? 0) + 1
+                : conversation.unread,
+            }
           : conversation,
       ),
     );
     setChannelConvs((conversations) =>
       conversations.map((conversation) =>
         conversation.id === conversationId
-          ? { ...conversation, preview, time }
+          ? {
+              ...conversation,
+              preview,
+              time,
+              unread: options.incrementUnread
+                ? (conversation.unread ?? 0) + 1
+                : conversation.unread,
+            }
+          : conversation,
+      ),
+    );
+  }
+
+  function clearConversationUnread(conversationId: string) {
+    setFriendConvs((conversations) =>
+      conversations.map((conversation) =>
+        conversation.id === conversationId
+          ? { ...conversation, unread: undefined }
+          : conversation,
+      ),
+    );
+    setChannelConvs((conversations) =>
+      conversations.map((conversation) =>
+        conversation.id === conversationId
+          ? { ...conversation, unread: undefined }
           : conversation,
       ),
     );

@@ -23,6 +23,7 @@ export default function InterestPickerModal({ joined, onJoin, onClose }: Props) 
   const [joinedName, setJoinedName] = useState("");
   const [requestSent, setRequestSent] = useState(false);
   const [requestDesc, setRequestDesc] = useState("");
+  const [requestedInterestName, setRequestedInterestName] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
   const returnDelayRef = useRef<number | null>(null);
 
@@ -69,6 +70,7 @@ export default function InterestPickerModal({ joined, onJoin, onClose }: Props) 
     : filtered.slice(0, PREVIEW_COUNT);
 
   const showRequest = isSearching && filtered.length === 0;
+  const canRequestInterest = requestDesc.trim().length > 0;
 
   async function handleJoin(interest: AvailableInterest) {
     if (joiningName || joinedNames.has(interest.name)) return;
@@ -90,8 +92,18 @@ export default function InterestPickerModal({ joined, onJoin, onClose }: Props) 
 
   function handleSendRequest() {
     if (!requestDesc.trim()) return;
+    setRequestedInterestName(search.trim());
     setRequestSent(true);
     setRequestDesc("");
+  }
+
+  function requestAnotherInterest() {
+    setRequestSent(false);
+    setRequestedInterestName("");
+    setSearch("");
+    setRequestDesc("");
+    setShowAll(false);
+    window.requestAnimationFrame(() => searchRef.current?.focus());
   }
 
   /* ── Detail view ── */
@@ -145,6 +157,58 @@ export default function InterestPickerModal({ joined, onJoin, onClose }: Props) 
           >
             {joiningName === detail.name ? "Joining..." : isJoined ? "Joined" : "Join"}
           </button>
+        </div>
+      </Overlay>
+    );
+  }
+
+  if (requestSent) {
+    return (
+      <Overlay onClose={onClose}>
+        <div className="flex items-center justify-between px-6 pb-1.5 pt-[22px]">
+          <div className="text-[17px] font-semibold">Interest request sent</div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md px-2 py-1 text-[20px] text-text-dimmed transition-colors hover:bg-bg-hover hover:text-text-primary"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="flex flex-col items-center px-6 pb-6 pt-6 text-center">
+          <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full border border-accent-green/30 bg-accent-green/10 text-[22px] font-semibold text-accent-green">
+            ✓
+          </div>
+          <div className="text-[15px] font-medium text-text-primary">
+            We received your request
+          </div>
+          <div className="mt-2 max-w-[380px] text-[13px] leading-relaxed text-text-muted">
+            {requestedInterestName ? (
+              <>
+                &quot;<span className="font-medium text-text-secondary">{requestedInterestName}</span>&quot; will be reviewed before it appears in the interest list.
+              </>
+            ) : (
+              "Your new interest suggestion will be reviewed before it appears in the interest list."
+            )}
+          </div>
+
+          <div className="mt-6 flex flex-wrap justify-center gap-2">
+            <button
+              type="button"
+              onClick={requestAnotherInterest}
+              className="rounded-lg border border-border-default bg-transparent px-4 py-2 text-[13px] font-medium text-text-primary transition-colors hover:bg-bg-hover"
+            >
+              Request another
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-lg bg-text-primary px-5 py-2 text-[13px] font-medium text-bg-primary transition-opacity hover:opacity-90"
+            >
+              Done
+            </button>
+          </div>
         </div>
       </Overlay>
     );
@@ -222,8 +286,8 @@ export default function InterestPickerModal({ joined, onJoin, onClose }: Props) 
 
       {/* Request new interest */}
       {showRequest && !requestSent && (
-        <div className="flex flex-col px-6 pb-6">
-          <div className="mb-3.5 text-[14px] text-text-secondary">
+        <div className="flex flex-col gap-3.5 px-6 pb-3.5">
+          <div className="text-[14px] text-text-secondary">
             No results for &quot;<span className="font-semibold text-text-primary">{search}</span>&quot;
           </div>
           <textarea
@@ -232,11 +296,12 @@ export default function InterestPickerModal({ joined, onJoin, onClose }: Props) 
             placeholder="Describe this interest briefly..."
             className="h-20 w-full resize-none rounded-lg border border-border-default bg-bg-hover px-3.5 py-2.5 text-[13px] text-text-primary outline-none placeholder:text-text-dimmed focus:border-border-strong"
           />
-          <div className="mt-3 flex justify-end">
+          <div className="flex justify-end">
             <button
               type="button"
+              disabled={!canRequestInterest}
               onClick={handleSendRequest}
-              className="rounded-lg bg-text-primary px-[22px] py-2.5 text-[13px] font-medium text-bg-primary transition-opacity hover:opacity-90"
+              className="rounded-lg bg-text-primary px-[22px] py-2.5 text-[13px] font-medium text-bg-primary transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:bg-bg-hover disabled:text-text-dimmed disabled:hover:opacity-100"
             >
               Request a new interest
             </button>
@@ -244,12 +309,6 @@ export default function InterestPickerModal({ joined, onJoin, onClose }: Props) 
         </div>
       )}
 
-      {/* Request sent */}
-      {showRequest && requestSent && (
-        <div className="px-6 pb-6 text-[13px] text-accent-green">
-          Request sent. We&apos;ll review it shortly.
-        </div>
-      )}
     </Overlay>
   );
 }

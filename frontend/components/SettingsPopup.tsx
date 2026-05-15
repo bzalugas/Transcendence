@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useTheme } from "@/lib/ThemeContext";
 import { authClient } from "@/lib/auth-client";
+import { useCurrentUser } from "@/lib/data/auth";
 import {
   getBlockedUsers,
   unblockUser,
@@ -23,6 +24,7 @@ export default function SettingsPopup({
 }) {
   const [lang, setLang] = useState<"en" | "fr">("en");
   const { theme, setTheme } = useTheme();
+  const { user: currentUser } = useCurrentUser();
   const popupRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState({ left: 0, top: 0 });
   const [blockedUsers, setBlockedUsers] = useState<BlockedUser[]>([]);
@@ -161,6 +163,25 @@ export default function SettingsPopup({
           </Link>
         </Section>
         <Sep />
+
+        {currentUser?.role === "ADMIN" && (
+          <>
+            {/* Admin */}
+            <Section label="Admin">
+              <Link
+                href="/admin"
+                target="_blank"
+                rel="noreferrer"
+                onClick={onClose}
+                className="flex w-full items-center justify-between rounded-[5px] px-2 py-[7px] text-[12.5px] text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary"
+              >
+                <span>Admin panel</span>
+                <span className="text-[11.5px] text-text-muted">Open</span>
+              </Link>
+            </Section>
+            <Sep />
+          </>
+        )}
 
         {/* Logout */}
         <div className="px-2 py-1.5 pb-2.5">

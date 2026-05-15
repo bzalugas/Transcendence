@@ -36,6 +36,7 @@ export default function Sidebar() {
   const [navBadges, setNavBadges] = useState<NavBadges>({ suggestions: 0, messages: 0 });
   const settingsRef = useRef<HTMLButtonElement>(null);
   const { user: currentUser } = useCurrentUser();
+  const isGuest = currentUser?.role === "GUEST";
 
   useEffect(() => {
     let active = true;
@@ -103,6 +104,24 @@ export default function Sidebar() {
           const isActive = pathname === href;
           const badge = badgeKey ? navBadges[badgeKey] : undefined;
           const shouldShowBadge = typeof badge === "number" && badge > 0;
+          const locked = isGuest && href === "/projects";
+          if (locked) {
+            return (
+              <button
+                key={href}
+                type="button"
+                disabled
+                aria-disabled="true"
+                title="Projects are available with a 42 account"
+                className="flex cursor-not-allowed items-center gap-2.5 rounded-[7px] px-2.5 py-[9px] text-[13.5px] text-text-dimmed opacity-70"
+              >
+                <Icon />
+                <span className="line-through">{label}</span>
+                <LockIcon className="-ml-1 h-3.5 w-3.5" />
+              </button>
+            );
+          }
+
           return (
             <Link
               key={href}
@@ -192,6 +211,27 @@ export default function Sidebar() {
         const isActive = pathname === href;
         const badge = badgeKey ? navBadges[badgeKey] : undefined;
         const shouldShowBadge = typeof badge === "number" && badge > 0;
+        const locked = isGuest && href === "/projects";
+
+        if (locked) {
+          return (
+            <button
+              key={href}
+              type="button"
+              disabled
+              aria-disabled="true"
+              title="Projects are available with a 42 account"
+              className="relative flex h-12 min-w-12 cursor-not-allowed flex-col items-center justify-center gap-1 rounded-[7px] px-2 text-[10.5px] text-text-dimmed opacity-70"
+            >
+              <Icon />
+              <span className="flex max-w-[62px] items-center gap-1 truncate line-through">
+                {label}
+                <LockIcon className="h-3 w-3 shrink-0" />
+              </span>
+            </button>
+          );
+        }
+
         return (
           <Link
             key={href}
@@ -211,5 +251,23 @@ export default function Sidebar() {
       })}
     </nav>
     </>
+  );
+}
+
+function LockIcon({ className = "" }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <rect x="5" y="10" width="14" height="10" rx="2" />
+      <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+    </svg>
   );
 }

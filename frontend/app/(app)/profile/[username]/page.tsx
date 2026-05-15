@@ -188,6 +188,7 @@ export default function ProfilePage({ params }: ProfilePageProps) {
   if (!profile) return null;
 
   const { user, isSelf, socials } = profile;
+  const hideFullProfileLists = currentUser?.role === "GUEST" && !isSelf;
   const friends = profileFriends;
   const myInterestNames = new Set(myInterests.map((i) => i.name));
   const myFriendNames = new Set(
@@ -530,25 +531,27 @@ export default function ProfilePage({ params }: ProfilePageProps) {
               </Card>
             )}
 
-            <Card title="Friends">
-              {friends.length > 0 ? (
-                <div className="flex flex-col gap-1">
-                  {friends.map((f) => (
-                    <Link
-                      key={f.name}
-                      href={`/profile/${f.name}`}
-                      className="flex items-center gap-2.5 rounded-[7px] px-1 py-1.5 transition-colors hover:bg-bg-hover"
-                    >
-                      <Avatar initials={f.initials} avatarUrl={(f as { avatarUrl?: string }).avatarUrl} size="md" />
-                      <span className="flex-1 text-[13px]">{f.name}</span>
-                      <span className="text-[12px] text-text-muted">Lvl. {f.level}</span>
-                    </Link>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-[13px] italic text-text-dimmed">No friends to show.</p>
-              )}
-            </Card>
+            {!hideFullProfileLists && (
+              <Card title="Friends">
+                {friends.length > 0 ? (
+                  <div className="flex flex-col gap-1">
+                    {friends.map((f) => (
+                      <Link
+                        key={f.name}
+                        href={`/profile/${f.name}`}
+                        className="flex items-center gap-2.5 rounded-[7px] px-1 py-1.5 transition-colors hover:bg-bg-hover"
+                      >
+                        <Avatar initials={f.initials} avatarUrl={(f as { avatarUrl?: string }).avatarUrl} size="md" />
+                        <span className="flex-1 text-[13px]">{f.name}</span>
+                        <span className="text-[12px] text-text-muted">Lvl. {f.level}</span>
+                      </Link>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-[13px] italic text-text-dimmed">No friends to show.</p>
+                )}
+              </Card>
+            )}
           </div>
 
           {/* Right column */}
@@ -575,50 +578,52 @@ export default function ProfilePage({ params }: ProfilePageProps) {
               </Card>
             )}
 
-            <Card title="Interests">
-              {interestsLoading ? (
-                <p className="text-[13px] italic text-text-dimmed">Loading interests...</p>
-              ) : interests.length > 0 ? (
-                <div className="flex flex-wrap gap-2">
-                  {interests.map((i) => (
-                    <button
-                      key={i.name}
-                      type="button"
-                      disabled={!isSelf}
-                      onClick={() => {
-                        if (isSelf) setSelectedInterest(i);
-                      }}
-                      className="flex items-center gap-[7px] rounded-full border border-border-default bg-bg-hover px-3 py-[7px] text-[13px] text-text-primary transition-colors enabled:hover:border-border-strong disabled:cursor-default"
-                    >
-                      <div className="h-[7px] w-[7px] shrink-0 rounded-full" style={{ background: i.color }} />
-                      {i.name}
-                    </button>
-                  ))}
-                  {isSelf && (
-                    <button
-                      type="button"
-                      onClick={() => setShowPicker(true)}
-                      className="rounded-full border border-dashed border-border-default px-3 py-[7px] text-[13px] text-text-muted transition-colors hover:border-solid hover:text-text-primary"
-                    >
-                      + Add
-                    </button>
-                  )}
-                </div>
-              ) : (
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-[13px] italic text-text-dimmed">No interests yet.</p>
-                  {isSelf && (
-                    <button
-                      type="button"
-                      onClick={() => setShowPicker(true)}
-                      className="rounded-full border border-dashed border-border-default px-3 py-[7px] text-[13px] text-text-muted transition-colors hover:border-solid hover:text-text-primary"
-                    >
-                      + Add
-                    </button>
-                  )}
-                </div>
-              )}
-            </Card>
+            {!hideFullProfileLists && (
+              <Card title="Interests">
+                {interestsLoading ? (
+                  <p className="text-[13px] italic text-text-dimmed">Loading interests...</p>
+                ) : interests.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {interests.map((i) => (
+                      <button
+                        key={i.name}
+                        type="button"
+                        disabled={!isSelf}
+                        onClick={() => {
+                          if (isSelf) setSelectedInterest(i);
+                        }}
+                        className="flex items-center gap-[7px] rounded-full border border-border-default bg-bg-hover px-3 py-[7px] text-[13px] text-text-primary transition-colors enabled:hover:border-border-strong disabled:cursor-default"
+                      >
+                        <div className="h-[7px] w-[7px] shrink-0 rounded-full" style={{ background: i.color }} />
+                        {i.name}
+                      </button>
+                    ))}
+                    {isSelf && (
+                      <button
+                        type="button"
+                        onClick={() => setShowPicker(true)}
+                        className="rounded-full border border-dashed border-border-default px-3 py-[7px] text-[13px] text-text-muted transition-colors hover:border-solid hover:text-text-primary"
+                      >
+                        + Add
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-[13px] italic text-text-dimmed">No interests yet.</p>
+                    {isSelf && (
+                      <button
+                        type="button"
+                        onClick={() => setShowPicker(true)}
+                        className="rounded-full border border-dashed border-border-default px-3 py-[7px] text-[13px] text-text-muted transition-colors hover:border-solid hover:text-text-primary"
+                      >
+                        + Add
+                      </button>
+                    )}
+                  </div>
+                )}
+              </Card>
+            )}
           </div>
         </div>
       </div>

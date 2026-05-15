@@ -32,6 +32,7 @@ export interface ChannelMemberDto {
   joinedAt: string;
   isFavorite: boolean;
   isFriend: boolean;
+  isSelf: boolean;
 }
 
 export interface ChannelPostDto {
@@ -164,6 +165,7 @@ export class ChannelsService {
         joinedAt: membership.joinedAt.toISOString(),
         isFavorite: membership.isFavorite,
         isFriend: friendIdSet.has(membership.user.id),
+        isSelf: membership.user.id === currentUserId,
       }));
   }
 

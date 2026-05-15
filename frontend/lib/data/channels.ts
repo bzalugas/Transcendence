@@ -27,6 +27,7 @@ interface ApiChannelMember {
   joinedAt: string;
   isFavorite: boolean;
   isFriend: boolean;
+  isSelf?: boolean;
 }
 
 // Loads every channel from the database-backed API.
@@ -85,6 +86,7 @@ export async function getChannelMembers(slug: string): Promise<ChannelMember[]> 
     isFriend: member.isFriend,
     joinedAt: member.joinedAt,
     isFavorite: member.isFavorite,
+    isSelf: member.isSelf,
   }));
 }
 

@@ -150,7 +150,7 @@ export class InterestsService {
         requesterId: userId,
         name,
         normalizedName,
-        description,
+        description: this.formatInterestRequestDescription(description),
       },
       update: {
         name,
@@ -322,12 +322,16 @@ export class InterestsService {
     existingDescription: string | undefined,
     nextDescription: string,
   ): string {
-    const current = this.normalizeDisplayText(existingDescription ?? '');
-    const next = this.normalizeDisplayText(nextDescription);
+    const current = existingDescription?.trim() ?? '';
+    const next = this.formatInterestRequestDescription(nextDescription);
 
     if (!current) return next;
-    if (current === next) return current;
+    if (current === next || current.endsWith(`\n\n${next}`)) return current;
 
     return `${current}\n\n${next}`;
+  }
+
+  private formatInterestRequestDescription(description: string): string {
+    return `New request:\n${this.normalizeDisplayText(description)}`;
   }
 }

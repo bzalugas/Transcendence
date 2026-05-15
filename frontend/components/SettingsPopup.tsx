@@ -170,8 +170,6 @@ export default function SettingsPopup({
             <Section label="Admin">
               <Link
                 href="/admin"
-                target="_blank"
-                rel="noreferrer"
                 onClick={onClose}
                 className="flex w-full items-center justify-between rounded-[5px] px-2 py-[7px] text-[12.5px] text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary"
               >

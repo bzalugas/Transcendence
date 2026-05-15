@@ -28,6 +28,7 @@ export function useCurrentUser(): {
   user: User | null;
   isPending: boolean;
   isAuthenticated: boolean;
+  isBanned: boolean;
 } {
   const session = authClient.useSession();
   const sessionUser = session.data?.user as BetterAuthSessionUser | undefined;
@@ -35,6 +36,7 @@ export function useCurrentUser(): {
   const [profileUser, setProfileUser] = useState<User | null>(null);
   const [isProfilePending, setIsProfilePending] = useState(false);
   const [profileFailedUserId, setProfileFailedUserId] = useState<string | null>(null);
+  const [isBanned, setIsBanned] = useState(false);
 
   useEffect(() => {
     if (!sessionUserId) {
@@ -42,6 +44,7 @@ export function useCurrentUser(): {
         setProfileUser(null);
         setProfileFailedUserId(null);
         setIsProfilePending(false);
+        setIsBanned(false);
       });
       return;
     }
@@ -64,15 +67,20 @@ export function useCurrentUser(): {
         const response = await fetch(`${API_BASE_URL}/profiles/me`, {
           credentials: "include",
         });
+        if (response.status === 403) {
+          throw new BannedAccountError();
+        }
         if (!response.ok) throw new Error(`GET /profiles/me failed with ${response.status}`);
         const user = (await response.json()) as User;
         if (!active) return;
         setProfileUser(user);
         setProfileFailedUserId(null);
-      } catch {
+        setIsBanned(false);
+      } catch (error) {
         if (!active) return;
         setProfileUser(null);
         setProfileFailedUserId(activeSessionUserId);
+        setIsBanned(error instanceof BannedAccountError);
       } finally {
         if (active) setIsProfilePending(false);
         checkingProfile = false;
@@ -106,8 +114,11 @@ export function useCurrentUser(): {
     user,
     isPending: session.isPending || isResolvingProfile,
     isAuthenticated: Boolean(user),
+    isBanned,
   };
 }
+
+class BannedAccountError extends Error {}
 
 // Updates the better-auth user record and persisted profile fields supported by the API.
 export async function updateCurrentUser(

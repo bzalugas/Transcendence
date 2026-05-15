@@ -3,6 +3,7 @@ import { API_BASE_URL } from "@/lib/api-url";
 export interface CohortStats {
   students: number;
   topInterest: string;
+  mostActive: string;
   activeGroups: number;
 }
 

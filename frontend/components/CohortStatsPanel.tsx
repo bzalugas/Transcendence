@@ -8,6 +8,7 @@ export default function CohortStatsPanel() {
   const rows = [
     { label: "Students", value: stats ? stats.students.toLocaleString() : "..." },
     { label: "Top interest", value: stats?.topInterest ?? "..." },
+    { label: "Most active", value: stats?.mostActive ?? "..." },
     { label: "Active groups", value: stats ? stats.activeGroups.toLocaleString() : "..." },
   ];
 

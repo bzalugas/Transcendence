@@ -20,7 +20,7 @@ export interface FriendRequest {
 }
 
 // Loads Jaccard-based profile suggestions for the current authenticated user.
-export async function getSuggestions(limit = 10): Promise<SuggestionProfile[]> {
+export async function getSuggestions(limit = 12): Promise<SuggestionProfile[]> {
   return request<SuggestionProfile[]>(`/suggestions/me?limit=${limit}`);
 }
 

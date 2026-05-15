@@ -5,11 +5,11 @@ Suggère des utilisateurs compatibles en comparant leurs centres d'intérêt via
 ## Endpoint
 
 ```
-GET /suggestions/me?limit=10
+GET /suggestions/me?limit=12
 ```
 
 - session better-auth : l'utilisateur courant pour lequel on calcule les suggestions
-- `limit` : nombre de suggestions (défaut: 10, max: 50)
+- `limit` : nombre de suggestions (défaut: 12, max: 12)
 
 ```json
 [
@@ -33,7 +33,7 @@ score = |intersection| / |union|
 ```
 
 1. Récupère les intérêts du user courant
-2. Exclut ses amis existants (FriendRequest `Accepted`), ses demandes reçues en attente et lui-même
+2. Exclut ses amis existants (FriendRequest `Accepted`), ses demandes en attente (`Pending`) et lui-même
 3. Pré-filtre en DB les candidats ayant au moins 1 intérêt en commun
 4. Calcule le score Jaccard pour chaque candidat
 5. Retourne les `limit` meilleurs résultats triés par score décroissant

@@ -27,6 +27,7 @@ export default function SuggestionsPage() {
   const [requested, setRequested] = useState<Set<string>>(new Set());
   const [outgoingSuggestions, setOutgoingSuggestions] = useState<Set<string>>(new Set());
   const [dismissingSuggestions, setDismissingSuggestions] = useState<Set<string>>(new Set());
+  const [appearingSuggestions, setAppearingSuggestions] = useState<Set<string>>(new Set());
   const [sendingRequests, setSendingRequests] = useState<Set<string>>(new Set());
   const [pendingRequests, setPendingRequests] = useState<FriendRequest[]>([]);
   const [sentRequests, setSentRequests] = useState<FriendRequest[]>([]);
@@ -105,7 +106,12 @@ export default function SuggestionsPage() {
         setDismissingSuggestions((prev) => new Set([...prev, name]));
       }, 500);
       window.setTimeout(() => {
-        setSuggestions((prev) => prev.filter((suggestion) => suggestion.name !== name));
+        let visibleNamesAfterRemoval = new Set<string>();
+        setSuggestions((prev) => {
+          const next = prev.filter((suggestion) => suggestion.name !== name);
+          visibleNamesAfterRemoval = new Set(next.map((suggestion) => suggestion.name));
+          return next;
+        });
         setSentRequests((prev) =>
           prev.some((request) => request.name === sentRequest.name)
             ? prev
@@ -121,6 +127,31 @@ export default function SuggestionsPage() {
           next.delete(name);
           return next;
         });
+        window.setTimeout(() => {
+          void getSuggestions()
+            .then((items) => {
+              const enteringNames = items
+                .map((item) => item.name)
+                .filter((itemName) => !visibleNamesAfterRemoval.has(itemName));
+
+              if (enteringNames.length > 0) {
+                setAppearingSuggestions((prev) => new Set([...prev, ...enteringNames]));
+              }
+
+              setSuggestions(items);
+
+              if (enteringNames.length > 0) {
+                window.requestAnimationFrame(() => {
+                  setAppearingSuggestions((prev) => {
+                    const next = new Set(prev);
+                    enteringNames.forEach((itemName) => next.delete(itemName));
+                    return next;
+                  });
+                });
+              }
+            })
+            .catch(() => {});
+        }, 500);
       }, 1200);
     } finally {
       setSendingRequests((prev) => {
@@ -239,6 +270,8 @@ export default function SuggestionsPage() {
               className={`flex flex-col gap-[13px] rounded-xl border border-border-default bg-bg-secondary p-[18px] transition-all duration-700 hover:border-border-strong ${
                 dismissingSuggestions.has(s.name)
                   ? "scale-[0.98] opacity-0"
+                  : appearingSuggestions.has(s.name)
+                    ? "scale-[0.98] opacity-0"
                   : "scale-100 opacity-100"
               }`}
             >

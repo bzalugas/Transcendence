@@ -14,8 +14,10 @@ import {
   joinChannelRealtime,
   leaveChannelRealtime,
   subscribeToChannelPosts,
+  subscribeToChannelReplies,
   updateChannelPost,
 } from "@/lib/data/channels";
+import type { Comment } from "@/lib/types";
 
 export default function HomePage() {
   const [showPanel, setShowPanel] = useState(true);
@@ -69,7 +71,7 @@ export default function HomePage() {
       })
       .catch(() => {});
 
-    const unsubscribe = subscribeToChannelPosts((event) => {
+    const unsubscribePosts = subscribeToChannelPosts((event) => {
       if (!joinedSlugs.has(event.slug)) return;
 
       setFeed((items) => {
@@ -80,10 +82,16 @@ export default function HomePage() {
         );
       });
     });
+    const unsubscribeReplies = subscribeToChannelReplies((event) => {
+      if (!joinedSlugs.has(event.slug)) return;
+
+      appendCommentToFeed(event.postId, event.comment);
+    });
 
     return () => {
       active = false;
-      unsubscribe();
+      unsubscribePosts();
+      unsubscribeReplies();
       for (const slug of joinedSlugs) {
         leaveChannelRealtime(slug);
       }
@@ -114,6 +122,32 @@ export default function HomePage() {
     setFeed((items) =>
       items.map((item) =>
         item.post.id === postId ? { kind: "post", post } : item,
+      ),
+    );
+  }
+
+  async function handleReply(
+    channelSlug: string,
+    postId: string,
+    replyBody: string,
+  ) {
+    const comment = await createChannelReply(channelSlug, postId, replyBody);
+    appendCommentToFeed(postId, comment);
+    return comment;
+  }
+
+  function appendCommentToFeed(postId: string, comment: Comment) {
+    setFeed((items) =>
+      items.map((item) =>
+        item.post.id === postId
+          ? {
+              ...item,
+              post: {
+                ...item.post,
+                comments: appendComment(item.post.comments, comment),
+              },
+            }
+          : item,
       ),
     );
   }
@@ -161,7 +195,7 @@ export default function HomePage() {
               key={item.post.id}
               {...item.post}
               onReply={(postId, replyBody) =>
-                createChannelReply(item.post.channelSlug, postId, replyBody)
+                handleReply(item.post.channelSlug, postId, replyBody)
               }
               onUpdate={(postId, body, attachmentIds) =>
                 handleUpdatePost(
@@ -190,4 +224,12 @@ export default function HomePage() {
 
 function postTimestamp(item: HomePostFeedItem): number {
   return item.post.createdAt ? new Date(item.post.createdAt).getTime() : 0;
+}
+
+function appendComment(comments: Comment[], comment: Comment): Comment[] {
+  if (comment.id && comments.some((candidate) => candidate.id === comment.id)) {
+    return comments;
+  }
+
+  return [...comments, comment];
 }

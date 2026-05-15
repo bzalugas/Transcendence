@@ -8,7 +8,11 @@ import {
 } from '@nestjs/websockets';
 import type { Server, Socket } from 'socket.io';
 import { auth } from '../../lib/auth';
-import { ChannelsService, type ChannelPostDto } from './channels.service';
+import {
+  ChannelsService,
+  type ChannelCommentDto,
+  type ChannelPostDto,
+} from './channels.service';
 
 interface AuthenticatedSocket extends Socket {
   data: Socket['data'] & {
@@ -70,6 +74,14 @@ export class ChannelsGateway implements OnGatewayConnection {
     this.server.to(this.channelRoom(slug)).emit('channel:post', {
       slug,
       post,
+    });
+  }
+
+  emitReply(slug: string, postId: number, comment: ChannelCommentDto) {
+    this.server.to(this.channelRoom(slug)).emit('channel:reply', {
+      slug,
+      postId: String(postId),
+      comment,
     });
   }
 

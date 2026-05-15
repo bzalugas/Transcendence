@@ -19,9 +19,15 @@ import {
   joinChannelRealtime,
   leaveChannelRealtime,
   subscribeToChannelPosts,
+  subscribeToChannelReplies,
 } from "@/lib/data/channels";
 import { useCurrentUser } from "@/lib/data/auth";
-import type { Channel, ChannelFeedItem, ChannelMember } from "@/lib/types";
+import type {
+  Channel,
+  ChannelFeedItem,
+  ChannelMember,
+  Comment,
+} from "@/lib/types";
 
 interface ChannelPageProps {
   params: Promise<{ slug: string }>;
@@ -80,7 +86,7 @@ export default function ChannelPage({ params }: ChannelPageProps) {
   useEffect(() => {
     joinChannelRealtime(slug);
 
-    const unsubscribe = subscribeToChannelPosts((event) => {
+    const unsubscribePosts = subscribeToChannelPosts((event) => {
       if (event.slug !== slug) return;
 
       setFeed((items) => {
@@ -95,9 +101,15 @@ export default function ChannelPage({ params }: ChannelPageProps) {
         return [{ kind: "post", post: event.post }, ...items];
       });
     });
+    const unsubscribeReplies = subscribeToChannelReplies((event) => {
+      if (event.slug !== slug) return;
+
+      appendCommentToFeed(event.postId, event.comment);
+    });
 
     return () => {
-      unsubscribe();
+      unsubscribePosts();
+      unsubscribeReplies();
       leaveChannelRealtime(slug);
     };
   }, [slug]);
@@ -150,6 +162,28 @@ export default function ChannelPage({ params }: ChannelPageProps) {
     );
   }
 
+  async function handleReply(postId: string, replyBody: string) {
+    const comment = await createChannelReply(slug, postId, replyBody);
+    appendCommentToFeed(postId, comment);
+    return comment;
+  }
+
+  function appendCommentToFeed(postId: string, comment: Comment) {
+    setFeed((items) =>
+      items.map((item) =>
+        item.kind === "post" && item.post.id === postId
+          ? {
+              kind: "post",
+              post: {
+                ...item.post,
+                comments: appendComment(item.post.comments, comment),
+              },
+            }
+          : item,
+      ),
+    );
+  }
+
   async function refreshChannelVisibility() {
     const [nextMembers, nextFeed] = await Promise.all([
       getChannelMembers(slug),
@@ -187,9 +221,7 @@ export default function ChannelPage({ params }: ChannelPageProps) {
                 <Post
                   key={item.post.id}
                   {...item.post}
-                  onReply={(postId, replyBody) =>
-                    createChannelReply(slug, postId, replyBody)
-                  }
+                  onReply={handleReply}
                   onUpdate={handleUpdatePost}
                   onDelete={handleDeletePost}
                 />
@@ -220,4 +252,12 @@ export default function ChannelPage({ params }: ChannelPageProps) {
       )}
     </>
   );
+}
+
+function appendComment(comments: Comment[], comment: Comment): Comment[] {
+  if (comment.id && comments.some((candidate) => candidate.id === comment.id)) {
+    return comments;
+  }
+
+  return [...comments, comment];
 }

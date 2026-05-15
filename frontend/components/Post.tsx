@@ -114,6 +114,27 @@ export default function Post({
     };
   }, [menuOpen]);
 
+  useEffect(() => {
+    setLocalComments((currentComments) => {
+      const nextComments = [...currentComments];
+      let changed = false;
+
+      for (const comment of comments) {
+        if (
+          comment.id &&
+          nextComments.some((candidate) => candidate.id === comment.id)
+        ) {
+          continue;
+        }
+
+        nextComments.push(comment);
+        changed = true;
+      }
+
+      return changed ? nextComments : currentComments;
+    });
+  }, [comments]);
+
   // Persists a reply when possible, then adds it to the displayed comments.
   async function submitComment() {
     const text = commentText.trim();
@@ -129,7 +150,9 @@ export default function Post({
           time: "just now",
         };
 
-    setLocalComments([...localComments, newComment]);
+    setLocalComments((currentComments) =>
+      appendComment(currentComments, newComment),
+    );
     setCommentText("");
   }
 
@@ -804,4 +827,12 @@ export default function Post({
       )}
     </div>
   );
+}
+
+function appendComment(comments: Comment[], comment: Comment): Comment[] {
+  if (comment.id && comments.some((candidate) => candidate.id === comment.id)) {
+    return comments;
+  }
+
+  return [...comments, comment];
 }

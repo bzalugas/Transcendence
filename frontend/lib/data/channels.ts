@@ -193,6 +193,29 @@ export function subscribeToChannelPosts(
   };
 }
 
+export function subscribeToChannelReplies(
+  listener: (event: { slug: string; postId: string; comment: Comment }) => void,
+  onError?: (message: string) => void,
+): () => void {
+  const socket = getChannelSocket();
+  const handleReply = (event: {
+    slug: string;
+    postId: string;
+    comment: Comment;
+  }) => listener(event);
+  const handleError = (error: { message?: string }) => {
+    onError?.(error.message ?? "Channel realtime error");
+  };
+
+  socket.on("channel:reply", handleReply);
+  socket.on("channel:error", handleError);
+
+  return () => {
+    socket.off("channel:reply", handleReply);
+    socket.off("channel:error", handleError);
+  };
+}
+
 // Sends an authenticated request to the backend API and validates the response.
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {

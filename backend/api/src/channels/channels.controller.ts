@@ -84,12 +84,15 @@ export class ChannelsController {
     @Body() body: { content?: string },
   ) {
     const userId = await getSessionUserId(req);
-    return this.channelsService.createReplyBySlug(
+    const reply = await this.channelsService.createReplyBySlug(
       userId,
       slug,
       postId,
       body.content,
     );
+    this.channelsGateway.emitReply(slug, postId, reply);
+
+    return reply;
   }
 
   // Updates a persisted root post and its attached files when the current user is its author.

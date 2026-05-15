@@ -1,5 +1,4 @@
 import {
-  Body,
   Controller,
   Get,
   Param,
@@ -43,13 +42,8 @@ export class ChatsController {
   async findOrCreatePrivateChat(
     @Req() req: Request,
     @Param('userId') otherUserId: string,
-    @Body() body: { name?: string },
   ) {
     const userId = await getSessionUserId(req);
-    return this.chatsService.findOrCreatePrivateChat(
-      userId,
-      otherUserId,
-      body.name,
-    );
+    return this.chatsService.findOrCreatePrivateChat(userId, otherUserId);
   }
 }

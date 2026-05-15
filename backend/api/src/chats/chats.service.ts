@@ -86,7 +86,7 @@ export class ChatsService {
               participant.id === userId || !blockedUserIds.has(participant.id),
           ),
       )
-      .map((chat) => this.toChatDto(chat));
+      .map((chat) => this.toChatDto(chat, userId));
   }
 
   async findMessages(userId: string, chatId: number): Promise<MessageDto[]> {
@@ -125,13 +125,12 @@ export class ChatsService {
       include: this.chatInclude(),
     });
 
-    return this.toChatDto(chat);
+    return this.toChatDto(chat, userId);
   }
 
   async findOrCreatePrivateChat(
     userId: string,
     otherUserId: string,
-    name?: string,
   ): Promise<ChatDto> {
     if (userId === otherUserId) {
       throw new BadRequestException(
@@ -139,49 +138,31 @@ export class ChatsService {
       );
     }
 
-    const [currentUser, otherUser] = await Promise.all([
-      this.findUserForChat(userId),
-      this.findUserForChat(otherUserId),
-    ]);
+    await this.findUserForChat(otherUserId);
 
     if (await this.blocksService.isBlockedBetween(userId, otherUserId)) {
       throw new ForbiddenException('This private chat is blocked');
     }
 
-    const existingChat = await this.prisma.chat.findFirst({
+    const privateKey = this.privateChatKey(userId, otherUserId);
+
+    const chat = await this.prisma.chat.upsert({
       where: {
-        type: 'Private',
-        users: {
-          every: {
-            id: {
-              in: [userId, otherUserId],
-            },
-          },
-        },
+        privateKey,
       },
-      include: this.chatInclude(),
-    });
-
-    if (existingChat && existingChat.users.length === 2) {
-      return this.toChatDto(existingChat);
-    }
-
-    const chatName =
-      name?.trim() ||
-      `${this.userDisplayName(currentUser)} / ${this.userDisplayName(otherUser)}`;
-
-    const chat = await this.prisma.chat.create({
-      data: {
-        name: chatName,
+      create: {
+        name: 'Private chat',
         type: 'Private',
+        privateKey,
         users: {
           connect: [{ id: userId }, { id: otherUserId }],
         },
       },
+      update: {},
       include: this.chatInclude(),
     });
 
-    return this.toChatDto(chat);
+    return this.toChatDto(chat, userId);
   }
 
   async createMessage(
@@ -351,26 +332,35 @@ export class ChatsService {
     } as const;
   }
 
-  private toChatDto(chat: {
-    id: number;
-    name: string;
-    type: ChatType;
-    channel: {
+  private toChatDto(
+    chat: {
       id: number;
-      interest: {
-        name: string;
-        color: string | null;
-        imageUri: string | null;
-      };
-    } | null;
-    users: ChatUserRecord[];
-    messages: MessageRecord[];
-  }): ChatDto {
+      name: string;
+      type: ChatType;
+      channel: {
+        id: number;
+        interest: {
+          name: string;
+          color: string | null;
+          imageUri: string | null;
+        };
+      } | null;
+      users: ChatUserRecord[];
+      messages: MessageRecord[];
+    },
+    currentUserId: string,
+  ): ChatDto {
     const lastMessage = chat.messages[0];
+    const otherParticipant = chat.users.find(
+      (user) => user.id !== currentUserId,
+    );
 
     return {
       id: chat.id,
-      name: chat.name,
+      name:
+        chat.type === 'Private' && otherParticipant
+          ? this.userDisplayName(otherParticipant)
+          : chat.name,
       type: chat.type,
       channel: chat.channel
         ? {
@@ -425,6 +415,10 @@ export class ChatsService {
     email: string;
   }): string {
     return user.login ?? user.name ?? user.email.split('@')[0];
+  }
+
+  private privateChatKey(firstUserId: string, secondUserId: string): string {
+    return [firstUserId, secondUserId].sort().join(':');
   }
 
   private initials(value: string): string {

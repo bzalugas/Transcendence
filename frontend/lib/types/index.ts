@@ -181,6 +181,7 @@ export interface Conversation {
   preview: string;
   time: string;
   unread?: number;
+  otherUserId?: string;
   // Friend-specific
   initials?: string;
   avatarUrl?: string;
@@ -190,10 +191,13 @@ export interface Conversation {
 }
 
 export interface ChatMessage {
+  id?: string;
+  chatId?: string;
   sender: string;
   initials: string;
   text: string;
   time: string;
+  createdAt?: string;
   me?: boolean;
 }
 

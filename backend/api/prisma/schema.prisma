@@ -246,13 +246,14 @@ model Attachment {
 }
 
 model Chat {
-  id        Int       @id @default(autoincrement())
-  name      String
-  type      ChatType
-  channelId Int?      @unique
-  channel   Channel?  @relation(fields: [channelId], references: [id], onDelete: SetNull)
-  messages  Message[]
-  users     User[]
+  id         Int       @id @default(autoincrement())
+  name       String
+  type       ChatType
+  channelId  Int?      @unique
+  privateKey String?   @unique
+  channel    Channel?  @relation(fields: [channelId], references: [id], onDelete: SetNull)
+  messages   Message[]
+  users      User[]
 }
 
 model Message {

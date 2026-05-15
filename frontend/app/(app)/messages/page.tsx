@@ -9,9 +9,14 @@ import PanelToggleIcon from "@/components/icons/PanelToggleIcon";
 import {
   getFriendConversations,
   getChatMessages,
-  addChatMessage,
   getPendingConv,
   clearPendingConv,
+  getOrCreatePrivateConversation,
+  joinChat,
+  leaveChat,
+  sendChatMessage,
+  subscribeToChatMessages,
+  toChatMessage,
 } from "@/lib/data/messages";
 import { useCurrentUser } from "@/lib/data/auth";
 import type { ChatMessage, Conversation } from "@/lib/types";
@@ -22,20 +27,23 @@ export default function MessagesPage() {
   const pending = getPendingConv();
   const [friendConvs, setFriendConvs] = useState<Conversation[]>([]);
   const [conversationsLoading, setConversationsLoading] = useState(true);
-  const [activeId, setActiveId] = useState<string>(
-    () => pending?.id ?? "",
-  );
+  const [activeId, setActiveId] = useState<string>(() => pending?.id ?? "");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messagesLoading, setMessagesLoading] = useState(false);
+  const [chatError, setChatError] = useState<string | null>(null);
   const [inputText, setInputText] = useState("");
   const [search, setSearch] = useState("");
-  const [mobileView, setMobileView] = useState<"list" | "chat">(
-    () => pending ? "chat" : "list",
+  const [mobileView, setMobileView] = useState<"list" | "chat">(() =>
+    pending ? "chat" : "list",
   );
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const composerInputRef = useRef<HTMLInputElement | null>(null);
+  const pendingInitialMessageRef = useRef(pending?.initialMessage ?? "");
 
   // Clear pending after reading — safe to call multiple times
-  useEffect(() => { clearPendingConv(); }, []);
+  useEffect(() => {
+    clearPendingConv();
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -58,7 +66,9 @@ export default function MessagesPage() {
     };
   }, [pending?.id]);
 
-  const activeConv = friendConvs.find((conversation) => conversation.id === activeId);
+  const activeConv = friendConvs.find(
+    (conversation) => conversation.id === activeId,
+  );
 
   // If no stored conv exists, build a virtual one from pending data so the header always renders
   const effectiveConv: Conversation | undefined = useMemo(
@@ -72,6 +82,7 @@ export default function MessagesPage() {
             initials: pending.initials,
             avatarUrl: pending.avatarUrl,
             level: pending.level,
+            otherUserId: pending.otherUserId,
             preview: "",
             time: "",
             online: false,
@@ -89,17 +100,82 @@ export default function MessagesPage() {
     );
   });
 
-  // Reset messages when switching conversation
   useEffect(() => {
-    const activeConversationName = activeConv?.name ?? pending?.name;
-    const activeConversationInitials = activeConv?.initials ?? pending?.initials;
+    if (!effectiveConv) {
+      setMessages([]);
+      return;
+    }
 
-    queueMicrotask(() => {
-      setMessages([
-        ...getChatMessages(activeId, activeConversationName, activeConversationInitials),
-      ]);
-    });
-  }, [activeConv?.initials, activeConv?.name, activeId, pending?.initials, pending?.name]);
+    let active = true;
+    setMessagesLoading(true);
+    setChatError(null);
+
+    getChatMessages(effectiveConv, currentUser?.id)
+      .then(({ conversation, messages: nextMessages }) => {
+        if (!active) return;
+        setMessages(nextMessages);
+        setActiveId(conversation.id);
+        setFriendConvs((conversations) =>
+          conversations.map((candidate) =>
+            candidate.id === effectiveConv.id
+              ? {
+                  ...candidate,
+                  id: conversation.id,
+                  otherUserId:
+                    conversation.otherUserId ?? candidate.otherUserId,
+                }
+              : candidate,
+          ),
+        );
+      })
+      .catch((error) => {
+        if (active)
+          setChatError(
+            error instanceof Error ? error.message : "Unable to load messages",
+          );
+      })
+      .finally(() => {
+        if (active) setMessagesLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [currentUser?.id, effectiveConv?.id]);
+
+  useEffect(() => {
+    if (!activeId || activeId.startsWith("user:")) return;
+
+    joinChat(activeId);
+    return () => {
+      leaveChat(activeId);
+    };
+  }, [activeId]);
+
+  useEffect(() => {
+    const initialMessage = pendingInitialMessageRef.current.trim();
+    if (!initialMessage || !activeId || activeId.startsWith("user:")) return;
+
+    pendingInitialMessageRef.current = "";
+    sendChatMessage(activeId, initialMessage);
+  }, [activeId]);
+
+  useEffect(() => {
+    return subscribeToChatMessages((message) => {
+      if (String(message.chatId) !== activeId) return;
+      setMessages((currentMessages) => {
+        if (
+          currentMessages.some(
+            (currentMessage) => currentMessage.id === String(message.id),
+          )
+        ) {
+          return currentMessages;
+        }
+
+        return [...currentMessages, toChatMessage(message, currentUser?.id)];
+      });
+    }, setChatError);
+  }, [activeId, currentUser?.id]);
 
   // Scroll to bottom on new message
   useEffect(() => {
@@ -114,20 +190,27 @@ export default function MessagesPage() {
     });
   }, [effectiveConv]);
 
-  function handleSend() {
+  async function handleSend() {
     const text = inputText.trim();
-    if (!text || !activeId || !currentUser) return;
-    const now = new Date();
-    const msg: ChatMessage = {
-      sender: currentUser.username,
-      initials: currentUser.initials,
-      text,
-      time: `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`,
-      me: true,
-    };
-    addChatMessage(activeId, msg);
-    setMessages([...getChatMessages(activeId)]);
-    setInputText("");
+    if (!text || !effectiveConv || !currentUser) return;
+
+    try {
+      const conversation = activeId.startsWith("user:")
+        ? await getOrCreatePrivateConversation(effectiveConv)
+        : effectiveConv;
+
+      if (conversation.id !== activeId) {
+        setActiveId(conversation.id);
+      }
+
+      joinChat(conversation.id);
+      sendChatMessage(conversation.id, text);
+      setInputText("");
+    } catch (error) {
+      setChatError(
+        error instanceof Error ? error.message : "Unable to send message",
+      );
+    }
   }
 
   function selectConversation(id: string) {
@@ -138,9 +221,13 @@ export default function MessagesPage() {
   return (
     <>
       {/* Conversation list */}
-      <div className={`${mobileView === "chat" ? "hidden" : "flex"} min-h-0 w-full shrink-0 flex-col overflow-hidden bg-bg-secondary md:flex md:h-auto md:w-[270px] md:border-r md:border-border-default`}>
+      <div
+        className={`${mobileView === "chat" ? "hidden" : "flex"} min-h-0 w-full shrink-0 flex-col overflow-hidden bg-bg-secondary md:flex md:h-auto md:w-[270px] md:border-r md:border-border-default`}
+      >
         <div className="border-b border-border-default px-4 pb-3.5 pt-5 md:hidden">
-          <div className="text-[20px] font-semibold text-text-primary">Messages</div>
+          <div className="text-[20px] font-semibold text-text-primary">
+            Messages
+          </div>
           <div className="mt-1 text-[12.5px] text-text-muted">
             Direct messages
           </div>
@@ -149,8 +236,18 @@ export default function MessagesPage() {
         {/* Search */}
         <div className="flex h-[62px] items-center border-b border-border-default px-4">
           <div className="flex w-full items-center gap-2 rounded-full bg-bg-hover px-[13px] py-2 text-[13px] text-text-muted">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
             </svg>
             <input
               value={search}
@@ -184,12 +281,13 @@ export default function MessagesPage() {
               No conversation found.
             </div>
           )}
-
         </div>
       </div>
 
       {/* Chat area */}
-      <div className={`${mobileView === "list" ? "hidden" : "flex"} min-h-0 flex-1 flex-col bg-bg-tertiary md:flex`}>
+      <div
+        className={`${mobileView === "list" ? "hidden" : "flex"} min-h-0 flex-1 flex-col bg-bg-tertiary md:flex`}
+      >
         {/* Chat header */}
         {effectiveConv && (
           <ChatHeader
@@ -202,12 +300,24 @@ export default function MessagesPage() {
 
         {/* Messages */}
         <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-3 py-4 sm:px-[22px] sm:py-[22px]">
+          {messagesLoading && (
+            <div className="text-[12.5px] text-text-muted">
+              Loading messages...
+            </div>
+          )}
+          {chatError && (
+            <div className="text-[12.5px] text-red-400">{chatError}</div>
+          )}
           {messages.map((msg, idx) => (
             <div key={idx}>
-              <div className={`mb-[5px] text-[11px] font-medium text-text-muted ${msg.me ? "pr-[39px] text-right" : "pl-[39px]"}`}>
+              <div
+                className={`mb-[5px] text-[11px] font-medium text-text-muted ${msg.me ? "pr-[39px] text-right" : "pl-[39px]"}`}
+              >
                 {msg.sender}
               </div>
-              <div className={`flex items-end gap-[9px] ${msg.me ? "flex-row-reverse" : ""}`}>
+              <div
+                className={`flex items-end gap-[9px] ${msg.me ? "flex-row-reverse" : ""}`}
+              >
                 <Avatar initials={msg.initials} size="md" />
                 <div
                   className={`max-w-[min(420px,68vw)] rounded-[14px] px-3.5 py-2.5 text-[13.5px] leading-relaxed sm:max-w-[420px] ${
@@ -218,7 +328,9 @@ export default function MessagesPage() {
                 >
                   {msg.text}
                 </div>
-                <span className="hidden shrink-0 px-1 text-[10.5px] text-text-dimmed sm:inline">{msg.time}</span>
+                <span className="hidden shrink-0 px-1 text-[10.5px] text-text-dimmed sm:inline">
+                  {msg.time}
+                </span>
               </div>
             </div>
           ))}
@@ -262,8 +374,12 @@ function ConversationRow({
     >
       <Avatar initials={conv.initials!} avatarUrl={conv.avatarUrl} size="lg" />
       <div className="min-w-0 flex-1">
-        <div className="truncate text-[13.5px] font-medium md:text-[13px]">{conv.name}</div>
-        <div className="mt-0.5 truncate text-[12.5px] text-text-muted md:text-[12px]">{conv.preview}</div>
+        <div className="truncate text-[13.5px] font-medium md:text-[13px]">
+          {conv.name}
+        </div>
+        <div className="mt-0.5 truncate text-[12.5px] text-text-muted md:text-[12px]">
+          {conv.preview}
+        </div>
       </div>
       <div className="flex flex-col items-end gap-1">
         <span className="text-[11px] text-text-dimmed">{conv.time}</span>
@@ -296,7 +412,16 @@ function ChatHeader({
         className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary md:hidden"
         aria-label="Back to conversations"
       >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+        <svg
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
           <line x1="19" y1="12" x2="5" y2="12" />
           <polyline points="12 19 5 12 12 5" />
         </svg>

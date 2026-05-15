@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Avatar from "@/components/Avatar";
+import ConfirmModal from "@/components/ConfirmModal";
 import type { Comment, FileAsset, Post as PostType } from "@/lib/types";
 import { useCurrentUser } from "@/lib/data/auth";
 import {
@@ -62,6 +63,7 @@ export default function Post({
   const [commentText, setCommentText] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [previewAttachment, setPreviewAttachment] = useState<PostAttachment | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(body);
@@ -144,9 +146,17 @@ export default function Post({
     try {
       await onDelete(id);
       setMenuOpen(false);
+      setConfirmDeleteOpen(false);
     } finally {
       setIsDeleting(false);
     }
+  }
+
+  function requestDeletePost() {
+    if (isDeleting) return;
+
+    setMenuOpen(false);
+    setConfirmDeleteOpen(true);
   }
 
   function beginEdit() {
@@ -358,7 +368,7 @@ export default function Post({
                   <button
                     type="button"
                     role="menuitem"
-                    onClick={() => { void deletePost(); }}
+                    onClick={requestDeletePost}
                     disabled={isDeleting}
                     className="w-full px-3 py-2 text-left text-[12.5px] font-medium text-red-500 transition-colors hover:bg-bg-hover disabled:cursor-not-allowed disabled:opacity-60"
                   >
@@ -370,6 +380,22 @@ export default function Post({
           </div>
         )}
       </div>
+
+      {confirmDeleteOpen && (
+        <ConfirmModal
+          title="Are you sure?"
+          description="This post will be permanently removed from the channel and feed."
+          confirmLabel={isDeleting ? "Removing..." : "Remove"}
+          cancelLabel="Cancel"
+          tone="danger"
+          onCancel={() => {
+            if (!isDeleting) setConfirmDeleteOpen(false);
+          }}
+          onConfirm={() => {
+            void deletePost();
+          }}
+        />
+      )}
 
       {isEditing ? (
         <div className="mx-4 mb-3 space-y-3 rounded-lg border border-border-subtle bg-bg-tertiary p-3">

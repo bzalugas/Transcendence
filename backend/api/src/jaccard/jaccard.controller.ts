@@ -11,10 +11,11 @@ export class JaccardController {
   @Get('me')
   async getMySuggestions(@Req() req: Request, @Query('limit') limit?: string) {
     const userId = await getSessionUserId(req);
+    const parsedLimit = limit ? Number(limit) : undefined;
 
     return this.jaccardService.getSuggestions(
       userId,
-      limit ? Number(limit) : undefined,
+      Number.isFinite(parsedLimit) ? parsedLimit : undefined,
     );
   }
 

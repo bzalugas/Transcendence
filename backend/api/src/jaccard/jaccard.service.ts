@@ -9,18 +9,12 @@ export class JaccardService {
   private async getExcludedUserIds(userId: string): Promise<string[]> {
     const friendRequests = await this.prisma.friendRequest.findMany({
       where: {
+        status: {
+          in: ['Accepted', 'Pending'],
+        },
         OR: [
-          {
-            status: 'Accepted',
-            OR: [
-              { senderId: userId },
-              { receiverId: userId },
-            ],
-          },
-          {
-            status: 'Pending',
-            receiverId: userId,
-          },
+          { senderId: userId },
+          { receiverId: userId },
         ],
       },
     });
@@ -30,8 +24,8 @@ export class JaccardService {
     );
   }
 
-  async getSuggestions(userId: string, limit: number = 10): Promise<object[]> {
-    const safeLimit = Math.min(limit, 50);
+  async getSuggestions(userId: string, limit: number = 12): Promise<object[]> {
+    const safeLimit = Math.min(Math.max(Math.trunc(limit), 1), 12);
 
     const currentUser = await this.prisma.user.findUnique({
       where: { id: userId },

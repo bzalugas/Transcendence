@@ -2,6 +2,15 @@ import { API_BASE_URL } from "@/lib/api-url";
 import type { AvailableInterest, ProfileInterest } from "@/lib/types";
 import { notifyChannelsUpdated } from "@/lib/data/channel-events";
 
+export interface InterestRequestResult {
+  id: number;
+  name: string;
+  description: string;
+  status: string;
+  requestedAt: string;
+  alreadyRequested: boolean;
+}
+
 // Loads the complete interest catalog from the API for search and joining.
 export async function getAllInterests(): Promise<AvailableInterest[]> {
   const response = await fetch(`${API_BASE_URL}/interests`, {
@@ -57,6 +66,27 @@ export async function joinMyInterest(
   const joinedInterest = await response.json();
   notifyChannelsUpdated();
   return joinedInterest;
+}
+
+// Stores a request for a new interest that is not available yet.
+export async function requestNewInterest(
+  name: string,
+  description: string,
+): Promise<InterestRequestResult> {
+  const response = await fetch(`${API_BASE_URL}/interests/requests`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ name, description }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`POST /interests/requests failed with ${response.status}`);
+  }
+
+  return response.json();
 }
 
 // Removes an interest from the authenticated user and refreshes channel listeners.

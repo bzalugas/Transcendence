@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BlocksService } from '../blocks/blocks.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 export interface FriendDto {
@@ -18,13 +19,20 @@ export interface FriendRequestDto {
 
 @Injectable()
 export class FriendshipsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly blocksService: BlocksService,
+  ) {}
 
   // Lists pending requests received by one user.
   async findReceivedRequests(userId: string): Promise<FriendRequestDto[]> {
+    const blockedUserIds = await this.blocksService.getBlockedPairUserIds(userId);
     const requests = await this.prisma.friendRequest.findMany({
       where: {
         receiverId: userId,
+        senderId: {
+          notIn: blockedUserIds,
+        },
         status: 'Pending',
       },
       include: {
@@ -48,9 +56,13 @@ export class FriendshipsService {
 
   // Lists pending requests sent by one user.
   async findSentRequests(userId: string): Promise<FriendRequestDto[]> {
+    const blockedUserIds = await this.blocksService.getBlockedPairUserIds(userId);
     const requests = await this.prisma.friendRequest.findMany({
       where: {
         senderId: userId,
+        receiverId: {
+          notIn: blockedUserIds,
+        },
         status: 'Pending',
       },
       include: {
@@ -87,6 +99,10 @@ export class FriendshipsService {
 
     if (receiver.id === userId) {
       throw new BadRequestException('Cannot send a friend request to yourself');
+    }
+
+    if (await this.blocksService.isBlockedBetween(userId, receiver.id)) {
+      throw new NotFoundException('User not found');
     }
 
     const pairKey = this.friendPairKey(userId, receiver.id);
@@ -195,6 +211,10 @@ export class FriendshipsService {
       throw new NotFoundException('Friend request not found');
     }
 
+    if (await this.blocksService.isBlockedBetween(userId, request.senderId)) {
+      throw new NotFoundException('Friend request not found');
+    }
+
     await this.prisma.friendRequest.update({
       where: {
         id: request.id,
@@ -261,14 +281,21 @@ export class FriendshipsService {
 
   // Lists accepted friends for one user id from both sender and receiver sides.
   async findAcceptedForUser(userId: string): Promise<FriendDto[]> {
-    const friendIds = await this.getAcceptedFriendIds(userId);
+    const [friendIds, blockedUserIds] = await Promise.all([
+      this.getAcceptedFriendIds(userId),
+      this.blocksService.getBlockedPairUserIds(userId),
+    ]);
+    const blockedUserIdSet = new Set(blockedUserIds);
+    const visibleFriendIds = friendIds.filter(
+      (friendId) => !blockedUserIdSet.has(friendId),
+    );
 
-    if (friendIds.length === 0) return [];
+    if (visibleFriendIds.length === 0) return [];
 
     const users = await this.prisma.user.findMany({
       where: {
         id: {
-          in: friendIds,
+          in: visibleFriendIds,
         },
       },
       include: {
@@ -282,8 +309,18 @@ export class FriendshipsService {
   }
 
   // Lists accepted friends for the user matching a public profile username.
-  async findAcceptedByUsername(username: string): Promise<FriendDto[]> {
+  async findAcceptedByUsername(
+    currentUserId: string,
+    username: string,
+  ): Promise<FriendDto[]> {
     const user = await this.findUserByUsername(username);
+    if (
+      user.id !== currentUserId &&
+      await this.blocksService.isBlockedBetween(currentUserId, user.id)
+    ) {
+      return [];
+    }
+
     return this.findAcceptedForUser(user.id);
   }
 
@@ -293,6 +330,10 @@ export class FriendshipsService {
     username: string,
   ): Promise<{ removed: true }> {
     const friend = await this.findUserByUsername(username);
+
+    if (await this.blocksService.isBlockedBetween(userId, friend.id)) {
+      throw new NotFoundException('User not found');
+    }
 
     await this.prisma.friendRequest.deleteMany({
       where: {

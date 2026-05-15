@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type { AttachmentType, FileCategory } from '@prisma/client';
+import { BlocksService } from '../blocks/blocks.service';
 import { FilesService } from '../files/files.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -78,6 +79,7 @@ export class ChannelsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly filesService: FilesService,
+    private readonly blocksService: BlocksService,
   ) {}
 
   // Reads all channels with their interest metadata and root post counts.
@@ -143,26 +145,44 @@ export class ChannelsService {
     });
     const friendIds = await this.getAcceptedFriendIds(currentUserId);
     const friendIdSet = new Set(friendIds);
+    const blockedUserIds = new Set(
+      await this.blocksService.getBlockedPairUserIds(currentUserId),
+    );
 
-    return memberships.map((membership) => ({
-      id: membership.user.id,
-      username: this.userDisplayName(membership.user),
-      initials: this.initials(this.userDisplayName(membership.user)),
-      avatarUrl: membership.user.profile?.avatarUri ?? membership.user.image ?? undefined,
-      level: membership.user.profile?.level ?? 0,
-      joinedAt: membership.joinedAt.toISOString(),
-      isFavorite: membership.isFavorite,
-      isFriend: friendIdSet.has(membership.user.id),
-    }));
+    return memberships
+      .filter(
+        (membership) =>
+          membership.user.id === currentUserId ||
+          !blockedUserIds.has(membership.user.id),
+      )
+      .map((membership) => ({
+        id: membership.user.id,
+        username: this.userDisplayName(membership.user),
+        initials: this.initials(this.userDisplayName(membership.user)),
+        avatarUrl: membership.user.profile?.avatarUri ?? membership.user.image ?? undefined,
+        level: membership.user.profile?.level ?? 0,
+        joinedAt: membership.joinedAt.toISOString(),
+        isFavorite: membership.isFavorite,
+        isFriend: friendIdSet.has(membership.user.id),
+      }));
   }
 
   // Reads persisted root posts for a channel and formats them for the feed UI.
-  async findFeedBySlug(slug: string): Promise<ChannelFeedItemDto[]> {
+  async findFeedBySlug(
+    slug: string,
+    currentUserId: string,
+  ): Promise<ChannelFeedItemDto[]> {
     const channel = await this.findChannelBySlug(slug);
+    const blockedUserIds = new Set(
+      await this.blocksService.getBlockedPairUserIds(currentUserId),
+    );
     const posts = await this.prisma.post.findMany({
       where: {
         channelId: channel.id,
         parentId: null,
+        authorId: {
+          notIn: [...blockedUserIds],
+        },
       },
       include: this.postInclude(),
       orderBy: {
@@ -170,10 +190,19 @@ export class ChannelsService {
       },
     });
 
-    return posts.map((post) => ({
-      kind: 'post',
-      post: this.toPostDto(post, channel),
-    }));
+    return posts.map((post) => {
+      const visiblePost = {
+        ...post,
+        children: post.children.filter(
+          (child) => !blockedUserIds.has(child.authorId),
+        ),
+      };
+
+      return {
+        kind: 'post' as const,
+        post: this.toPostDto(visiblePost, channel),
+      };
+    });
   }
 
   // Persists a new root post in a channel for one authenticated user.
@@ -259,6 +288,10 @@ export class ChannelsService {
 
     if (parentPost.parentId !== null) {
       throw new BadRequestException('Cannot reply to a reply');
+    }
+
+    if (await this.blocksService.isBlockedBetween(userId, parentPost.authorId)) {
+      throw new NotFoundException('Post not found');
     }
 
     const reply = await this.prisma.post.create({
@@ -743,6 +776,7 @@ export class ChannelsService {
         id: number;
         createdAt: Date;
         content: string;
+        authorId: string;
         author: {
           login: string | null;
           name: string | null;

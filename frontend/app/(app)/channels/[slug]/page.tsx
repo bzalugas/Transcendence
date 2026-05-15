@@ -47,7 +47,10 @@ export default function ChannelPage({ params }: ChannelPageProps) {
       .then(([nextChannel, nextMembers, nextFeed]) => {
         if (!active) return;
         setChannel(nextChannel ?? null);
-        setMembers(nextMembers);
+        setMembers(nextMembers.map((m) => ({
+          ...m,
+          isSelf: currentUser ? m.username === currentUser.username : false,
+        })));
         setFeed(nextFeed);
       })
       .catch(() => {
@@ -100,6 +103,19 @@ export default function ChannelPage({ params }: ChannelPageProps) {
     );
   }
 
+  async function refreshChannelVisibility() {
+    const [nextMembers, nextFeed] = await Promise.all([
+      getChannelMembers(slug),
+      getChannelFeed(slug),
+    ]);
+
+    setMembers(nextMembers.map((m) => ({
+      ...m,
+      isSelf: currentUser ? m.username === currentUser.username : false,
+    })));
+    setFeed(nextFeed);
+  }
+
   return (
     <>
       <div className="flex flex-1 flex-col overflow-y-auto bg-bg-tertiary">
@@ -149,6 +165,7 @@ export default function ChannelPage({ params }: ChannelPageProps) {
               await leaveChannel(slug);
               router.push("/");
             }}
+            onBlock={refreshChannelVisibility}
           />
         </div>
       )}

@@ -8,6 +8,8 @@ import Avatar from "@/components/Avatar";
 import FriendsPanel from "@/components/FriendsPanel";
 import InterestPickerModal from "@/components/InterestPickerModal";
 import PanelToggleIcon from "@/components/icons/PanelToggleIcon";
+import UserActionMenu from "@/components/UserActionMenu";
+import { blockUser } from "@/lib/data/blocks";
 import { fileUrl } from "@/lib/data/files";
 import { getProfileByUsername, getUserProfileByUsername } from "@/lib/data/profile";
 import { useCurrentUser } from "@/lib/data/auth";
@@ -20,6 +22,7 @@ import {
   sendFriendRequest,
   type FriendRequest,
 } from "@/lib/data/suggestions";
+import { removeFriend } from "@/lib/data/friends";
 import type { Friend, ProfileInterest, User } from "@/lib/types";
 
 interface ProfilePageProps {
@@ -43,6 +46,10 @@ export default function ProfilePage({ params }: ProfilePageProps) {
   const [sentFriendRequest, setSentFriendRequest] = useState<FriendRequest | null>(null);
   const [friendRequestBusy, setFriendRequestBusy] = useState(false);
   const [requestButtonHovered, setRequestButtonHovered] = useState(false);
+  const [showFriendMenu, setShowFriendMenu] = useState(false);
+  const [showStrangerMenu, setShowStrangerMenu] = useState(false);
+  const [friendMenuPosition, setFriendMenuPosition] = useState({ top: 0, left: 0 });
+  const [strangerMenuPosition, setStrangerMenuPosition] = useState({ top: 0, left: 0 });
   const isCurrentUserProfile =
     currentUser &&
     normalizeProfileKey(username) === normalizeProfileKey(currentUser.username);
@@ -250,10 +257,44 @@ export default function ProfilePage({ params }: ProfilePageProps) {
   }
 
   function friendActionLabel() {
-    if (isAlreadyFriend) return "Friend";
     if (friendRequestBusy) return sentFriendRequest ? "Canceling..." : "Sending...";
     if (sentFriendRequest) return requestButtonHovered ? "Cancel request" : "Request sent";
     return "Add friend";
+  }
+
+  async function handleUnfriend() {
+    setFriendRequestBusy(true);
+    try {
+      await removeFriend(user.username);
+      setMyFriends((prev) => prev.filter((f) => normalizeProfileKey(f.name) !== normalizeProfileKey(user.username)));
+      setProfileFriends((prev) => prev.filter((f) => !currentUser || normalizeProfileKey(f.name) !== normalizeProfileKey(currentUser.username)));
+      setShowFriendMenu(false);
+    } finally {
+      setFriendRequestBusy(false);
+    }
+  }
+
+  async function handleBlockProfile() {
+    setFriendRequestBusy(true);
+    try {
+      await blockUser(user.username);
+      setMyFriends((prev) => prev.filter((f) => normalizeProfileKey(f.name) !== normalizeProfileKey(user.username)));
+      setProfileFriends((prev) => prev.filter((f) => !currentUser || normalizeProfileKey(f.name) !== normalizeProfileKey(currentUser.username)));
+      setSentFriendRequest(null);
+      setShowFriendMenu(false);
+      setShowStrangerMenu(false);
+      router.push("/");
+    } finally {
+      setFriendRequestBusy(false);
+    }
+  }
+
+  function getActionMenuPosition(button: HTMLElement) {
+    const rect = button.getBoundingClientRect();
+    return {
+      top: rect.bottom + 6,
+      left: Math.max(8, rect.right - 220),
+    };
   }
 
   return (
@@ -336,38 +377,105 @@ export default function ProfilePage({ params }: ProfilePageProps) {
                 </button>
               ) : (
                 <div className="mt-auto flex flex-wrap justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPendingConv({
-                        id: `fr-${user.username}`,
-                        name: user.username,
-                        initials: user.initials,
-                        avatarUrl: user.avatarUrl,
-                        level: user.level,
-                      });
-                      router.push("/messages");
-                    }}
-                    className="rounded-[7px] border border-border-default bg-transparent px-[18px] py-[7px] text-[13px] text-text-primary transition-colors hover:bg-bg-hover"
-                  >
-                    Message
-                  </button>
-                  <button
-                    type="button"
-                    disabled={isAlreadyFriend || friendRequestBusy}
-                    onClick={handleFriendAction}
-                    onMouseEnter={() => setRequestButtonHovered(true)}
-                    onMouseLeave={() => setRequestButtonHovered(false)}
-                    onFocus={() => setRequestButtonHovered(true)}
-                    onBlur={() => setRequestButtonHovered(false)}
-                    className={`rounded-[7px] px-[18px] py-[7px] font-medium transition-colors disabled:cursor-default disabled:opacity-60 ${
-                      sentFriendRequest
-                        ? "border border-accent-green/40 bg-transparent text-[12px] text-accent-green hover:border-away/35 hover:bg-away/10 hover:text-away"
-                        : "bg-text-primary text-[13px] text-bg-primary hover:opacity-90"
-                    }`}
-                  >
-                    {friendActionLabel()}
-                  </button>
+                  {isAlreadyFriend && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPendingConv({
+                          id: `fr-${user.username}`,
+                          name: user.username,
+                          initials: user.initials,
+                          avatarUrl: user.avatarUrl,
+                          level: user.level,
+                        });
+                        router.push("/messages");
+                      }}
+                      className="rounded-[7px] border border-border-default bg-transparent px-5 py-[9px] text-[14px] font-normal text-text-primary transition-colors hover:bg-bg-hover"
+                    >
+                      Message
+                    </button>
+                  )}
+                  {isAlreadyFriend ? (
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          setFriendMenuPosition(getActionMenuPosition(event.currentTarget));
+                          setShowFriendMenu((current) => !current);
+                          setShowStrangerMenu(false);
+                        }}
+                        className="flex items-center justify-center rounded-[7px] border border-border-default bg-transparent px-[10px] py-[9px] text-text-primary transition-colors hover:bg-bg-hover"
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                          <circle cx="5" cy="12" r="1.5" />
+                          <circle cx="12" cy="12" r="1.5" />
+                          <circle cx="19" cy="12" r="1.5" />
+                        </svg>
+                      </button>
+                      {showFriendMenu && (
+                        <>
+                          <div
+                            className="fixed inset-0 z-[100]"
+                            onClick={() => setShowFriendMenu(false)}
+                          />
+                          <UserActionMenu
+                            username={user.username}
+                            menuPosition={friendMenuPosition}
+                            onRemove={handleUnfriend}
+                            onBlock={handleBlockProfile}
+                            onActionComplete={() => setShowFriendMenu(false)}
+                          />
+                        </>
+                      )}
+                    </div>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        disabled={friendRequestBusy}
+                        onClick={handleFriendAction}
+                        onMouseEnter={() => setRequestButtonHovered(true)}
+                        onMouseLeave={() => setRequestButtonHovered(false)}
+                        onFocus={() => setRequestButtonHovered(true)}
+                        onBlur={() => setRequestButtonHovered(false)}
+                        className={`rounded-[7px] px-[18px] py-[7px] font-medium transition-colors disabled:cursor-default disabled:opacity-60 ${
+                          sentFriendRequest
+                            ? "border border-accent-green/40 bg-transparent text-[12px] text-accent-green hover:border-away/35 hover:bg-away/10 hover:text-away"
+                            : "bg-text-primary text-[13px] text-bg-primary hover:opacity-90"
+                        }`}
+                      >
+                        {friendActionLabel()}
+                      </button>
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            setStrangerMenuPosition(getActionMenuPosition(event.currentTarget));
+                            setShowStrangerMenu((current) => !current);
+                            setShowFriendMenu(false);
+                          }}
+                          className="flex items-center justify-center rounded-[7px] border border-border-default bg-transparent px-[10px] py-[9px] text-text-primary transition-colors hover:bg-bg-hover"
+                        >
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                            <circle cx="5" cy="12" r="1.5" />
+                            <circle cx="12" cy="12" r="1.5" />
+                            <circle cx="19" cy="12" r="1.5" />
+                          </svg>
+                        </button>
+                        {showStrangerMenu && (
+                          <>
+                            <div className="fixed inset-0 z-[100]" onClick={() => setShowStrangerMenu(false)} />
+                            <UserActionMenu
+                              username={user.username}
+                              menuPosition={strangerMenuPosition}
+                              onBlock={handleBlockProfile}
+                              onActionComplete={() => setShowStrangerMenu(false)}
+                            />
+                          </>
+                        )}
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
             </div>
@@ -519,7 +627,7 @@ export default function ProfilePage({ params }: ProfilePageProps) {
 
       {showPanel && (
         <div className="hidden w-[260px] shrink-0 xl:flex">
-          <FriendsPanel />
+          <FriendsPanel friends={!isCurrentUserProfile ? myFriends : undefined} />
         </div>
       )}
 
@@ -538,6 +646,7 @@ export default function ProfilePage({ params }: ProfilePageProps) {
           onLeave={() => handleLeaveInterest(selectedInterest)}
         />
       )}
+
     </>
   );
 }

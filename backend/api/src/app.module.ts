@@ -12,6 +12,7 @@ import { PrivacyModule } from './privacy/privacy.module';
 import { EmailModule } from './email/email.module';
 import { AdminModule } from './admin/admin.module';
 import { ProjectsModule } from './projects/projects.module';
+import { BlocksModule } from './blocks/blocks.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { ProjectsModule } from './projects/projects.module';
     ChannelsModule,
     ProfilesModule,
     FriendshipsModule,
+    BlocksModule,
     FilesModule,
     ProjectsModule,
     PrivacyModule,

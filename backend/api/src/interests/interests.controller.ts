@@ -1,4 +1,5 @@
 import {
+  Body,
   Controller,
   Delete,
   Get,
@@ -32,8 +33,22 @@ export class InterestsController {
   // Returns interests joined by the public profile identified by username.
   @Get(':username')
   async findByUsername(@Req() req: Request, @Param('username') username: string) {
-    await getSessionUserId(req);
-    return this.interestsService.findForUsername(username);
+    const userId = await getSessionUserId(req);
+    return this.interestsService.findForUsername(userId, username);
+  }
+
+  // Stores a user suggestion for an interest that is not in the catalog yet.
+  @Post('requests')
+  async requestInterest(
+    @Req() req: Request,
+    @Body() body: { name?: string; description?: string },
+  ) {
+    const userId = await getSessionUserId(req);
+    return this.interestsService.requestInterest(
+      userId,
+      body.name,
+      body.description,
+    );
   }
 
   // Adds one interest to the current better-auth session user.

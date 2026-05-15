@@ -34,7 +34,7 @@ export class ProfilesController {
   // Returns one profile by login, display name, or email-derived username.
   @Get(':username')
   async findOne(@Req() req: Request, @Param('username') username: string) {
-    await getSessionUserId(req);
-    return this.profilesService.findByUsername(username);
+    const userId = await getSessionUserId(req);
+    return this.profilesService.findByUsername(userId, username);
   }
 }

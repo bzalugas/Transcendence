@@ -33,7 +33,10 @@ model User {
   sessions       Session[]
   accounts       Account[]
   files          FileAsset[]
-  dataRequests   DataRequest[]
+  dataRequests      DataRequest[]
+  interestRequests InterestRequest[]
+  blockedUsers      BlockedUser[] @relation("blockedBy")
+  blockedByUsers    BlockedUser[] @relation("blockedUsers")
 
   @@map("user")
 }
@@ -73,6 +76,17 @@ model FriendRequest {
   UpdatedAt  DateTime            @updatedAt
 }
 
+model BlockedUser {
+  blockerId String
+  blockedId String
+  createdAt DateTime @default(now())
+  blocker   User     @relation("blockedBy", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked   User     @relation("blockedUsers", fields: [blockedId], references: [id], onDelete: Cascade)
+
+  @@id([blockerId, blockedId])
+  @@index([blockedId])
+}
+
 /// Structure hierachique des centres d'interets
 
 model Interest {
@@ -87,6 +101,22 @@ model Interest {
   //relatedChannels    Channel[]        /// "tagged" channels  // supprimé
   interestedUsers User_Interest[]
   relatedPosts    Post[] // tagged posts (pour utilisation future) (n-n implicit relation)
+}
+
+model InterestRequest {
+  id             Int                   @id @default(autoincrement())
+  requesterId    String
+  name           String
+  normalizedName String
+  description    String
+  status         InterestRequestStatus @default(pending)
+  requestedAt    DateTime              @default(now())
+  reviewedAt     DateTime?
+  updatedAt      DateTime              @updatedAt
+  requester      User                  @relation(fields: [requesterId], references: [id], onDelete: Cascade)
+
+  @@unique([requesterId, normalizedName])
+  @@index([status, requestedAt])
 }
 
 model User_Interest {
@@ -333,6 +363,12 @@ enum DataRequestStatus {
   completed
   cancelled
   expired
+}
+
+enum InterestRequestStatus {
+  pending
+  approved
+  rejected
 }
 
 enum ChatType {

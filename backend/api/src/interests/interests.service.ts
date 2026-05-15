@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { BlocksService } from '../blocks/blocks.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 export interface InterestDto {
@@ -9,9 +14,21 @@ export interface InterestDto {
   members: number;
 }
 
+export interface InterestRequestDto {
+  id: number;
+  name: string;
+  description: string;
+  status: string;
+  requestedAt: string;
+  alreadyRequested: boolean;
+}
+
 @Injectable()
 export class InterestsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly blocksService: BlocksService,
+  ) {}
 
   // Reads every interest and includes the number of users attached to each one.
   async findAll(): Promise<InterestDto[]> {
@@ -56,9 +73,105 @@ export class InterestsService {
   }
 
   // Reads interests joined by the user matching a public profile username.
-  async findForUsername(username: string): Promise<InterestDto[]> {
+  async findForUsername(
+    currentUserId: string,
+    username: string,
+  ): Promise<InterestDto[]> {
     const user = await this.findUserByUsername(username);
+    if (
+      user.id !== currentUserId &&
+      await this.blocksService.isBlockedBetween(currentUserId, user.id)
+    ) {
+      throw new NotFoundException('User not found');
+    }
+
     return this.findForUser(user.id);
+  }
+
+  async requestInterest(
+    userId: string,
+    rawName?: string,
+    rawDescription?: string,
+  ): Promise<InterestRequestDto> {
+    const name = this.normalizeDisplayText(rawName ?? '');
+    const description = this.normalizeDisplayText(rawDescription ?? '');
+
+    if (!name) {
+      throw new BadRequestException('Interest name is required');
+    }
+
+    if (!description) {
+      throw new BadRequestException('Interest description is required');
+    }
+
+    if (name.length > 80) {
+      throw new BadRequestException(
+        'Interest name must be 80 characters or less',
+      );
+    }
+
+    if (description.length > 500) {
+      throw new BadRequestException(
+        'Interest description must be 500 characters or less',
+      );
+    }
+
+    const normalizedName = this.normalizeInterestName(name);
+    const existingInterest = await this.prisma.interest.findFirst({
+      where: {
+        name: {
+          equals: name,
+          mode: 'insensitive',
+        },
+      },
+    });
+
+    if (existingInterest) {
+      throw new BadRequestException('Interest already exists');
+    }
+
+    const existingRequest = await this.prisma.interestRequest.findUnique({
+      where: {
+        requesterId_normalizedName: {
+          requesterId: userId,
+          normalizedName,
+        },
+      },
+    });
+
+    const request = await this.prisma.interestRequest.upsert({
+      where: {
+        requesterId_normalizedName: {
+          requesterId: userId,
+          normalizedName,
+        },
+      },
+      create: {
+        requesterId: userId,
+        name,
+        normalizedName,
+        description,
+      },
+      update: {
+        name,
+        description: this.mergeInterestRequestDescriptions(
+          existingRequest?.description,
+          description,
+        ),
+        status: 'pending',
+        requestedAt: new Date(),
+        reviewedAt: null,
+      },
+    });
+
+    return {
+      id: request.id,
+      name: request.name,
+      description: request.description,
+      status: request.status,
+      requestedAt: request.requestedAt.toISOString(),
+      alreadyRequested: Boolean(existingRequest),
+    };
   }
 
   // Creates the user-interest relation, joins the matching channel, and returns the interest.
@@ -195,5 +308,26 @@ export class InterestsService {
     email: string;
   }): string {
     return user.login ?? user.name ?? user.email.split('@')[0];
+  }
+
+  private normalizeDisplayText(value: string): string {
+    return value.trim().replace(/\s+/g, ' ');
+  }
+
+  private normalizeInterestName(value: string): string {
+    return this.normalizeDisplayText(value).toLowerCase();
+  }
+
+  private mergeInterestRequestDescriptions(
+    existingDescription: string | undefined,
+    nextDescription: string,
+  ): string {
+    const current = this.normalizeDisplayText(existingDescription ?? '');
+    const next = this.normalizeDisplayText(nextDescription);
+
+    if (!current) return next;
+    if (current === next) return current;
+
+    return `${current}\n\n${next}`;
   }
 }

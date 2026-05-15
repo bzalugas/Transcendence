@@ -8,7 +8,7 @@ import { addChatMessage, setPendingConv } from "@/lib/data/messages";
 import { useCurrentUser } from "@/lib/data/auth";
 import { fileUrl } from "@/lib/data/files";
 import GameModal from "@/components/GameModal";
-import ConfirmActionModal, { type ConfirmAction } from "@/components/ConfirmActionModal";
+import UserActionMenu from "@/components/UserActionMenu";
 
 type FriendPopoverProps = {
   friend: Friend;
@@ -16,6 +16,7 @@ type FriendPopoverProps = {
   anchorPosition: { top: number; left: number };
   onClose: () => void;
   onRemove?: () => void | Promise<void>;
+  onBlock?: () => void | Promise<void>;
 };
 
 export default function FriendPopover({
@@ -24,6 +25,7 @@ export default function FriendPopover({
   anchorPosition,
   onClose,
   onRemove,
+  onBlock,
 }: FriendPopoverProps) {
   const router = useRouter();
   const { user: currentUser } = useCurrentUser();
@@ -32,11 +34,11 @@ export default function FriendPopover({
   const subMoreRef = useRef<HTMLDivElement>(null);
   const [showSubMore, setShowSubMore] = useState(false);
   const [showGameModal, setShowGameModal] = useState(false);
-  const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null);
+  const [confirmActionOpen, setConfirmActionOpen] = useState(false);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
-      if (confirmAction || showGameModal) return;
+      if (confirmActionOpen || showGameModal) return;
       const target = e.target as Node;
       if (
         popRef.current && !popRef.current.contains(target) &&
@@ -48,7 +50,7 @@ export default function FriendPopover({
     }
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
-  }, [onClose, anchorElement, confirmAction, showGameModal]);
+  }, [onClose, anchorElement, confirmActionOpen, showGameModal]);
 
   const initials = friend.initials ?? friend.name.slice(0, 2);
 
@@ -100,7 +102,7 @@ export default function FriendPopover({
             </Link>
             <div className="mt-px text-[11px] text-[#888888]">Level {friend.level}</div>
           </div>
-          {onRemove && (
+          {(onRemove || onBlock) && (
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); setShowSubMore(!showSubMore); }}
@@ -139,28 +141,19 @@ export default function FriendPopover({
         </div>
       </div>
 
-      {/* Sub-popover (3 dots) */}
-      {showSubMore && onRemove && (
-        <div
+      {showSubMore && (onRemove || onBlock) && (
+        <UserActionMenu
           ref={subMoreRef}
-          className="fixed z-[1001] w-[220px] rounded-[10px] border border-white/[0.12] bg-[#0f0f0e] px-2 py-1.5 shadow-[0_8px_30px_rgba(0,0,0,0.6)]"
-          style={{ top: anchorPosition.top, left: anchorPosition.left + 248 }}
-        >
-          <button
-            type="button"
-            onClick={() => { setShowSubMore(false); setConfirmAction("remove"); }}
-            className="flex w-full items-center gap-2 rounded-[5px] px-2 py-[7px] text-[12.5px] text-[#e84545] transition-colors hover:bg-[rgba(232,69,69,0.1)]"
-          >
-            Remove friend
-          </button>
-          <button
-            type="button"
-            onClick={() => { setShowSubMore(false); setConfirmAction("block"); }}
-            className="flex w-full items-center gap-2 rounded-[5px] px-2 py-[7px] text-[12.5px] text-[#e84545] transition-colors hover:bg-[rgba(232,69,69,0.1)]"
-          >
-            Block
-          </button>
-        </div>
+          username={friend.name}
+          anchorPosition={anchorPosition}
+          onRemove={onRemove}
+          onBlock={onBlock}
+          onConfirmOpenChange={setConfirmActionOpen}
+          onActionComplete={() => {
+            setShowSubMore(false);
+            onClose();
+          }}
+        />
       )}
 
       {showGameModal && (
@@ -170,20 +163,6 @@ export default function FriendPopover({
         />
       )}
 
-      {confirmAction && (
-        <ConfirmActionModal
-          action={confirmAction}
-          friendName={friend.name}
-          onCancel={() => setConfirmAction(null)}
-          onConfirm={() => {
-            setConfirmAction(null);
-            if (onRemove && (confirmAction === "remove" || confirmAction === "block")) {
-              void onRemove();
-            }
-            onClose();
-          }}
-        />
-      )}
     </>
   );
 }

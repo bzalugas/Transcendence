@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import Avatar from "@/components/Avatar";
 import FriendsPanel from "@/components/FriendsPanel";
@@ -7,7 +8,6 @@ import MessageComposer from "@/components/MessageComposer";
 import PanelToggleIcon from "@/components/icons/PanelToggleIcon";
 import {
   getFriendConversations,
-  getConversationById,
   getChatMessages,
   addChatMessage,
   getPendingConv,
@@ -17,15 +17,15 @@ import { useCurrentUser } from "@/lib/data/auth";
 import type { ChatMessage, Conversation } from "@/lib/types";
 
 export default function MessagesPage() {
-  const friendConvs = getFriendConversations();
   const { user: currentUser } = useCurrentUser();
   const [showPanel, setShowPanel] = useState(true);
-
   const pending = getPendingConv();
+  const [friendConvs, setFriendConvs] = useState<Conversation[]>([]);
+  const [conversationsLoading, setConversationsLoading] = useState(true);
   const [activeId, setActiveId] = useState<string>(
-    () => pending?.id ?? friendConvs[0]?.id ?? "",
+    () => pending?.id ?? "",
   );
-  const [messages, setMessages] = useState<ChatMessage[]>(() => [...getChatMessages(pending?.id ?? friendConvs[0]?.id ?? "")]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState("");
   const [search, setSearch] = useState("");
   const [mobileView, setMobileView] = useState<"list" | "chat">(
@@ -36,7 +36,28 @@ export default function MessagesPage() {
   // Clear pending after reading — safe to call multiple times
   useEffect(() => { clearPendingConv(); }, []);
 
-  const activeConv = getConversationById(activeId);
+  useEffect(() => {
+    let active = true;
+
+    getFriendConversations()
+      .then((conversations) => {
+        if (!active) return;
+        setFriendConvs(conversations);
+        setActiveId((currentActiveId) => {
+          if (currentActiveId) return currentActiveId;
+          return pending?.id ?? conversations[0]?.id ?? "";
+        });
+      })
+      .finally(() => {
+        if (active) setConversationsLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [pending?.id]);
+
+  const activeConv = friendConvs.find((conversation) => conversation.id === activeId);
 
   // If no stored conv exists, build a virtual one from pending data so the header always renders
   const effectiveConv: Conversation | undefined = activeConv ?? (
@@ -66,10 +87,15 @@ export default function MessagesPage() {
 
   // Reset messages when switching conversation
   useEffect(() => {
+    const activeConversationName = activeConv?.name ?? pending?.name;
+    const activeConversationInitials = activeConv?.initials ?? pending?.initials;
+
     queueMicrotask(() => {
-      setMessages([...getChatMessages(activeId)]);
+      setMessages([
+        ...getChatMessages(activeId, activeConversationName, activeConversationInitials),
+      ]);
     });
-  }, [activeId]);
+  }, [activeConv?.initials, activeConv?.name, activeId, pending?.initials, pending?.name]);
 
   // Scroll to bottom on new message
   useEffect(() => {
@@ -128,6 +154,11 @@ export default function MessagesPage() {
           <div className="px-4 pb-1.5 pt-3.5 text-[10.5px] font-semibold uppercase tracking-wider text-text-muted">
             Friends
           </div>
+          {conversationsLoading && (
+            <div className="px-4 py-3 text-[12.5px] text-text-muted">
+              Loading conversations...
+            </div>
+          )}
           {filteredFriendConvs.map((c) => (
             <ConversationRow
               key={c.id}
@@ -136,7 +167,7 @@ export default function MessagesPage() {
               onClick={() => selectConversation(c.id)}
             />
           ))}
-          {filteredFriendConvs.length === 0 && (
+          {!conversationsLoading && filteredFriendConvs.length === 0 && (
             <div className="px-4 py-3 text-[12.5px] text-text-muted">
               No conversation found.
             </div>
@@ -169,7 +200,7 @@ export default function MessagesPage() {
                 <div
                   className={`max-w-[min(420px,68vw)] rounded-[14px] px-3.5 py-2.5 text-[13.5px] leading-relaxed sm:max-w-[420px] ${
                     msg.me
-                      ? "bg-text-primary text-bg-tertiary"
+                      ? "bg-contrast-soft-bg text-contrast-soft-text"
                       : "border border-border-default bg-bg-secondary text-text-primary"
                   }`}
                 >
@@ -224,7 +255,7 @@ function ConversationRow({
       <div className="flex flex-col items-end gap-1">
         <span className="text-[11px] text-text-dimmed">{conv.time}</span>
         {conv.unread && (
-          <span className="flex h-[17px] w-[17px] items-center justify-center rounded-full bg-text-primary text-[10px] font-semibold text-bg-tertiary">
+          <span className="flex h-[17px] w-[17px] items-center justify-center rounded-full bg-contrast-soft-bg text-[10px] font-semibold text-contrast-soft-text">
             {conv.unread}
           </span>
         )}
@@ -259,10 +290,18 @@ function ChatHeader({
       </button>
       <Avatar initials={conv.initials!} avatarUrl={conv.avatarUrl} size="lg" />
       <div className="min-w-0">
-        <div className="truncate text-[14px] font-medium">{conv.name}</div>
-        <div className="mt-0.5 truncate text-[12px] text-text-muted">
-          {conv.online ? "Online" : conv.away ? "Away" : "Offline"}
-          {conv.level !== undefined && ` · Level ${conv.level}`}
+        <div className="flex items-center gap-2">
+          <Link
+            href={`/profile/${encodeURIComponent(conv.name)}`}
+            className="truncate text-[14px] font-medium transition-colors hover:text-text-muted"
+          >
+            {conv.name}
+          </Link>
+          {conv.level !== undefined && (
+            <span className="shrink-0 text-[12px] text-text-muted">
+              Level {conv.level}
+            </span>
+          )}
         </div>
       </div>
       <button

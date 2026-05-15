@@ -1,11 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import Link from "next/link";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { MouseEvent } from "react";
 import Avatar from "@/components/Avatar";
-import FriendPopover from "@/components/FriendPopover";
 import FriendsList from "@/components/FriendsList";
 import ConfirmModal from "@/components/ConfirmModal";
+import UserActionMenu from "@/components/UserActionMenu";
+import { blockUser } from "@/lib/data/blocks";
+import { fileUrl } from "@/lib/data/files";
 import type {
   Channel,
   ChannelMember,
@@ -17,6 +20,7 @@ interface ChannelAboutPanelProps {
   channel: Channel;
   members: ChannelMember[];
   onLeave: () => void;
+  onBlock?: () => void | Promise<void>;
 }
 
 const presenceColor: Record<PresenceStatus, string | undefined> = {
@@ -29,9 +33,11 @@ export default function ChannelAboutPanel({
   channel,
   members,
   onLeave,
+  onBlock,
 }: ChannelAboutPanelProps) {
   const [confirmLeave, setConfirmLeave] = useState(false);
-  const [activeMember, setActiveMember] = useState<Friend | null>(null);
+  const [blockedNames, setBlockedNames] = useState<Set<string>>(new Set());
+  const [activeMember, setActiveMember] = useState<ChannelMember | null>(null);
   const [activeAnchor, setActiveAnchor] = useState<HTMLElement | null>(null);
   const [activeAnchorPosition, setActiveAnchorPosition] = useState({ top: 0, left: 0 });
 
@@ -49,8 +55,11 @@ export default function ChannelAboutPanel({
   );
 
   const otherMembers = useMemo(
-    () => members.filter((m) => !m.isSelf && !m.isFriend),
-    [members],
+    () =>
+      members.filter(
+        (m) => !m.isSelf && !m.isFriend && !blockedNames.has(m.username),
+      ),
+    [blockedNames, members],
   );
 
   const total = channel.memberCount ?? members.length;
@@ -110,16 +119,11 @@ export default function ChannelAboutPanel({
                   <OtherMemberRow
                     key={m.username}
                     member={m}
-                    active={activeMember?.name === m.username}
+                    active={activeMember?.username === m.username}
                     onSelect={(event) => {
-                      const nextMember = activeMember?.name === m.username
+                      const nextMember = activeMember?.username === m.username
                         ? null
-                        : {
-                            initials: m.initials,
-                            avatarUrl: m.avatarUrl,
-                            name: m.username,
-                            level: m.level,
-                          };
+                        : m;
                       const rect = event.currentTarget.getBoundingClientRect();
                       setActiveMember(nextMember);
                       setActiveAnchor(nextMember ? event.currentTarget : null);
@@ -146,14 +150,21 @@ export default function ChannelAboutPanel({
       </aside>
 
       {activeMember && (
-        <FriendPopover
-          friend={activeMember}
+        <OtherMemberPopover
+          member={activeMember}
           anchorElement={activeAnchor}
           anchorPosition={activeAnchorPosition}
           onClose={() => {
             setActiveMember(null);
             setActiveAnchor(null);
             setActiveAnchorPosition({ top: 0, left: 0 });
+          }}
+          onBlock={(name) => {
+            setBlockedNames((prev) => new Set([...prev, name]));
+            setActiveMember(null);
+            setActiveAnchor(null);
+            setActiveAnchorPosition({ top: 0, left: 0 });
+            void onBlock?.();
           }}
         />
       )}
@@ -228,5 +239,107 @@ function OtherMemberRow({
       </span>
       <span className="text-[11px] text-text-dimmed">lvl {member.level}</span>
     </button>
+  );
+}
+
+function OtherMemberPopover({
+  member,
+  anchorElement,
+  anchorPosition,
+  onClose,
+  onBlock,
+}: {
+  member: ChannelMember;
+  anchorElement: HTMLElement | null;
+  anchorPosition: { top: number; left: number };
+  onClose: () => void;
+  onBlock: (name: string) => void;
+}) {
+  const [showSubMore, setShowSubMore] = useState(false);
+  const [confirmActionOpen, setConfirmActionOpen] = useState(false);
+  const popRef = useRef<HTMLDivElement>(null);
+  const subMoreRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClick(event: globalThis.MouseEvent) {
+      if (confirmActionOpen) return;
+
+      const target = event.target as Node;
+      if (
+        popRef.current &&
+        !popRef.current.contains(target) &&
+        (!subMoreRef.current || !subMoreRef.current.contains(target)) &&
+        anchorElement &&
+        !anchorElement.contains(target)
+      ) {
+        onClose();
+      }
+    }
+
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [anchorElement, confirmActionOpen, onClose]);
+
+  return (
+    <>
+      <div
+        ref={popRef}
+        className="fixed z-[1000] w-[240px] overflow-hidden rounded-[10px] border border-white/[0.12] bg-[#0f0f0e] shadow-[0_8px_30px_rgba(0,0,0,0.6)]"
+        style={{ top: anchorPosition.top, left: anchorPosition.left }}
+      >
+        <div className="flex items-center gap-2.5 rounded-t-[8px] px-3.5 py-[14px] pb-[10px]">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#1a1a18] text-[12px] font-medium text-white">
+            {member.avatarUrl ? (
+              <img
+                src={fileUrl(member.avatarUrl)}
+                alt={member.username}
+                className="h-9 w-9 rounded-full object-cover"
+              />
+            ) : (
+              member.initials
+            )}
+          </div>
+          <div className="min-w-0 flex-1">
+            <Link
+              href={`/profile/${member.username}`}
+              onClick={onClose}
+              className="inline-block text-[13.5px] font-semibold text-white hover:underline"
+            >
+              {member.username}
+            </Link>
+            <div className="mt-px text-[11px] text-[#888888]">
+              Level {member.level}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              setShowSubMore((current) => !current);
+            }}
+            className="rounded-[4px] px-1.5 py-0.5 text-[16px] leading-none text-[#666666] transition-colors hover:bg-[#1a1a19] hover:text-white"
+          >
+            ···
+          </button>
+        </div>
+      </div>
+
+      {showSubMore && (
+        <UserActionMenu
+          ref={subMoreRef}
+          username={member.username}
+          anchorPosition={anchorPosition}
+          onBlock={async () => {
+            await blockUser(member.username);
+            onBlock(member.username);
+          }}
+          onConfirmOpenChange={setConfirmActionOpen}
+          onActionComplete={() => {
+            setShowSubMore(false);
+            onClose();
+          }}
+        />
+      )}
+    </>
   );
 }

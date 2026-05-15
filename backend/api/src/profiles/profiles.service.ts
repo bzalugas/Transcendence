@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BlocksService } from '../blocks/blocks.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 export interface ProfileUserDto {
@@ -27,7 +28,10 @@ export interface ProfileStatsDto {
 
 @Injectable()
 export class ProfilesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly blocksService: BlocksService,
+  ) {}
 
   // Builds aggregate values shown in the shared cohort stats side panel.
   async getStats(): Promise<ProfileStatsDto> {
@@ -121,7 +125,10 @@ export class ProfilesService {
   }
 
   // Finds a profile by login, name, or email-derived username.
-  async findByUsername(username: string): Promise<ProfileUserDto> {
+  async findByUsername(
+    currentUserId: string,
+    username: string,
+  ): Promise<ProfileUserDto> {
     const normalizedUsername = decodeURIComponent(username).trim().toLowerCase();
     const users = await this.prisma.user.findMany({
       include: this.userProfileInclude(),
@@ -134,6 +141,13 @@ export class ProfilesService {
     });
 
     if (!user) {
+      throw new NotFoundException('Profile not found');
+    }
+
+    if (
+      user.id !== currentUserId &&
+      await this.blocksService.isBlockedBetween(currentUserId, user.id)
+    ) {
       throw new NotFoundException('Profile not found');
     }
 

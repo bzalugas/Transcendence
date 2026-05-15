@@ -257,16 +257,19 @@ model Chat {
 }
 
 model Message {
-  id          Int            @id @default(autoincrement())
-  createdAt   DateTime       @default(now())
-  content     String
-  type        MessageType    @default(Normal)
-  senderId    String
-  chatId      Int
-  sender      User           @relation(fields: [senderId], references: [id])
-  chat        Chat           @relation(fields: [chatId], references: [id])
-  notifs      Notification[]
-  attachments Attachment[]
+  id            Int            @id @default(autoincrement())
+  createdAt     DateTime       @default(now())
+  content       String
+  type          MessageType    @default(Normal)
+  encrypted     Boolean        @default(false)
+  encryptionIv  String?
+  encryptionTag String?
+  senderId      String
+  chatId        Int
+  sender        User           @relation(fields: [senderId], references: [id])
+  chat          Chat           @relation(fields: [chatId], references: [id])
+  notifs        Notification[]
+  attachments   Attachment[]
 }
 
 model Notification {

@@ -5,6 +5,12 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type { ChatType, MessageType } from '@prisma/client';
+import {
+  createCipheriv,
+  createDecipheriv,
+  createHash,
+  randomBytes,
+} from 'node:crypto';
 import { BlocksService } from '../blocks/blocks.service';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -176,13 +182,20 @@ export class ChatsService {
       throw new BadRequestException('Message content is required');
     }
 
-    await this.assertChatAccess(userId, chatId);
+    const chat = await this.assertChatAccess(userId, chatId);
+    const encryptedContent =
+      chat.type === 'Private'
+        ? this.encryptPrivateMessage(trimmedContent)
+        : undefined;
 
     const message = await this.prisma.message.create({
       data: {
         chatId,
         senderId: userId,
-        content: trimmedContent,
+        content: encryptedContent?.content ?? trimmedContent,
+        encrypted: Boolean(encryptedContent),
+        encryptionIv: encryptedContent?.iv,
+        encryptionTag: encryptedContent?.tag,
       },
       include: this.messageInclude(),
     });
@@ -190,7 +203,10 @@ export class ChatsService {
     return this.toMessageDto(message);
   }
 
-  async assertChatAccess(userId: string, chatId: number): Promise<void> {
+  async assertChatAccess(
+    userId: string,
+    chatId: number,
+  ): Promise<{ id: number; type: ChatType }> {
     const chat = await this.prisma.chat.findUnique({
       where: {
         id: chatId,
@@ -214,7 +230,7 @@ export class ChatsService {
       }
 
       await this.assertChannelMembership(userId, chat.channelId);
-      return;
+      return chat;
     }
 
     const participantIds = chat.users.map((participant) => participant.id);
@@ -233,6 +249,8 @@ export class ChatsService {
         }
       }
     }
+
+    return chat;
   }
 
   private async findJoinedChannelIds(userId: string): Promise<number[]> {
@@ -381,7 +399,7 @@ export class ChatsService {
       id: message.id,
       chatId: message.chatId,
       senderId: message.senderId,
-      content: message.content,
+      content: this.messageContent(message),
       type: message.type,
       createdAt: message.createdAt.toISOString(),
       sender: this.toUserDto(message.sender),
@@ -421,6 +439,70 @@ export class ChatsService {
     return [firstUserId, secondUserId].sort().join(':');
   }
 
+  private encryptPrivateMessage(content: string) {
+    const iv = randomBytes(12);
+    const cipher = createCipheriv(
+      'aes-256-gcm',
+      this.messageEncryptionKey(),
+      iv,
+    );
+    const encrypted = Buffer.concat([
+      cipher.update(content, 'utf8'),
+      cipher.final(),
+    ]);
+
+    return {
+      content: encrypted.toString('base64'),
+      iv: iv.toString('base64'),
+      tag: cipher.getAuthTag().toString('base64'),
+    };
+  }
+
+  private decryptPrivateMessage(message: MessageRecord): string {
+    if (!message.encryptionIv || !message.encryptionTag) {
+      return message.content;
+    }
+
+    const decipher = createDecipheriv(
+      'aes-256-gcm',
+      this.messageEncryptionKey(),
+      Buffer.from(message.encryptionIv, 'base64'),
+    );
+    decipher.setAuthTag(Buffer.from(message.encryptionTag, 'base64'));
+
+    return Buffer.concat([
+      decipher.update(Buffer.from(message.content, 'base64')),
+      decipher.final(),
+    ]).toString('utf8');
+  }
+
+  private messageContent(message: MessageRecord): string {
+    return message.encrypted
+      ? this.decryptPrivateMessage(message)
+      : message.content;
+  }
+
+  private messageEncryptionKey(): Buffer {
+    const configuredKey = process.env.MESSAGE_ENCRYPTION_KEY;
+
+    if (configuredKey) {
+      const key = Buffer.from(configuredKey, 'base64');
+
+      if (key.length !== 32) {
+        throw new Error('MESSAGE_ENCRYPTION_KEY must be a 32-byte base64 key');
+      }
+
+      return key;
+    }
+
+    const fallbackSecret =
+      process.env.BETTER_AUTH_SECRET ??
+      process.env.POSTGRES_PASSWORD ??
+      'transcendence-development-message-encryption-key';
+
+    return createHash('sha256').update(fallbackSecret).digest();
+  }
+
   private initials(value: string): string {
     const parts = value
       .trim()
@@ -452,6 +534,9 @@ interface MessageRecord {
   senderId: string;
   content: string;
   type: MessageType;
+  encrypted: boolean;
+  encryptionIv: string | null;
+  encryptionTag: string | null;
   createdAt: Date;
   sender: ChatUserRecord;
 }

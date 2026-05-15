@@ -57,6 +57,65 @@ export type AdminUserPost = {
   reactionCount: number;
 };
 
+type AdminProjectResponse = {
+  id: number;
+  slug: string;
+  name: string;
+  color: string;
+  description: string;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+  _count?: {
+    messages?: number;
+  };
+};
+
+export type AdminProject = {
+  id: number;
+  slug: string;
+  name: string;
+  color: string;
+  description: string;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+  messageCount: number;
+};
+
+type AdminChannelResponse = {
+  id: number;
+  description: string | null;
+  interest: {
+    id: number;
+    name: string;
+    color: string | null;
+  };
+  _count?: {
+    users?: number;
+  };
+};
+
+export type AdminChannel = {
+  id: number;
+  interestId: number;
+  name: string;
+  color: string;
+  description: string;
+  memberCount: number;
+};
+
+type AdminInterestRequestResponse = {
+  id: number;
+  name: string;
+  description: string;
+  status: string;
+  requestedAt: string;
+  requester: string;
+};
+
+export type AdminInterestRequest = AdminInterestRequestResponse;
+
 export async function getAdminUsers(): Promise<AdminUser[]> {
   const response = await fetch(`${API_BASE_URL}/admin/users`, {
     credentials: "include",
@@ -127,6 +186,157 @@ export async function deleteAdminContent(post: AdminUserPost) {
   return response.json();
 }
 
+export async function getAdminProjects(): Promise<AdminProject[]> {
+  const response = await fetch(`${API_BASE_URL}/admin/projects`, {
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error(`GET /admin/projects failed with ${response.status}`);
+  }
+
+  const projects = (await response.json()) as AdminProjectResponse[];
+  return projects.map(toAdminProject);
+}
+
+export async function createAdminProject(project: {
+  name: string;
+  description: string;
+  color: string;
+}): Promise<AdminProject> {
+  const response = await fetch(`${API_BASE_URL}/admin/projects`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(project),
+  });
+
+  if (!response.ok) {
+    if (response.status === 409) {
+      throw new Error(
+        `Cannot create [ ${project.name} ] because a project with this name already exists.`,
+      );
+    }
+
+    throw new Error(`POST /admin/projects failed with ${response.status}`);
+  }
+
+  return toAdminProject((await response.json()) as AdminProjectResponse);
+}
+
+export async function deleteAdminProject(projectId: number): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/admin/projects/${projectId}`, {
+    method: "DELETE",
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error(`DELETE /admin/projects/${projectId} failed with ${response.status}`);
+  }
+}
+
+export async function getAdminChannels(): Promise<AdminChannel[]> {
+  const response = await fetch(`${API_BASE_URL}/admin/channels`, {
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error(`GET /admin/channels failed with ${response.status}`);
+  }
+
+  const channels = (await response.json()) as AdminChannelResponse[];
+  return channels.map(toAdminChannel);
+}
+
+export async function createAdminChannel(channel: {
+  name: string;
+  color: string;
+  description: string;
+}): Promise<AdminChannel> {
+  const response = await fetch(`${API_BASE_URL}/admin/channels`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(channel),
+  });
+
+  if (!response.ok) {
+    if (response.status === 409) {
+      throw new Error(
+        `Cannot create [ ${channel.name} ] because a channel with this name already exists.`,
+      );
+    }
+
+    throw new Error(`POST /admin/channels failed with ${response.status}`);
+  }
+
+  return toAdminChannel((await response.json()) as AdminChannelResponse);
+}
+
+export async function deleteAdminChannel(channelId: number): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/admin/channels/${channelId}`, {
+    method: "DELETE",
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error(`DELETE /admin/channels/${channelId} failed with ${response.status}`);
+  }
+}
+
+export async function getAdminInterestRequests(): Promise<AdminInterestRequest[]> {
+  const response = await fetch(`${API_BASE_URL}/admin/interest-requests`, {
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    throw new Error(`GET /admin/interest-requests failed with ${response.status}`);
+  }
+
+  return response.json();
+}
+
+export async function approveAdminInterestRequest(
+  requestId: number,
+  request: { name: string; description: string; color: string },
+): Promise<AdminChannel> {
+  const response = await fetch(
+    `${API_BASE_URL}/admin/interest-requests/${requestId}/approve`,
+    {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request),
+    },
+  );
+
+  if (!response.ok) {
+    if (response.status === 409) {
+      throw new Error(
+        `Cannot create [ ${request.name} ] because a channel with this name already exists.`,
+      );
+    }
+
+    throw new Error(`POST /admin/interest-requests/${requestId}/approve failed with ${response.status}`);
+  }
+
+  return toAdminChannel((await response.json()) as AdminChannelResponse);
+}
+
+export async function rejectAdminInterestRequest(requestId: number): Promise<void> {
+  const response = await fetch(
+    `${API_BASE_URL}/admin/interest-requests/${requestId}/reject`,
+    {
+      method: "POST",
+      credentials: "include",
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(`POST /admin/interest-requests/${requestId}/reject failed with ${response.status}`);
+  }
+}
+
 function toAdminUser(user: AdminUserResponse): AdminUser {
   const username = user.profile?.pseudo || user.login || user.name || user.email;
   const firstName = user.profile?.firstname ?? undefined;
@@ -153,6 +363,31 @@ function toAdminUser(user: AdminUserResponse): AdminUser {
     friendCount: user.friendCount ?? 0,
     bannedAt: user.bannedAt ?? undefined,
     moderationReason: user.moderationReason ?? undefined,
+  };
+}
+
+function toAdminProject(project: AdminProjectResponse): AdminProject {
+  return {
+    id: project.id,
+    slug: project.slug,
+    name: project.name,
+    color: project.color,
+    description: project.description,
+    sortOrder: project.sortOrder,
+    createdAt: project.createdAt,
+    updatedAt: project.updatedAt,
+    messageCount: project._count?.messages ?? 0,
+  };
+}
+
+function toAdminChannel(channel: AdminChannelResponse): AdminChannel {
+  return {
+    id: channel.id,
+    interestId: channel.interest.id,
+    name: channel.interest.name,
+    color: channel.interest.color ?? "#6b7280",
+    description: channel.description ?? "",
+    memberCount: channel._count?.users ?? 0,
   };
 }
 

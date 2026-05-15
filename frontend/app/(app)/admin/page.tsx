@@ -16,11 +16,9 @@ import {
 import { useCurrentUser } from "@/lib/data/auth";
 
 const adminSections = [
-  { label: "Users", description: "View, edit, ban, and delete users" },
-  { label: "Projects", description: "Review and moderate shared projects" },
-  { label: "Channels", description: "Create and remove interest channels" },
-  { label: "Requests", description: "Review pending channel requests" },
-  { label: "Log", description: "Track sensitive admin actions" },
+  { label: "Users", href: "/admin", active: true },
+  { label: "Projects", href: "/admin/projects", active: false },
+  { label: "Channels", href: "/admin/channels", active: false },
 ];
 
 export default function AdminPage() {
@@ -192,23 +190,23 @@ export default function AdminPage() {
               Admin panel
             </div>
             <div className="mt-1 text-[12.5px] leading-relaxed text-text-muted">
-              Manage roles, channels, requests, and moderation actions.
+              Manage roles, channels, projects, and moderation actions.
             </div>
           </div>
 
           <nav className="mt-6 flex flex-col gap-1">
-            {adminSections.map((section, index) => (
-              <button
+            {adminSections.map((section) => (
+              <Link
                 key={section.label}
-                type="button"
+                href={section.href}
                 className={`rounded-[7px] px-2.5 py-2 text-left transition-colors ${
-                  index === 0
+                  section.active
                     ? "bg-bg-hover text-text-primary"
                     : "text-text-tertiary hover:bg-bg-hover hover:text-text-primary"
                 }`}
               >
                 <div className="text-[13px] font-medium">{section.label}</div>
-              </button>
+              </Link>
             ))}
           </nav>
 
@@ -240,7 +238,7 @@ export default function AdminPage() {
 
             <Link
               href="/"
-              className="rounded-[7px] border border-border-default bg-bg-secondary px-3.5 py-2 text-[12.5px] font-medium text-text-secondary transition-colors hover:border-border-strong hover:bg-bg-hover hover:text-text-primary"
+              className="rounded-[7px] bg-accent-blue px-3.5 py-2 text-[12.5px] font-semibold text-white transition-opacity hover:opacity-85"
             >
               Back to app
             </Link>

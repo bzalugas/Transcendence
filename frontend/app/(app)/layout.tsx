@@ -8,14 +8,19 @@ import { useCurrentUser } from "@/lib/data/auth";
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { isPending, isAuthenticated } = useCurrentUser();
+  const { isPending, isAuthenticated, isBanned } = useCurrentUser();
   const isAdminPage = pathname?.startsWith("/admin");
 
   useEffect(() => {
+    if (!isPending && isBanned) {
+      router.replace("/login/banned");
+      return;
+    }
+
     if (!isPending && !isAuthenticated) {
       router.replace("/login");
     }
-  }, [isPending, isAuthenticated, router]);
+  }, [isPending, isAuthenticated, isBanned, router]);
 
   if (isPending || !isAuthenticated) {
     return (

@@ -62,6 +62,30 @@ export class AdminController {
     return this.adminService.deleteProjectMessage(id);
   }
 
+  @Get('projects')
+  async findAllProjects(@Req() req: Request) {
+    await getSessionAdmin(req);
+    return this.adminService.findAllProjects();
+  }
+
+  @Post('projects')
+  async createProject(
+    @Req() req: Request,
+    @Body() body: { name?: string; description?: string; color?: string },
+  ) {
+    await getSessionAdmin(req);
+    return this.adminService.createProject(body);
+  }
+
+  @Delete('projects/:id')
+  async deleteProject(
+    @Req() req: Request,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    await getSessionAdmin(req);
+    return this.adminService.deleteProject(id);
+  }
+
   @Delete('users/:id')
   async deleteUser(@Req() req: Request, @Param('id') id: string) {
     const requesterId = await getSessionAdmin(req);
@@ -77,10 +101,10 @@ export class AdminController {
   @Post('channels')
   async createChannel(
     @Req() req: Request,
-    @Body() body: { name: string; color: string },
+    @Body() body: { name: string; color: string; description?: string },
   ) {
     await getSessionAdmin(req);
-    return this.adminService.createChannel(body.name, body.color);
+    return this.adminService.createChannel(body.name, body.color, body.description);
   }
 
   @Delete('channels/:id')
@@ -110,5 +134,30 @@ export class AdminController {
   ) {
     await getSessionAdmin(req);
     return this.adminService.removeUserFromChannel(userId, channelId);
+  }
+
+  @Get('interest-requests')
+  async findPendingInterestRequests(@Req() req: Request) {
+    await getSessionAdmin(req);
+    return this.adminService.findPendingInterestRequests();
+  }
+
+  @Post('interest-requests/:id/approve')
+  async approveInterestRequest(
+    @Req() req: Request,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: { name?: string; description?: string; color?: string },
+  ) {
+    await getSessionAdmin(req);
+    return this.adminService.approveInterestRequest(id, body);
+  }
+
+  @Post('interest-requests/:id/reject')
+  async rejectInterestRequest(
+    @Req() req: Request,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    await getSessionAdmin(req);
+    return this.adminService.rejectInterestRequest(id);
   }
 }

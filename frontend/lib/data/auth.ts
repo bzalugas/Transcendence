@@ -34,44 +34,73 @@ export function useCurrentUser(): {
   const sessionUserId = sessionUser?.id;
   const [profileUser, setProfileUser] = useState<User | null>(null);
   const [isProfilePending, setIsProfilePending] = useState(false);
+  const [profileFailedUserId, setProfileFailedUserId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!sessionUserId) {
       queueMicrotask(() => {
         setProfileUser(null);
+        setProfileFailedUserId(null);
         setIsProfilePending(false);
       });
       return;
     }
 
     let active = true;
-    setIsProfilePending(true);
+    let checkingProfile = false;
+    const activeSessionUserId = sessionUserId;
 
-    fetch(`${API_BASE_URL}/profiles/me`, {
-      credentials: "include",
-    })
-      .then((response) => {
+    async function loadProfile(showPending: boolean) {
+      if (checkingProfile) return;
+      checkingProfile = true;
+
+      if (showPending) {
+        queueMicrotask(() => {
+          if (active) setIsProfilePending(true);
+        });
+      }
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/profiles/me`, {
+          credentials: "include",
+        });
         if (!response.ok) throw new Error(`GET /profiles/me failed with ${response.status}`);
-        return response.json();
-      })
-      .then((user: User) => {
-        if (active) setProfileUser(user);
-      })
-      .catch(() => {
-        if (active) setProfileUser(null);
-      })
-      .finally(() => {
+        const user = (await response.json()) as User;
+        if (!active) return;
+        setProfileUser(user);
+        setProfileFailedUserId(null);
+      } catch {
+        if (!active) return;
+        setProfileUser(null);
+        setProfileFailedUserId(activeSessionUserId);
+      } finally {
         if (active) setIsProfilePending(false);
-      });
+        checkingProfile = false;
+      }
+    }
+
+    function revalidateProfile() {
+      void loadProfile(false);
+    }
+
+    void loadProfile(true);
+    const intervalId = window.setInterval(revalidateProfile, 15_000);
+    window.addEventListener("focus", revalidateProfile);
+    document.addEventListener("visibilitychange", revalidateProfile);
 
     return () => {
       active = false;
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", revalidateProfile);
+      document.removeEventListener("visibilitychange", revalidateProfile);
     };
   }, [sessionUserId]);
 
   const user = profileUser;
   const isResolvingProfile =
-    Boolean(sessionUserId) && (isProfilePending || profileUser?.id !== sessionUserId);
+    Boolean(sessionUserId) &&
+    profileFailedUserId !== sessionUserId &&
+    (isProfilePending || profileUser?.id !== sessionUserId);
 
   return {
     user,

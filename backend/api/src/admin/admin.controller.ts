@@ -22,6 +22,46 @@ export class AdminController {
     return this.adminService.findAllUsers();
   }
 
+  @Get('users/:id/posts')
+  async findUserPosts(@Req() req: Request, @Param('id') id: string) {
+    await getSessionAdmin(req);
+    return this.adminService.findUserPosts(id);
+  }
+
+  @Post('users/:id/ban')
+  async banUser(
+    @Req() req: Request,
+    @Param('id') id: string,
+    @Body() body: { reason?: string },
+  ) {
+    const requesterId = await getSessionAdmin(req);
+    return this.adminService.banUser(requesterId, id, body.reason);
+  }
+
+  @Post('users/:id/unban')
+  async unbanUser(@Req() req: Request, @Param('id') id: string) {
+    const requesterId = await getSessionAdmin(req);
+    return this.adminService.unbanUser(requesterId, id);
+  }
+
+  @Delete('posts/:id')
+  async deletePost(
+    @Req() req: Request,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    await getSessionAdmin(req);
+    return this.adminService.deletePost(id);
+  }
+
+  @Delete('project-messages/:id')
+  async deleteProjectMessage(
+    @Req() req: Request,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    await getSessionAdmin(req);
+    return this.adminService.deleteProjectMessage(id);
+  }
+
   @Delete('users/:id')
   async deleteUser(@Req() req: Request, @Param('id') id: string) {
     const requesterId = await getSessionAdmin(req);

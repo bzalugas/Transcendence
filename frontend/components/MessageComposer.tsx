@@ -11,6 +11,7 @@ interface MessageComposerProps {
   onChange: (value: string) => void;
   onSend: () => void;
   placeholder: string;
+  inputRef?: React.Ref<HTMLInputElement>;
 }
 
 export default function MessageComposer({
@@ -18,6 +19,7 @@ export default function MessageComposer({
   onChange,
   onSend,
   placeholder,
+  inputRef,
 }: MessageComposerProps) {
   const [emojiOpen, setEmojiOpen] = useState(false);
 
@@ -80,6 +82,7 @@ export default function MessageComposer({
       </div>
 
       <input
+        ref={inputRef}
         value={value}
         onChange={(event) => onChange(event.target.value)}
         onKeyDown={(event) => {

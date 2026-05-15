@@ -7,6 +7,7 @@ import MessageComposer from "@/components/MessageComposer";
 import PanelToggleIcon from "@/components/icons/PanelToggleIcon";
 import { getBlockedUsers } from "@/lib/data/blocks";
 import {
+  createProjectMessage,
   getAllProjects,
   type ProjectDiscussionMessage,
   type ProjectGridItem,
@@ -21,9 +22,9 @@ export default function ProjectsPage() {
   const { user: currentUser } = useCurrentUser();
   const [activeSlug, setActiveSlug] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
-  const [localMessages, setLocalMessages] = useState<Record<string, ProjectDiscussionMessage[]>>({});
   const [blockedNames, setBlockedNames] = useState<Set<string>>(new Set());
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const composerInputRef = useRef<HTMLInputElement | null>(null);
 
   const filteredProjects = useMemo(() => {
     const q = projectSearch.trim().toLowerCase();
@@ -42,7 +43,7 @@ export default function ProjectsPage() {
 
   const activeMessages = activeProject
     ? filterVisibleMessages(
-        [...activeProject.messages, ...(localMessages[activeProject.slug] ?? [])],
+        activeProject.messages,
         blockedNames,
       )
     : [];
@@ -51,23 +52,23 @@ export default function ProjectsPage() {
       .sort((a, b) => {
         const recentMessagesA = countRecentMessages([
           ...filterVisibleMessages(a.messages, blockedNames),
-          ...(localMessages[a.slug] ?? []),
         ]);
         const recentMessagesB = countRecentMessages([
           ...filterVisibleMessages(b.messages, blockedNames),
-          ...(localMessages[b.slug] ?? []),
         ]);
 
         return recentMessagesB - recentMessagesA;
       })
       .slice(0, 3);
-  }, [blockedNames, localMessages, projects]);
+  }, [blockedNames, projects]);
 
   useEffect(() => {
     if (!currentUser || currentUser.role === "GUEST") return;
 
     let mounted = true;
-    setProjectsLoading(true);
+    queueMicrotask(() => {
+      if (mounted) setProjectsLoading(true);
+    });
 
     getAllProjects()
       .then((loadedProjects) => {
@@ -108,7 +109,9 @@ export default function ProjectsPage() {
   useEffect(() => {
     if (!activeSlug) return;
     if (projects.some((project) => project.slug === activeSlug)) return;
-    setActiveSlug(null);
+    queueMicrotask(() => {
+      setActiveSlug(null);
+    });
   }, [activeSlug, projects]);
 
   useEffect(() => {
@@ -117,31 +120,33 @@ export default function ProjectsPage() {
     messagesEndRef.current?.scrollIntoView({ block: "end" });
   }, [activeMessages.length, activeProject]);
 
+  useEffect(() => {
+    if (!activeProject) return;
+
+    requestAnimationFrame(() => {
+      composerInputRef.current?.focus();
+    });
+  }, [activeProject]);
+
   if (!currentUser) return null;
   if (currentUser.role === "GUEST") {
     return <LockedProjectsView />;
   }
 
-  function handleSend() {
+  async function handleSend() {
     const text = draft.trim();
     if (!text || !currentUser) return;
 
     if (!activeProject) return;
 
-    setLocalMessages((prev) => ({
-      ...prev,
-      [activeProject.slug]: [
-        ...(prev[activeProject.slug] ?? []),
-        {
-          sender: currentUser.username,
-          initials: currentUser.initials,
-          text,
-          time: "now",
-          daysAgo: 0,
-          me: true,
-        },
-      ],
-    }));
+    const message = await createProjectMessage(activeProject.slug, text);
+    setProjects((currentProjects) =>
+      currentProjects.map((project) =>
+        project.slug === activeProject.slug
+          ? { ...project, messages: [...project.messages, message] }
+          : project,
+      ),
+    );
     setDraft("");
   }
 
@@ -188,10 +193,9 @@ export default function ProjectsPage() {
                 <ProjectCard
                   key={project.slug}
                   project={project}
-                  recentMessageCount={countRecentMessages([
-                    ...filterVisibleMessages(project.messages, blockedNames),
-                    ...(localMessages[project.slug] ?? []),
-                  ])}
+	                  recentMessageCount={countRecentMessages([
+	                    ...filterVisibleMessages(project.messages, blockedNames),
+	                  ])}
                   onClick={() => setActiveSlug(project.slug)}
                 />
               ))}
@@ -271,6 +275,7 @@ export default function ProjectsPage() {
               </div>
 
               <MessageComposer
+                inputRef={composerInputRef}
                 value={draft}
                 onChange={setDraft}
                 onSend={handleSend}
@@ -420,7 +425,13 @@ function ProjectListItem({
 function ProjectMessage({ message }: { message: ProjectDiscussionMessage }) {
   return (
     <div className={`flex gap-2.5 ${message.me ? "justify-end" : ""}`}>
-      {!message.me && <Avatar initials={message.initials} size="sm" />}
+      {!message.me && (
+        <Avatar
+          initials={message.initials}
+          avatarUrl={message.avatarUrl}
+          size="sm"
+        />
+      )}
       <div className={`max-w-[88%] sm:max-w-[78%] ${message.me ? "items-end" : "items-start"} flex flex-col`}>
         <div className="mb-1 flex items-baseline gap-2 text-[11.5px]">
           <span className="font-medium text-text-secondary">{message.me ? "You" : message.sender}</span>

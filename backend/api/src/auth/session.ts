@@ -16,6 +16,17 @@ export async function getSessionUserId(req: Request): Promise<string> {
     throw new UnauthorizedException('Authentication required');
   }
 
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: {
+      bannedAt: true,
+    },
+  });
+
+  if (!user || user.bannedAt) {
+    throw new ForbiddenException('This account is banned');
+  }
+
   return session.user.id;
 }
 

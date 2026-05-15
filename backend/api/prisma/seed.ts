@@ -380,6 +380,7 @@ const projectColors = {
   infra: '#C8870A',
   network: '#667085',
   docs: '#21A67A',
+  web: '#2F80ED',
 };
 
 let projectSortOrder = 0;
@@ -405,7 +406,7 @@ const projects: SeedProject[] = [
   createSeedProject('Inception', 'inception', projectColors.infra, 'Docker infrastructure -- WordPress, MariaDB, NGINX'),
   createSeedProject('webserv', 'webserv', projectColors.cpp, 'HTTP server in C++98 -- config, CGI, methods'),
   createSeedProject('ft_irc', 'ft_irc', projectColors.cpp, 'IRC server in C++98 -- channels, operators, authentication'),
-  createSeedProject('ft_transcendence', 'ft_transcendence', projectColors.cpp, 'Full-stack web app -- Pong, chat, auth, user management'),
+  createSeedProject('ft_transcendence', 'ft_transcendence', projectColors.web, 'Full-stack web app -- Pong, chat, auth, user management'),
   createSeedProject('Collaborative_resume', 'collaborative_resume', projectColors.docs, 'Collaborative resume work -- feedback, structure, final polish'),
 ];
 

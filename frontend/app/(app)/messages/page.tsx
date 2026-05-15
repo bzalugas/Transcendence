@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Avatar from "@/components/Avatar";
 import FriendsPanel from "@/components/FriendsPanel";
 import MessageComposer from "@/components/MessageComposer";
@@ -32,6 +32,7 @@ export default function MessagesPage() {
     () => pending ? "chat" : "list",
   );
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const composerInputRef = useRef<HTMLInputElement | null>(null);
 
   // Clear pending after reading — safe to call multiple times
   useEffect(() => { clearPendingConv(); }, []);
@@ -60,20 +61,23 @@ export default function MessagesPage() {
   const activeConv = friendConvs.find((conversation) => conversation.id === activeId);
 
   // If no stored conv exists, build a virtual one from pending data so the header always renders
-  const effectiveConv: Conversation | undefined = activeConv ?? (
-    pending && pending.id === activeId
-      ? {
-          id: pending.id,
-          type: "friend" as const,
-          name: pending.name,
-          initials: pending.initials,
-          avatarUrl: pending.avatarUrl,
-          level: pending.level,
-          preview: "",
-          time: "",
-          online: false,
-        }
-      : undefined
+  const effectiveConv: Conversation | undefined = useMemo(
+    () =>
+      activeConv ??
+      (pending && pending.id === activeId
+        ? {
+            id: pending.id,
+            type: "friend" as const,
+            name: pending.name,
+            initials: pending.initials,
+            avatarUrl: pending.avatarUrl,
+            level: pending.level,
+            preview: "",
+            time: "",
+            online: false,
+          }
+        : undefined),
+    [activeConv, activeId, pending],
   );
   const filteredFriendConvs = friendConvs.filter((conv) => {
     const q = search.trim().toLowerCase();
@@ -101,6 +105,14 @@ export default function MessagesPage() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  useEffect(() => {
+    if (!effectiveConv?.id) return;
+
+    requestAnimationFrame(() => {
+      composerInputRef.current?.focus();
+    });
+  }, [effectiveConv]);
 
   function handleSend() {
     const text = inputText.trim();
@@ -214,6 +226,7 @@ export default function MessagesPage() {
         </div>
 
         <MessageComposer
+          inputRef={composerInputRef}
           value={inputText}
           onChange={setInputText}
           onSend={handleSend}

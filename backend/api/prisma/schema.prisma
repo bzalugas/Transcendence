@@ -20,12 +20,15 @@ model User {
   notifs         Notification[]
   posts          Post[]
   messages       Message[]
+  projectMessages ProjectMessage[]
   reactions      Reaction[] /// reactions to posts
   interests      User_Interest[]
   friendsReqSent FriendRequest[] @relation(name: "sent")
   friendsReqRecv FriendRequest[] @relation(name: "received")
   players        Player[]
   name           String?
+  bannedAt         DateTime?
+  moderationReason String?
   emailVerified  Boolean         @default(false)
   image          String?
   createdAt      DateTime        @default(now())
@@ -151,8 +154,23 @@ model Project {
   sortOrder   Int
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  messages    ProjectMessage[]
 
   @@index([sortOrder])
+}
+
+model ProjectMessage {
+  id        Int      @id @default(autoincrement())
+  projectId Int
+  senderId  String
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  sender    User     @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, createdAt])
+  @@index([senderId, createdAt])
 }
 
 model User_Channel {

@@ -1,272 +1,376 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Avatar from "@/components/Avatar";
 import FriendsPanel from "@/components/FriendsPanel";
+import MessageComposer from "@/components/MessageComposer";
 import PanelToggleIcon from "@/components/icons/PanelToggleIcon";
-import { getLfgPosts, getAllProjects } from "@/lib/data/projects";
-import type { LfgPost } from "@/lib/mocks/projects";
+import { getAllProjects } from "@/lib/data/projects";
 import { useCurrentUser } from "@/lib/data/auth";
+import type { ProjectGridItem, ProjectDiscussionMessage } from "@/lib/mocks/projects";
 
 export default function ProjectsPage() {
   const [showPanel, setShowPanel] = useState(true);
-  const [activeTab, setActiveTab] = useState<"lfg" | "all">("lfg");
   const [projectSearch, setProjectSearch] = useState("");
-  const [lfgSearch, setLfgSearch] = useState("");
-  const lfgPosts = getLfgPosts();
-  const allProjects = getAllProjects();
+  const [projects, setProjects] = useState<ProjectGridItem[]>([]);
+  const [projectsLoading, setProjectsLoading] = useState(true);
   const { user: currentUser } = useCurrentUser();
-  const [appliedKeys, setAppliedKeys] = useState<Set<string>>(new Set());
+  const [activeSlug, setActiveSlug] = useState<string | null>(null);
+  const [draft, setDraft] = useState("");
+  const [localMessages, setLocalMessages] = useState<Record<string, ProjectDiscussionMessage[]>>({});
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+
+  const filteredProjects = useMemo(() => {
+    const q = projectSearch.trim().toLowerCase();
+    if (!q) return projects;
+
+    return projects.filter((project) => {
+      return (
+        project.name.toLowerCase().includes(q) ||
+        project.description.toLowerCase().includes(q)
+      );
+    });
+  }, [projectSearch, projects]);
+
+  const activeProject =
+    activeSlug ? projects.find((project) => project.slug === activeSlug) : null;
+
+  const activeMessages = activeProject
+    ? [...activeProject.messages, ...(localMessages[activeProject.slug] ?? [])]
+    : [];
+  const mostActiveProjects = useMemo(() => {
+    return [...projects]
+      .sort((a, b) => {
+        const recentMessagesA = countRecentMessages([
+          ...a.messages,
+          ...(localMessages[a.slug] ?? []),
+        ]);
+        const recentMessagesB = countRecentMessages([
+          ...b.messages,
+          ...(localMessages[b.slug] ?? []),
+        ]);
+
+        return recentMessagesB - recentMessagesA;
+      })
+      .slice(0, 3);
+  }, [localMessages, projects]);
+
+  useEffect(() => {
+    if (!currentUser) return;
+
+    let mounted = true;
+    setProjectsLoading(true);
+
+    getAllProjects()
+      .then((loadedProjects) => {
+        if (!mounted) return;
+        setProjects(loadedProjects);
+      })
+      .finally(() => {
+        if (!mounted) return;
+        setProjectsLoading(false);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [currentUser]);
+
+  useEffect(() => {
+    if (!activeSlug) return;
+    if (projects.some((project) => project.slug === activeSlug)) return;
+    setActiveSlug(null);
+  }, [activeSlug, projects]);
+
+  useEffect(() => {
+    if (!activeProject) return;
+
+    messagesEndRef.current?.scrollIntoView({ block: "end" });
+  }, [activeMessages.length, activeProject]);
 
   if (!currentUser) return null;
 
-  function handleApply(key: string) {
-    setAppliedKeys((prev) => new Set([...prev, key]));
+  function handleSend() {
+    const text = draft.trim();
+    if (!text || !currentUser) return;
+
+    if (!activeProject) return;
+
+    setLocalMessages((prev) => ({
+      ...prev,
+      [activeProject.slug]: [
+        ...(prev[activeProject.slug] ?? []),
+        {
+          sender: currentUser.username,
+          initials: currentUser.initials,
+          text,
+          time: "now",
+          daysAgo: 0,
+          me: true,
+        },
+      ],
+    }));
+    setDraft("");
   }
-
-  const filteredProjects = allProjects.filter((p) => {
-    const q = projectSearch.toLowerCase();
-    return p.name.toLowerCase().includes(q) || p.description.toLowerCase().includes(q);
-  });
-
-  const filteredLfg = lfgPosts.filter((p) => {
-    const q = lfgSearch.toLowerCase();
-    return p.name.toLowerCase().includes(q) || p.project.toLowerCase().includes(q) || p.description.toLowerCase().includes(q);
-  });
 
   return (
     <>
-      <div className="flex flex-1 flex-col overflow-y-auto bg-bg-tertiary">
-        {/* Header */}
-        <div className="flex items-start justify-between px-4 pt-5 sm:px-6 md:px-8 md:pt-6">
-          <div>
-            <div className="text-[20px] font-semibold">Projects</div>
-            <div className="mb-4 mt-1 text-[12.5px] text-text-muted">
-              Find teammates, share progress, team up on 42 projects
+      <div className="flex min-w-0 flex-1 flex-col overflow-y-auto bg-bg-tertiary">
+        {!activeProject && (
+          <div className="flex items-start justify-between px-4 pt-5 sm:px-6 md:px-8 md:pt-6">
+            <div>
+              <div className="text-[20px] font-semibold">Projects</div>
+              <div className="mb-4 mt-1 text-[12.5px] text-text-muted">
+                Project discussions for the 42 common core
+              </div>
             </div>
+            <button
+              type="button"
+              onClick={() => setShowPanel(!showPanel)}
+              className={`mt-1 hidden items-center rounded-[5px] p-1 transition-colors hover:bg-bg-hover hover:text-text-primary xl:flex ${
+                showPanel ? "text-text-dimmed" : "bg-bg-hover text-text-primary"
+              }`}
+              title="Toggle panel"
+            >
+              <PanelToggleIcon className="h-5 w-5" />
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={() => setShowPanel(!showPanel)}
-            className={`mt-1 hidden items-center rounded-[5px] p-1 transition-colors hover:bg-bg-hover hover:text-text-primary xl:flex ${
-              showPanel ? "text-text-dimmed" : "bg-bg-hover text-text-primary"
-            }`}
-            title="Toggle panel"
-          >
-            <PanelToggleIcon className="h-5 w-5" />
-          </button>
-        </div>
-
-        {/* Tabs */}
-        <div className="mx-4 mb-1 flex gap-0 overflow-x-auto border-b border-border-default sm:mx-6 md:mx-8">
-          <button
-            onClick={() => setActiveTab("lfg")}
-            className={`-mb-px border-b-2 px-[18px] py-2.5 text-[13.5px] transition-colors ${
-              activeTab === "lfg"
-                ? "border-text-primary text-text-primary"
-                : "border-transparent text-text-muted hover:text-text-secondary"
-            }`}
-          >
-            Looking for team
-          </button>
-          <button
-            onClick={() => setActiveTab("all")}
-            className={`-mb-px border-b-2 px-[18px] py-2.5 text-[13.5px] transition-colors ${
-              activeTab === "all"
-                ? "border-text-primary text-text-primary"
-                : "border-transparent text-text-muted hover:text-text-secondary"
-            }`}
-          >
-            All projects
-          </button>
-        </div>
-
-        {/* LFG tab */}
-        {activeTab === "lfg" && (
-          <>
-            {/* Composer */}
-            <div className="mx-4 mt-4 rounded-xl border border-border-default bg-bg-secondary p-4 sm:mx-6 md:mx-8">
-              <div className="mb-2.5 flex items-center gap-2.5">
-                <Avatar initials={currentUser.initials} avatarUrl={currentUser.avatarUrl} size="md" />
-                <input
-                  className="flex-1 bg-transparent text-[13.5px] text-text-primary outline-none placeholder:text-text-dimmed"
-                  placeholder="Looking for teammates? Describe what you need..."
-                />
-              </div>
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                <select className="cursor-pointer appearance-none rounded-md border border-border-default bg-bg-hover px-2.5 py-1.5 text-[12px] text-text-secondary outline-none hover:border-border-strong">
-                  <option value="">Project...</option>
-                  {allProjects.map((p) => (
-                    <option key={p.name} value={p.name}>{p.name}</option>
-                  ))}
-                </select>
-                <input
-                  type="number"
-                  min="1"
-                  max="5"
-                  className="w-full rounded-md border border-border-default bg-bg-hover px-2.5 py-1.5 text-[12px] text-text-secondary outline-none placeholder:text-text-dimmed sm:w-20"
-                  placeholder="Spots"
-                />
-                <button className="rounded-[7px] bg-text-primary px-4 py-1.5 text-[12.5px] font-medium text-bg-tertiary hover:opacity-90 sm:ml-auto">
-                  Post
-                </button>
-              </div>
-            </div>
-
-            {/* LFG cards */}
-            <div className="flex flex-col gap-3 px-4 py-4 sm:px-6 md:px-8">
-              <input
-                type="text"
-                value={lfgSearch}
-                onChange={(e) => setLfgSearch(e.target.value)}
-                className="w-full rounded-lg border border-border-default bg-bg-secondary px-3.5 py-2.5 text-[13.5px] text-text-primary outline-none placeholder:text-text-dimmed focus:border-border-strong"
-                placeholder="Search a team or project..."
-              />
-              {filteredLfg.map((post) => {
-                const key = `${post.name}-${post.project}`;
-                return (
-                  <LfgCard
-                    key={key}
-                    post={post}
-                    applied={appliedKeys.has(key)}
-                    onApply={() => handleApply(key)}
-                  />
-                );
-              })}
-            </div>
-          </>
         )}
 
-        {/* All projects tab */}
-        {activeTab === "all" && (
-          <div className="flex flex-col gap-3 px-4 py-4 sm:px-6 md:px-8">
+        {!activeProject ? (
+          <div className="flex flex-col px-4 pb-6 sm:px-6 md:px-8">
             <input
               type="text"
               value={projectSearch}
-              onChange={(e) => setProjectSearch(e.target.value)}
+              onChange={(event) => setProjectSearch(event.target.value)}
               className="w-full rounded-lg border border-border-default bg-bg-secondary px-3.5 py-2.5 text-[13.5px] text-text-primary outline-none placeholder:text-text-dimmed focus:border-border-strong"
               placeholder="Search a project..."
             />
-            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
-              {filteredProjects.map((p) => (
-                <div
-                  key={p.name}
-                  className={`flex cursor-pointer flex-col gap-2.5 rounded-xl border p-4 transition-colors hover:border-border-strong ${
-                    p.unread
-                      ? "border-card-unread-border bg-card-unread-bg"
-                      : "border-border-default bg-bg-secondary"
-                  }`}
-                >
-                  <div className="flex items-center gap-[9px]">
-                    <div className="h-[9px] w-[9px] shrink-0 rounded-full" style={{ background: p.color }} />
-                    <span className="text-[13.5px] font-medium">{p.name}</span>
-                    {p.unread && <div className="ml-auto h-[7px] w-[7px] shrink-0 rounded-full bg-accent-blue" />}
-                  </div>
-                  <div className="text-[11.5px] leading-snug text-text-muted">{p.description}</div>
-                  <div className="mt-auto flex gap-3">
-                    <span className="text-[11px] text-text-dimmed"><span className="font-medium text-stat-val">{p.looking}</span> looking</span>
-                    <span className="text-[11px] text-text-dimmed"><span className="font-medium text-stat-val">{p.active}</span> active</span>
-                  </div>
-                </div>
+
+            <div className="mt-4 text-[11px] font-medium uppercase tracking-[0.08em] text-text-dimmed">
+              {projectsLoading ? "Loading projects" : `${filteredProjects.length} discussions`}
+            </div>
+
+            <div className="mt-2 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {filteredProjects.map((project) => (
+                <ProjectCard
+                  key={project.slug}
+                  project={project}
+                  recentMessageCount={countRecentMessages([
+                    ...project.messages,
+                    ...(localMessages[project.slug] ?? []),
+                  ])}
+                  onClick={() => setActiveSlug(project.slug)}
+                />
               ))}
             </div>
+
+            {!projectsLoading && filteredProjects.length === 0 && (
+              <div className="mt-6 text-center text-[13px] text-text-muted">
+                No project found.
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="grid min-h-[calc(100dvh-150px)] flex-1 border-t border-border-subtle lg:min-h-0 lg:grid-cols-[184px_minmax(0,1fr)]">
+            <aside className="hidden min-h-0 border-r border-border-subtle bg-bg-secondary/40 lg:flex lg:flex-col">
+              <div className="flex h-[62px] items-center border-b border-border-subtle px-3">
+                <button
+                  type="button"
+                  onClick={() => setActiveSlug(null)}
+                  className="group flex w-full items-center gap-2 rounded-[8px] border border-border-default bg-bg-secondary px-3 py-2 text-[12.5px] font-medium text-text-secondary transition-colors hover:border-border-strong hover:bg-bg-hover hover:text-text-primary"
+                >
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                    className="shrink-0 transition-transform group-hover:-translate-x-0.5"
+                  >
+                    <polyline points="15 18 9 12 15 6" />
+                  </svg>
+                  <span className="truncate">Back to projects</span>
+                </button>
+              </div>
+
+              <div className="min-h-0 flex-1 overflow-y-auto px-3 py-2">
+                <div className="flex flex-col gap-0.5">
+                  {projects.map((project) => (
+                    <ProjectListItem
+                      key={project.slug}
+                      project={project}
+                      active={project.slug === activeProject.slug}
+                      onClick={() => setActiveSlug(project.slug)}
+                    />
+                  ))}
+                </div>
+              </div>
+            </aside>
+
+            <section className="flex min-h-0 min-w-0 flex-col">
+              <div className="flex min-h-[62px] items-center gap-3 border-b border-border-subtle px-4 py-2 sm:h-[62px] sm:px-5 sm:py-0">
+                <button
+                  type="button"
+                  onClick={() => setActiveSlug(null)}
+                  className="shrink-0 rounded-[7px] border border-border-default bg-bg-secondary px-3 py-1.5 text-[12.5px] font-medium text-text-secondary transition-colors hover:border-border-strong hover:text-text-primary lg:hidden"
+                >
+                  Back
+                </button>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-[15px] font-semibold">{activeProject.name}</div>
+                  <div className="line-clamp-2 text-[12px] leading-snug text-text-muted sm:truncate">
+                    {activeProject.description}
+                  </div>
+                </div>
+              </div>
+
+              <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4 sm:px-5">
+                <div className="flex w-full flex-col gap-3">
+                  {activeMessages.map((message, index) => (
+                    <ProjectMessage key={`${message.sender}-${message.time}-${index}`} message={message} />
+                  ))}
+                  <div ref={messagesEndRef} />
+                </div>
+              </div>
+
+              <MessageComposer
+                value={draft}
+                onChange={setDraft}
+                onSend={handleSend}
+                placeholder={`Message #${activeProject.name}`}
+              />
+            </section>
           </div>
         )}
       </div>
 
       {showPanel && (
         <div className="hidden w-[260px] shrink-0 xl:flex">
-          <FriendsPanel />
+          <FriendsPanel
+            topSlot={
+              <ProjectsActivityPanel projects={mostActiveProjects} />
+            }
+          />
         </div>
       )}
     </>
   );
 }
 
-function LfgCard({ post, applied, onApply }: { post: LfgPost; applied: boolean; onApply: () => void }) {
-
+function ProjectsActivityPanel({
+  projects,
+}: {
+  projects: ProjectGridItem[];
+}) {
   return (
-    <div className="overflow-hidden rounded-xl border border-border-default bg-bg-secondary transition-colors hover:border-border-strong">
-      {/* Header */}
-      <div className="flex items-center gap-[11px] px-4 pb-2.5 pt-4">
-        <div className="relative">
-          <Avatar initials={post.initials} size="lg" />
-          {post.online && !post.away && (
-            <div className="absolute bottom-0 right-0 h-2 w-2 rounded-full border-2 border-bg-secondary bg-accent-green" />
-          )}
-          {post.away && (
-            <div className="absolute bottom-0 right-0 h-2 w-2 rounded-full border-2 border-bg-secondary bg-away" />
-          )}
-        </div>
-        <div>
-          <Link href="/profile" className="inline-block text-[13.5px] font-medium hover:underline">
-            {post.name}
-          </Link>
-          <div className="mt-0.5 text-[12px] text-text-muted">{post.time}</div>
-        </div>
-        <div className="ml-auto whitespace-nowrap rounded-full border border-border-default bg-bg-hover px-3 py-1 text-[12.5px] text-text-muted">
-          <span className="font-medium text-text-primary">{post.commonInterests}</span> common interest{post.commonInterests !== 1 ? "s" : ""}
-        </div>
+    <>
+      <div className="mb-3 text-[10.5px] font-semibold uppercase tracking-wider text-text-muted">
+        Top 3 most active projects
       </div>
-
-      {/* Body */}
-      <div className="px-4 pb-3">
-        <div className="mb-2 inline-flex items-center gap-1.5 rounded-md border border-border-default bg-bg-hover px-3 py-1 text-[12.5px] font-medium">
-          <div className="h-[7px] w-[7px] rounded-full" style={{ background: post.projectColor }} />
-          {post.project}
-        </div>
-        <div className="text-[13px] leading-relaxed text-text-secondary">{post.description}</div>
-      </div>
-
-      {/* Team members */}
-      <div className="flex items-center gap-1.5 px-4 pb-3">
-        <span className="text-[11.5px] text-text-dimmed">Team:</span>
-        {post.teamMembers.map((m) => (
+      <div className="flex flex-col">
+        {projects.map((project) => (
           <div
-            key={m}
-            className="-ml-1 flex h-[22px] w-[22px] items-center justify-center rounded-full border-2 border-bg-secondary bg-bg-hover text-[8px] font-medium first:ml-0"
+            key={project.slug}
+            className="flex items-center gap-2.5 rounded-[7px] px-2 py-1"
           >
-            {m}
-          </div>
-        ))}
-        {Array.from({ length: post.spotsLeft }).map((_, i) => (
-          <div
-            key={`empty-${i}`}
-            className="-ml-1 flex h-[22px] w-[22px] items-center justify-center rounded-full border-2 border-bg-secondary bg-transparent text-[8px] text-text-dimmed ring-1 ring-border-default"
-          >
-            ?
-          </div>
-        ))}
-      </div>
-
-      {/* Footer */}
-      <div className="flex items-center gap-2.5 border-t border-border-subtle px-4 py-2.5">
-        <span className="flex-1 text-[12px] text-text-muted">
-          {post.spotsLeft > 0 ? (
-            <><strong className="text-text-primary">{post.spotsLeft}</strong> spot{post.spotsLeft > 1 ? "s" : ""} left</>
-          ) : (
-            <span className="text-text-dimmed">Team complete</span>
-          )}
-        </span>
-        {post.spotsLeft > 0 ? (
-          applied ? (
-            <span className="rounded-md border border-[rgba(90,158,58,0.3)] bg-[rgba(90,158,58,0.1)] px-3.5 py-[5px] text-[12px] font-medium text-accent-green">
-              Applied
+            <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: project.color }} />
+            <span className="min-w-0 flex-1 truncate text-[12.5px] text-text-primary">
+              {project.name}
             </span>
-          ) : (
-            <button
-              onClick={onApply}
-              className="rounded-md bg-text-primary px-3.5 py-[5px] text-[12px] font-medium text-bg-tertiary hover:opacity-90"
-            >
-              Apply
-            </button>
-          )
-        ) : (
-          <span className="rounded-md border border-border-subtle bg-bg-hover px-3.5 py-[5px] text-[12px] text-text-dimmed">
-            Full
-          </span>
-        )}
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
+function ProjectCard({
+  project,
+  recentMessageCount,
+  onClick,
+}: {
+  project: ProjectGridItem;
+  recentMessageCount: number;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="group relative flex min-h-[126px] w-full flex-col overflow-hidden rounded-lg border border-border-default bg-bg-secondary p-[18px] text-left shadow-[inset_0_1px_0_var(--color-border-subtle)] transition-all duration-200 hover:-translate-y-0.5 hover:border-border-strong hover:bg-bg-hover"
+    >
+      <div className="absolute inset-x-0 top-0 h-[2px]" style={{ background: project.color }} />
+
+      <div className="min-w-0 pt-px">
+        <div className="truncate text-[14px] font-semibold text-text-primary">{project.name}</div>
+        <div className="mt-1 text-[11px] font-medium uppercase tracking-[0.08em] text-text-dimmed">
+          {recentMessageCount} recent message{recentMessageCount !== 1 ? "s" : ""}
+        </div>
+      </div>
+
+      <div className="mt-3 line-clamp-3 text-[12.5px] leading-relaxed text-text-muted">
+        {project.description}
+      </div>
+    </button>
+  );
+}
+
+function countRecentMessages(messages: ProjectDiscussionMessage[]) {
+  return messages.filter((message) => message.daysAgo < 14).length;
+}
+
+function ProjectListItem({
+  project,
+  active,
+  onClick,
+}: {
+  project: ProjectGridItem;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`w-full rounded-[7px] px-2.5 py-2 text-left transition-colors hover:bg-bg-hover hover:text-text-primary ${
+        active
+          ? "bg-bg-hover text-text-primary"
+          : "text-text-tertiary"
+      }`}
+    >
+      <div className="flex items-center gap-2">
+        <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: project.color }} />
+        <span className="min-w-0 truncate text-[13px] font-medium">
+          {project.name}
+        </span>
+      </div>
+    </button>
+  );
+}
+
+function ProjectMessage({ message }: { message: ProjectDiscussionMessage }) {
+  return (
+    <div className={`flex gap-2.5 ${message.me ? "justify-end" : ""}`}>
+      {!message.me && <Avatar initials={message.initials} size="sm" />}
+      <div className={`max-w-[88%] sm:max-w-[78%] ${message.me ? "items-end" : "items-start"} flex flex-col`}>
+        <div className="mb-1 flex items-baseline gap-2 text-[11.5px]">
+          <span className="font-medium text-text-secondary">{message.me ? "You" : message.sender}</span>
+          <span className="text-text-dimmed">{message.time}</span>
+        </div>
+        <div
+          className={`rounded-lg px-3 py-2 text-[13px] leading-relaxed ${
+            message.me
+              ? "bg-text-primary text-bg-tertiary"
+              : "border border-border-default bg-bg-secondary text-text-secondary"
+          }`}
+        >
+          {message.text}
+        </div>
       </div>
     </div>
   );

@@ -11,6 +11,7 @@ import { FilesModule } from './files/files.module';
 import { PrivacyModule } from './privacy/privacy.module';
 import { EmailModule } from './email/email.module';
 import { AdminModule } from './admin/admin.module';
+import { ProjectsModule } from './projects/projects.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { AdminModule } from './admin/admin.module';
     ProfilesModule,
     FriendshipsModule,
     FilesModule,
+    ProjectsModule,
     PrivacyModule,
     AdminModule,
   ],

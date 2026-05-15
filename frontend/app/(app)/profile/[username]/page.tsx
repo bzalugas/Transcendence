@@ -11,7 +11,7 @@ import PanelToggleIcon from "@/components/icons/PanelToggleIcon";
 import { fileUrl } from "@/lib/data/files";
 import { getProfileByUsername, getUserProfileByUsername } from "@/lib/data/profile";
 import { useCurrentUser } from "@/lib/data/auth";
-import { getProfileFriends } from "@/lib/data/friends";
+import { getFriends, getProfileFriends } from "@/lib/data/friends";
 import { getMyInterests, getProfileInterests, leaveMyInterest } from "@/lib/data/interests";
 import { setPendingConv } from "@/lib/data/messages";
 import {
@@ -38,6 +38,8 @@ export default function ProfilePage({ params }: ProfilePageProps) {
   const [interestsLoading, setInterestsLoading] = useState(false);
   const [viewedUser, setViewedUser] = useState<User | null | undefined>(undefined);
   const [profileFriends, setProfileFriends] = useState<Friend[]>([]);
+  const [myInterests, setMyInterests] = useState<ProfileInterest[]>([]);
+  const [myFriends, setMyFriends] = useState<Friend[]>([]);
   const [sentFriendRequest, setSentFriendRequest] = useState<FriendRequest | null>(null);
   const [friendRequestBusy, setFriendRequestBusy] = useState(false);
   const [requestButtonHovered, setRequestButtonHovered] = useState(false);
@@ -100,6 +102,29 @@ export default function ProfilePage({ params }: ProfilePageProps) {
   }, [viewedUsername]);
 
   useEffect(() => {
+    if (!currentUser || isCurrentUserProfile) {
+      setMyInterests([]);
+      setMyFriends([]);
+      return;
+    }
+
+    let active = true;
+
+    Promise.all([
+      getMyInterests().catch(() => [] as ProfileInterest[]),
+      getFriends().catch(() => [] as Friend[]),
+    ]).then(([interestsResult, friendsResult]) => {
+      if (!active) return;
+      setMyInterests(interestsResult);
+      setMyFriends(friendsResult);
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [currentUser, isCurrentUserProfile]);
+
+  useEffect(() => {
     if (!viewedUsername || isCurrentUserProfile) {
       setSentFriendRequest(null);
       return;
@@ -157,8 +182,18 @@ export default function ProfilePage({ params }: ProfilePageProps) {
 
   if (!profile) return null;
 
-  const { user, isSelf, activity, socials } = profile;
+  const { user, isSelf, socials } = profile;
   const friends = profileFriends;
+  const myInterestNames = new Set(myInterests.map((i) => i.name));
+  const myFriendNames = new Set(
+    myFriends.map((f) => normalizeProfileKey(f.name)),
+  );
+  const commonInterests = isSelf
+    ? []
+    : interests.filter((i) => myInterestNames.has(i.name));
+  const commonFriends = isSelf
+    ? []
+    : friends.filter((f) => myFriendNames.has(normalizeProfileKey(f.name)));
   const isAlreadyFriend = Boolean(
     currentUser &&
     friends.some((friend) => normalizeProfileKey(friend.name) === normalizeProfileKey(currentUser.username)),
@@ -325,10 +360,10 @@ export default function ProfilePage({ params }: ProfilePageProps) {
                     onMouseLeave={() => setRequestButtonHovered(false)}
                     onFocus={() => setRequestButtonHovered(true)}
                     onBlur={() => setRequestButtonHovered(false)}
-                    className={`rounded-[7px] px-[18px] py-[7px] text-[13px] font-medium transition-colors disabled:cursor-default disabled:opacity-60 ${
+                    className={`rounded-[7px] px-[18px] py-[7px] font-medium transition-colors disabled:cursor-default disabled:opacity-60 ${
                       sentFriendRequest
-                        ? "border border-border-default bg-transparent text-text-primary hover:border-away/35 hover:bg-away/10 hover:text-away"
-                        : "bg-text-primary text-bg-primary hover:opacity-90"
+                        ? "border border-accent-green/40 bg-transparent text-[12px] text-accent-green hover:border-away/35 hover:bg-away/10 hover:text-away"
+                        : "bg-text-primary text-[13px] text-bg-primary hover:opacity-90"
                     }`}
                   >
                     {friendActionLabel()}
@@ -341,8 +376,7 @@ export default function ProfilePage({ params }: ProfilePageProps) {
 
         {/* Body */}
         <div className="flex flex-col items-stretch gap-3.5 px-4 py-5 sm:px-6 md:px-8 lg:flex-row">
-          {/* Left column */}
-          <div className="flex flex-1 flex-col gap-3.5">
+          <div className="order-1 lg:hidden">
             <Card title="Bio">
               {user.bio ? (
                 <p className="text-[13.5px] leading-relaxed text-text-secondary">{user.bio}</p>
@@ -352,6 +386,43 @@ export default function ProfilePage({ params }: ProfilePageProps) {
                 </p>
               )}
             </Card>
+          </div>
+
+          {/* Left column */}
+          <div className="order-3 flex flex-1 flex-col gap-3.5 lg:order-1">
+            <div className="hidden lg:block">
+              <Card title="Bio">
+                {user.bio ? (
+                  <p className="text-[13.5px] leading-relaxed text-text-secondary">{user.bio}</p>
+                ) : (
+                  <p className="text-[13px] italic text-text-dimmed">
+                    {isSelf ? "No bio yet — add one in Edit profile." : "No bio."}
+                  </p>
+                )}
+              </Card>
+            </div>
+
+            {!isSelf && (
+              <Card title="Common Friends">
+                {commonFriends.length > 0 ? (
+                  <div className="flex flex-col gap-1">
+                    {commonFriends.map((f) => (
+                      <Link
+                        key={f.name}
+                        href={`/profile/${f.name}`}
+                        className="flex items-center gap-2.5 rounded-[7px] px-1 py-1.5 transition-colors hover:bg-bg-hover"
+                      >
+                        <Avatar initials={f.initials} avatarUrl={(f as { avatarUrl?: string }).avatarUrl} size="md" />
+                        <span className="flex-1 text-[13px]">{f.name}</span>
+                        <span className="text-[12px] text-text-muted">Lvl. {f.level}</span>
+                      </Link>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-[13px] italic text-text-dimmed">No common friends.</p>
+                )}
+              </Card>
+            )}
 
             <Card title="Friends">
               {friends.length > 0 ? (
@@ -375,7 +446,29 @@ export default function ProfilePage({ params }: ProfilePageProps) {
           </div>
 
           {/* Right column */}
-          <div className="flex flex-1 flex-col gap-3.5">
+          <div className="order-2 flex flex-1 flex-col gap-3.5 lg:order-2">
+            {!isSelf && (
+              <Card title="Common Interests">
+                {interestsLoading ? (
+                  <p className="text-[13px] italic text-text-dimmed">Loading interests...</p>
+                ) : commonInterests.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {commonInterests.map((i) => (
+                      <div
+                        key={i.name}
+                        className="flex items-center gap-[7px] rounded-full border border-border-default bg-bg-hover px-3 py-[7px] text-[13px] text-text-primary"
+                      >
+                        <div className="h-[7px] w-[7px] shrink-0 rounded-full" style={{ background: i.color }} />
+                        {i.name}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-[13px] italic text-text-dimmed">No common interests.</p>
+                )}
+              </Card>
+            )}
+
             <Card title="Interests">
               {interestsLoading ? (
                 <p className="text-[13px] italic text-text-dimmed">Loading interests...</p>
@@ -418,26 +511,6 @@ export default function ProfilePage({ params }: ProfilePageProps) {
                     </button>
                   )}
                 </div>
-              )}
-            </Card>
-
-            <Card title="Recent activity">
-              {activity.length > 0 ? (
-                <div className="flex flex-col gap-3">
-                  {activity.map((a, idx) => (
-                    <div key={idx} className="flex items-start gap-3">
-                      <div className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-lg bg-bg-hover text-[15px]">
-                        {a.emoji}
-                      </div>
-                      <div>
-                        <div className="text-[13px] leading-relaxed text-text-secondary">{a.text}</div>
-                        <div className="mt-[3px] text-[11.5px] text-text-dimmed">{a.time}</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-[13px] italic text-text-dimmed">No recent activity.</p>
               )}
             </Card>
           </div>

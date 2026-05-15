@@ -171,7 +171,7 @@ export type HomeFeedItem =
   | { kind: "new-channel"; announcement: NewChannelAnnouncement }
   | { kind: "activity"; activity: Activity };
 
-export type ConversationType = "friend" | "channel";
+export type ConversationType = "friend";
 
 export interface Conversation {
   id: string;
@@ -186,9 +186,6 @@ export interface Conversation {
   online?: boolean;
   away?: boolean;
   level?: number;
-  // Channel-specific
-  icon?: string;
-  memberCount?: number;
 }
 
 export interface ChatMessage {

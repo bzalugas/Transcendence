@@ -1,13 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import Link from "next/link";
 import CohortStatsPanel from "@/components/CohortStatsPanel";
 import FriendsList from "@/components/FriendsList";
 import { getFriends } from "@/lib/data/friends";
 import type { Friend } from "@/lib/types";
 
-export default function FriendsPanel() {
+export default function FriendsPanel({
+  topSlot,
+}: {
+  topSlot?: ReactNode;
+} = {}) {
   const [friends, setFriends] = useState<Friend[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -32,6 +37,12 @@ export default function FriendsPanel() {
 
   return (
     <aside className="flex w-full flex-col overflow-hidden border-l border-border-default bg-bg-secondary">
+      {topSlot && (
+        <div className="shrink-0 border-b border-border-default bg-bg-secondary px-[18px] py-5">
+          {topSlot}
+        </div>
+      )}
+
       <div className="flex-1 overflow-y-auto px-[18px] py-6">
         <div className="mb-3 text-[10.5px] font-semibold uppercase tracking-wider text-text-muted">
           Friends

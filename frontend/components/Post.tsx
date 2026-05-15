@@ -716,7 +716,7 @@ export default function Post({
           <button
             type="button"
             onClick={() => { void submitComment(); }}
-            className="text-[11.5px] font-medium text-accent-blue transition-opacity hover:opacity-80"
+            className="text-[11.5px] font-medium text-text-primary transition-opacity hover:opacity-80"
           >
             Send
           </button>

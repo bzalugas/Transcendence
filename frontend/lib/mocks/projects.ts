@@ -1,70 +1,55 @@
-export interface LfgPost {
+export interface ProjectDiscussionMessage {
+  sender: string;
   initials: string;
-  name: string;
+  text: string;
   time: string;
-  online: boolean;
-  away?: boolean;
-  commonInterests: number;
-  project: string;
-  projectColor: string;
-  description: string;
-  teamMembers: string[];
-  spotsLeft: number;
+  daysAgo: number;
+  me?: boolean;
 }
-
-export const lfgPosts: LfgPost[] = [
-  {
-    initials: "cl", name: "claurent", time: "2h ago", online: true,
-    commonInterests: 3, project: "ft_transcendence", projectColor: "#7F77DD",
-    description: "Looking for 1 more person for transcendence. We already have the backend (NestJS) mostly done, need someone comfortable with frontend (React/Next). Starting the multiplayer pong this week.",
-    teamMembers: ["cl", "sv"], spotsLeft: 1,
-  },
-  {
-    initials: "jm", name: "jmoreau", time: "5h ago", online: false,
-    commonInterests: 1, project: "minishell", projectColor: "#D85A30",
-    description: "Starting minishell from scratch, need a partner. I'm comfortable with parsing, would love someone who knows processes/signals well. Planning to work mornings in the cluster.",
-    teamMembers: ["jm"], spotsLeft: 1,
-  },
-  {
-    initials: "tm", name: "tmercier", time: "1 day ago", online: true,
-    commonInterests: 4, project: "webserv", projectColor: "#1D9E75",
-    description: "HTTP server in C++98. We're 3, team is complete but happy to help if anyone has questions on config parsing.",
-    teamMembers: ["tm", "pd", "nf"], spotsLeft: 0,
-  },
-  {
-    initials: "lm", name: "lmartin", time: "2 days ago", online: false, away: true,
-    commonInterests: 2, project: "cub3d", projectColor: "#378ADD",
-    description: "Need a partner for cub3d. I've done the map parsing already and started raycasting. Looking for someone who can handle textures and sprites.",
-    teamMembers: ["lm"], spotsLeft: 1,
-  },
-  {
-    initials: "ar", name: "arenard", time: "3 days ago", online: false,
-    commonInterests: 0, project: "ft_irc", projectColor: "#E84545",
-    description: "Looking for 2 people for ft_irc. I want to start next week. Already read the RFC, have a rough architecture in mind. C++98, need people who can commit ~4h/day.",
-    teamMembers: ["ar"], spotsLeft: 2,
-  },
-];
 
 export interface ProjectGridItem {
   name: string;
+  slug: string;
   color: string;
   description: string;
-  looking: number;
-  active: number;
+  members: number;
+  activeNow: number;
   unread: boolean;
+  lastMessage: string;
+  messages: ProjectDiscussionMessage[];
 }
 
+const projectColors = {
+  c: "#2B9E8F",
+  cpp: "#7F77DD",
+  infra: "#C8870A",
+  network: "#667085",
+  docs: "#21A67A",
+};
+
 export const allProjects: ProjectGridItem[] = [
-  { name: "ft_transcendence", color: "#7F77DD", description: "Full-stack web app -- Pong, chat, auth, user management", looking: 18, active: 42, unread: true },
-  { name: "minishell", color: "#D85A30", description: "Build a simple shell -- Parsing, execution, pipes, redirections", looking: 14, active: 38, unread: true },
-  { name: "webserv", color: "#1D9E75", description: "HTTP server in C++98 -- Config, CGI, methods", looking: 9, active: 27, unread: false },
-  { name: "ft_irc", color: "#E84545", description: "IRC server in C++98 -- Channels, operators, authentication", looking: 6, active: 19, unread: true },
-  { name: "cub3d", color: "#378ADD", description: "Raycasting engine -- Wolfenstein-style 3D maze", looking: 5, active: 15, unread: false },
-  { name: "inception", color: "#c8870a", description: "Docker infrastructure -- WordPress, MariaDB, NGINX", looking: 3, active: 22, unread: false },
-  { name: "philosophers", color: "#5a9e3a", description: "Threading and mutexes -- Dining philosophers problem", looking: 0, active: 31, unread: false },
-  { name: "cpp_modules", color: "#888888", description: "C++ fundamentals -- OOP, templates, STL, exceptions", looking: 0, active: 45, unread: false },
-  { name: "miniRT", color: "#4a9eff", description: "Raytracing engine -- Spheres, planes, cylinders, lighting", looking: 4, active: 11, unread: false },
-  { name: "NetPractice", color: "#666666", description: "Networking basics -- Subnetting, routing, TCP/IP", looking: 0, active: 8, unread: false },
+  createProject("Libft", "libft", projectColors.c, "Your own C library -- strings, memory, lists", 64, 12, true),
+  createProject("get_next_line", "get_next_line", projectColors.c, "Read files line by line -- buffers, static state, file descriptors", 51, 9, false),
+  createProject("ft_printf", "ft_printf", projectColors.c, "Recreate printf -- variadic functions, formatting, conversions", 48, 8, true),
+  createProject("Born2beroot", "born2beroot", projectColors.infra, "Virtual machine administration -- users, sudo, monitoring, security", 42, 7, false),
+  createProject("push_swap", "push_swap", projectColors.c, "Sorting with two stacks -- algorithms, operations, complexity", 38, 10, true),
+  createProject("pipex", "pipex", projectColors.c, "Unix pipes -- fork, execve, dup2, redirections", 35, 6, false),
+  createProject("minitalk", "minitalk", projectColors.c, "Client/server signals -- bit encoding, SIGUSR1, SIGUSR2", 28, 5, false),
+  createProject("so_long", "so_long", projectColors.c, "Small 2D game -- maps, sprites, input, MiniLibX", 31, 8, false),
+  createProject("FdF", "fdf", projectColors.c, "Wireframe renderer -- projections, parsing, MiniLibX", 27, 4, false),
+  createProject("fract-ol", "fract-ol", projectColors.c, "Fractal explorer -- complex numbers, zoom, rendering", 24, 4, false),
+  createProject("Philosophers", "philosophers", projectColors.c, "Dining philosophers -- threads, mutexes, timing", 44, 11, true),
+  createProject("minishell", "minishell", projectColors.c, "A small shell -- parsing, pipes, redirections, signals", 58, 16, true),
+  createProject("NetPractice", "netpractice", projectColors.network, "Networking basics -- subnetting, routing, TCP/IP", 33, 5, false),
+  createProject("cub3d", "cub3d", projectColors.c, "Raycasting engine -- Wolfenstein-style 3D maze", 36, 7, false),
+  createProject("miniRT", "minirt", projectColors.c, "Raytracing engine -- primitives, lighting, cameras", 22, 3, false),
+  createProject("CPP 00 - 04", "cpp-00-04", projectColors.cpp, "C++ fundamentals -- classes, memory, operators, inheritance, polymorphism", 43, 10, false),
+  createProject("CPP 05 - 09", "cpp-05-09", projectColors.cpp, "Advanced C++ practice -- exceptions, casts, templates, STL", 34, 7, false),
+  createProject("Inception", "inception", projectColors.infra, "Docker infrastructure -- WordPress, MariaDB, NGINX", 32, 6, false),
+  createProject("webserv", "webserv", projectColors.cpp, "HTTP server in C++98 -- config, CGI, methods", 41, 12, true),
+  createProject("ft_irc", "ft_irc", projectColors.cpp, "IRC server in C++98 -- channels, operators, authentication", 37, 9, true),
+  createProject("ft_transcendence", "ft_transcendence", projectColors.cpp, "Full-stack web app -- Pong, chat, auth, user management", 69, 18, true),
+  createProject("Collaborative_resume", "collaborative_resume", projectColors.docs, "Collaborative resume work -- feedback, structure, final polish", 19, 3, false),
 ];
 
 export const trendingProjects = [
@@ -74,3 +59,50 @@ export const trendingProjects = [
   { name: "ft_irc", messages: 43 },
   { name: "cub3d", messages: 29 },
 ];
+
+function createProject(
+  name: string,
+  slug: string,
+  color: string,
+  description: string,
+  members: number,
+  activeNow: number,
+  unread: boolean,
+): ProjectGridItem {
+  const readableName = name.replaceAll("_", " ");
+
+  return {
+    name,
+    slug,
+    color,
+    description,
+    members,
+    activeNow,
+    unread,
+    lastMessage: `Latest notes and questions about ${readableName}`,
+    messages: [
+      {
+        sender: "claurent",
+        initials: "cl",
+        text: `Anyone working on ${readableName} this week? Drop your blockers here.`,
+        time: "09:42",
+        daysAgo: 2,
+      },
+      {
+        sender: "jmoreau",
+        initials: "jm",
+        text: "I can share my notes after evaluation, especially the tricky edge cases.",
+        time: "10:08",
+        daysAgo: 8,
+      },
+      {
+        sender: "you",
+        initials: "me",
+        text: "Perfect, I am saving this channel for later.",
+        time: "10:15",
+        daysAgo: 18,
+        me: true,
+      },
+    ],
+  };
+}

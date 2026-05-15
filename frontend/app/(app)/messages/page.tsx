@@ -2,9 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import Avatar from "@/components/Avatar";
+import FriendsPanel from "@/components/FriendsPanel";
+import MessageComposer from "@/components/MessageComposer";
+import PanelToggleIcon from "@/components/icons/PanelToggleIcon";
 import {
   getFriendConversations,
-  getChannelConversations,
   getConversationById,
   getChatMessages,
   addChatMessage,
@@ -16,8 +18,8 @@ import type { ChatMessage, Conversation } from "@/lib/types";
 
 export default function MessagesPage() {
   const friendConvs = getFriendConversations();
-  const channelConvs = getChannelConversations();
   const { user: currentUser } = useCurrentUser();
+  const [showPanel, setShowPanel] = useState(true);
 
   const pending = getPendingConv();
   const [activeId, setActiveId] = useState<string>(
@@ -25,6 +27,7 @@ export default function MessagesPage() {
   );
   const [messages, setMessages] = useState<ChatMessage[]>(() => [...getChatMessages(pending?.id ?? friendConvs[0]?.id ?? "")]);
   const [inputText, setInputText] = useState("");
+  const [search, setSearch] = useState("");
   const [mobileView, setMobileView] = useState<"list" | "chat">(
     () => pending ? "chat" : "list",
   );
@@ -51,6 +54,15 @@ export default function MessagesPage() {
         }
       : undefined
   );
+  const filteredFriendConvs = friendConvs.filter((conv) => {
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
+
+    return (
+      conv.name.toLowerCase().includes(q) ||
+      conv.preview.toLowerCase().includes(q)
+    );
+  });
 
   // Reset messages when switching conversation
   useEffect(() => {
@@ -92,17 +104,22 @@ export default function MessagesPage() {
         <div className="border-b border-border-default px-4 pb-3.5 pt-5 md:hidden">
           <div className="text-[20px] font-semibold text-text-primary">Messages</div>
           <div className="mt-1 text-[12.5px] text-text-muted">
-            Friends and channel conversations
+            Direct messages
           </div>
         </div>
 
         {/* Search */}
-        <div className="border-b border-border-default px-4 pb-3 pt-4">
-          <div className="flex items-center gap-2 rounded-full bg-bg-hover px-[13px] py-2 text-[13px] text-text-muted">
+        <div className="flex h-[62px] items-center border-b border-border-default px-4">
+          <div className="flex w-full items-center gap-2 rounded-full bg-bg-hover px-[13px] py-2 text-[13px] text-text-muted">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
             </svg>
-            <span>Search...</span>
+            <input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              className="min-w-0 flex-1 bg-transparent text-[13px] text-text-primary outline-none placeholder:text-text-muted"
+              placeholder="Search..."
+            />
           </div>
         </div>
 
@@ -111,7 +128,7 @@ export default function MessagesPage() {
           <div className="px-4 pb-1.5 pt-3.5 text-[10.5px] font-semibold uppercase tracking-wider text-text-muted">
             Friends
           </div>
-          {friendConvs.map((c) => (
+          {filteredFriendConvs.map((c) => (
             <ConversationRow
               key={c.id}
               conv={c}
@@ -119,18 +136,12 @@ export default function MessagesPage() {
               onClick={() => selectConversation(c.id)}
             />
           ))}
+          {filteredFriendConvs.length === 0 && (
+            <div className="px-4 py-3 text-[12.5px] text-text-muted">
+              No conversation found.
+            </div>
+          )}
 
-          <div className="px-4 pb-1.5 pt-3.5 text-[10.5px] font-semibold uppercase tracking-wider text-text-muted">
-            Channels
-          </div>
-          {channelConvs.map((c) => (
-            <ConversationRow
-              key={c.id}
-              conv={c}
-              active={activeId === c.id}
-              onClick={() => selectConversation(c.id)}
-            />
-          ))}
         </div>
       </div>
 
@@ -141,18 +152,13 @@ export default function MessagesPage() {
           <ChatHeader
             conv={effectiveConv}
             onBack={() => setMobileView("list")}
+            showPanel={showPanel}
+            onTogglePanel={() => setShowPanel(!showPanel)}
           />
         )}
 
         {/* Messages */}
         <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-3 py-4 sm:px-[22px] sm:py-[22px]">
-          {/* Date sep */}
-          <div className="flex items-center gap-3 text-[11.5px] text-text-dimmed">
-            <div className="h-px flex-1 bg-border-default" />
-            <span>Today</span>
-            <div className="h-px flex-1 bg-border-default" />
-          </div>
-
           {messages.map((msg, idx) => (
             <div key={idx}>
               <div className={`mb-[5px] text-[11px] font-medium text-text-muted ${msg.me ? "pr-[39px] text-right" : "pl-[39px]"}`}>
@@ -176,37 +182,19 @@ export default function MessagesPage() {
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Input */}
-        <div className="flex items-center gap-2 border-t border-border-default bg-bg-secondary px-3 py-3 sm:gap-2.5 sm:px-[22px] sm:py-3.5">
-          <button className="hidden text-[18px] text-text-dimmed transition-colors hover:text-text-primary sm:block">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
-            </svg>
-          </button>
-          <button className="hidden text-[18px] text-text-dimmed transition-colors hover:text-text-primary sm:block">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="10" /><path d="M8 14s1.5 2 4 2 4-2 4-2" /><line x1="9" y1="9" x2="9.01" y2="9" /><line x1="15" y1="9" x2="15.01" y2="9" />
-            </svg>
-          </button>
-          <input
-            value={inputText}
-            onChange={(e) => setInputText(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") handleSend(); }}
-            className="min-w-0 flex-1 rounded-full border border-border-default bg-bg-hover px-4 py-2.5 text-[13.5px] text-text-tertiary outline-none focus:border-border-strong focus:text-text-primary"
-            placeholder="Write a message..."
-          />
-          <button
-            type="button"
-            onClick={handleSend}
-            disabled={!inputText.trim()}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-text-primary text-bg-tertiary transition-opacity hover:opacity-85 disabled:opacity-40"
-          >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="12" y1="19" x2="12" y2="5" /><polyline points="5 12 12 5 19 12" />
-            </svg>
-          </button>
-        </div>
+        <MessageComposer
+          value={inputText}
+          onChange={setInputText}
+          onSend={handleSend}
+          placeholder="Write a message..."
+        />
       </div>
+
+      {showPanel && (
+        <div className="hidden w-[260px] shrink-0 xl:flex">
+          <FriendsPanel />
+        </div>
+      )}
     </>
   );
 }
@@ -228,21 +216,7 @@ function ConversationRow({
         active ? "bg-bg-hover" : ""
       }`}
     >
-      {conv.type === "friend" ? (
-        <div className="relative">
-          <Avatar initials={conv.initials!} avatarUrl={conv.avatarUrl} size="lg" />
-          {conv.online && (
-            <div className="absolute bottom-0 right-0 h-2 w-2 rounded-full border-2 border-bg-secondary bg-accent-green" />
-          )}
-          {conv.away && (
-            <div className="absolute bottom-0 right-0 h-2 w-2 rounded-full border-2 border-bg-hover bg-away" />
-          )}
-        </div>
-      ) : (
-        <div className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[9px] border border-border-default bg-bg-hover text-[17px]">
-          <ChannelIcon icon={conv.icon} />
-        </div>
-      )}
+      <Avatar initials={conv.initials!} avatarUrl={conv.avatarUrl} size="lg" />
       <div className="min-w-0 flex-1">
         <div className="truncate text-[13.5px] font-medium md:text-[13px]">{conv.name}</div>
         <div className="mt-0.5 truncate text-[12.5px] text-text-muted md:text-[12px]">{conv.preview}</div>
@@ -262,12 +236,16 @@ function ConversationRow({
 function ChatHeader({
   conv,
   onBack,
+  showPanel,
+  onTogglePanel,
 }: {
   conv: Conversation;
   onBack: () => void;
+  showPanel: boolean;
+  onTogglePanel: () => void;
 }) {
   return (
-    <div className="flex items-center gap-3 border-b border-border-default bg-bg-secondary px-4 py-3.5 sm:px-[22px]">
+    <div className="flex h-[62px] items-center gap-3 border-b border-border-default bg-bg-secondary px-4 sm:px-[22px]">
       <button
         type="button"
         onClick={onBack}
@@ -279,68 +257,24 @@ function ChatHeader({
           <polyline points="12 19 5 12 12 5" />
         </svg>
       </button>
-      {conv.type === "friend" ? (
-        <div className="relative">
-          <Avatar initials={conv.initials!} avatarUrl={conv.avatarUrl} size="lg" />
-          {conv.online && (
-            <div className="absolute bottom-[1px] right-[1px] h-[9px] w-[9px] rounded-full border-2 border-bg-secondary bg-accent-green" />
-          )}
-          {conv.away && (
-            <div className="absolute bottom-[1px] right-[1px] h-[9px] w-[9px] rounded-full border-2 border-bg-secondary bg-away" />
-          )}
-        </div>
-      ) : (
-        <div className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[9px] border border-border-default bg-bg-hover text-[17px]">
-          <ChannelIcon icon={conv.icon} />
-        </div>
-      )}
+      <Avatar initials={conv.initials!} avatarUrl={conv.avatarUrl} size="lg" />
       <div className="min-w-0">
         <div className="truncate text-[14px] font-medium">{conv.name}</div>
         <div className="mt-0.5 truncate text-[12px] text-text-muted">
-          {conv.type === "friend" ? (
-            <>
-              {conv.online ? "Online" : conv.away ? "Away" : "Offline"}
-              {conv.level !== undefined && ` · Level ${conv.level}`}
-            </>
-          ) : (
-            <>{conv.memberCount ?? 0} members</>
-          )}
+          {conv.online ? "Online" : conv.away ? "Away" : "Offline"}
+          {conv.level !== undefined && ` · Level ${conv.level}`}
         </div>
       </div>
-      <div className="ml-auto hidden gap-1.5 sm:flex">
-        <button className="flex h-8 w-8 items-center justify-center rounded-[7px] text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
-          </svg>
-        </button>
-        <button className="flex h-8 w-8 items-center justify-center rounded-[7px] text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /><circle cx="5" cy="12" r="1" />
-          </svg>
-        </button>
-      </div>
+      <button
+        type="button"
+        onClick={onTogglePanel}
+        className={`ml-auto hidden items-center rounded-[5px] p-1 transition-colors hover:bg-bg-hover hover:text-text-primary xl:flex ${
+          showPanel ? "text-text-dimmed" : "bg-bg-hover text-text-primary"
+        }`}
+        title="Toggle panel"
+      >
+        <PanelToggleIcon className="h-5 w-5" />
+      </button>
     </div>
   );
-}
-
-function ChannelIcon({ icon }: { icon?: string }) {
-  const props = { width: 17, height: 17, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
-  switch (icon) {
-    case "camera":
-      return <svg {...props}><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" /><circle cx="12" cy="13" r="4" /></svg>;
-    case "clock":
-      return <svg {...props}><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></svg>;
-    case "gamepad":
-      return <svg {...props}><rect x="2" y="6" width="20" height="12" rx="2" /><line x1="6" y1="12" x2="6" y2="12" /><line x1="10" y1="12" x2="10" y2="12" /></svg>;
-    case "grid":
-      return <svg {...props}><rect x="3" y="3" width="18" height="18" rx="2" /><line x1="3" y1="9" x2="21" y2="9" /><line x1="9" y1="3" x2="9" y2="21" /></svg>;
-    case "music":
-      return <svg {...props}><path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" /></svg>;
-    case "lock":
-      return <svg {...props}><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>;
-    case "bulb":
-      return <svg {...props}><path d="M12 2a4 4 0 0 1 4 4c0 2-2 3-2 5h-4c0-2-2-3-2-5a4 4 0 0 1 4-4z" /><line x1="10" y1="15" x2="14" y2="15" /><line x1="10" y1="18" x2="14" y2="18" /></svg>;
-    default:
-      return <svg {...props}><circle cx="12" cy="12" r="10" /></svg>;
-  }
 }

@@ -44,74 +44,6 @@ export const friendConversations: Conversation[] = [
   },
 ];
 
-export const channelConversations: Conversation[] = [
-  {
-    id: "ch-photography",
-    type: "channel",
-    name: "Photography",
-    preview: "tmercier: nice shot this morning",
-    time: "11:05",
-    unread: 5,
-    icon: "camera",
-    memberCount: 23,
-  },
-  {
-    id: "ch-cycling",
-    type: "channel",
-    name: "Cycling",
-    preview: "Ride Saturday 8am, who's in?",
-    time: "08:30",
-    icon: "clock",
-    memberCount: 14,
-  },
-  {
-    id: "ch-gaming",
-    type: "channel",
-    name: "Gaming",
-    preview: "nfaure: who's playing tonight?",
-    time: "yesterday",
-    unread: 3,
-    icon: "gamepad",
-    memberCount: 41,
-  },
-  {
-    id: "ch-chess",
-    type: "channel",
-    name: "Chess",
-    preview: "Internal tournament on Friday!",
-    time: "Mon",
-    icon: "grid",
-    memberCount: 19,
-  },
-  {
-    id: "ch-music",
-    type: "channel",
-    name: "Music",
-    preview: "aroussea: anyone play piano?",
-    time: "Mon",
-    icon: "music",
-    memberCount: 27,
-  },
-  {
-    id: "ch-cyber",
-    type: "channel",
-    name: "Cyber",
-    preview: "New CTF this weekend!",
-    time: "Mon",
-    icon: "lock",
-    memberCount: 33,
-  },
-  {
-    id: "ch-ai",
-    type: "channel",
-    name: "AI",
-    preview: "abestaev: have you tried o3?",
-    time: "Mon",
-    icon: "bulb",
-    memberCount: 56,
-  },
-];
-
 export const chatMessages: Record<string, ChatMessage[]> = {
   "fr-svidal": [
     {
@@ -156,63 +88,6 @@ export const chatMessages: Record<string, ChatMessage[]> = {
       initials: "ar",
       text: "GG on your level up!",
       time: "yesterday",
-    },
-  ],
-  "ch-photography": [
-    {
-      sender: "tmercier",
-      initials: "tm",
-      text: "nice shot this morning",
-      time: "11:05",
-    },
-  ],
-  "ch-cycling": [
-    {
-      sender: "lmartin",
-      initials: "lm",
-      text: "Ride Saturday 8am, who's in?",
-      time: "08:30",
-    },
-  ],
-  "ch-gaming": [
-    {
-      sender: "nfaure",
-      initials: "nf",
-      text: "who's playing tonight?",
-      time: "yesterday",
-    },
-  ],
-  "ch-chess": [
-    {
-      sender: "claurent",
-      initials: "cl",
-      text: "Internal tournament on Friday!",
-      time: "Mon",
-    },
-  ],
-  "ch-music": [
-    {
-      sender: "aroussea",
-      initials: "ar",
-      text: "anyone play piano?",
-      time: "Mon",
-    },
-  ],
-  "ch-cyber": [
-    {
-      sender: "svidal",
-      initials: "sv",
-      text: "New CTF this weekend!",
-      time: "Mon",
-    },
-  ],
-  "ch-ai": [
-    {
-      sender: "abestaev",
-      initials: "ab",
-      text: "have you tried o3?",
-      time: "Mon",
-      me: true,
     },
   ],
 };

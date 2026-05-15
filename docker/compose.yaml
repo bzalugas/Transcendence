@@ -2,6 +2,7 @@ services:
   front:
     image: transcendence_front
     container_name: transcendence_front
+    pull_policy: build
     build:
       context: ../frontend/
       target: prod
@@ -11,6 +12,7 @@ services:
   api:
     image: transcendence_api
     container_name: transcendence_api
+    pull_policy: build
     build:
       context: ../backend/api/
       target: prod
@@ -24,6 +26,7 @@ services:
   db:
     image: transcendence_db
     container_name: transcendence_db
+    pull_policy: build
     build: ../backend/db/
     env_file: .env
     restart: always

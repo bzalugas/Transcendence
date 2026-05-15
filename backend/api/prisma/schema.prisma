@@ -112,6 +112,19 @@ model Channel {
   //tags        Interest[]            // supprimé
 }
 
+model Project {
+  id          Int      @id @default(autoincrement())
+  slug        String   @unique
+  name        String
+  color       String
+  description String
+  sortOrder   Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([sortOrder])
+}
+
 model User_Channel {
   userId     String
   channelId  Int

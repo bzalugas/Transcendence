@@ -9,5 +9,6 @@ done
 echo "✅ PostgreSQL is ready"
 
 bunx prisma migrate deploy
+bunx prisma db seed
 
 exec "$@"

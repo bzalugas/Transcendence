@@ -243,16 +243,6 @@ export default function SuggestionsPage() {
           placeholder="Search a profile by name or interest..."
         />
 
-        {sentRequests.length > 0 && (
-          <div className="mb-[22px] xl:hidden">
-            <SentRequestsList
-              requests={sentRequests}
-              cancelingIds={cancelingRequests}
-              onCancel={cancelRequest}
-            />
-          </div>
-        )}
-
         {/* Cards grid */}
         {suggestionsLoading ? (
           <div className="rounded-xl border border-border-default bg-bg-secondary p-[18px] text-[13px] italic text-text-dimmed">
@@ -333,6 +323,16 @@ export default function SuggestionsPage() {
             </div>
           ))}
         </div>
+        )}
+
+        {sentRequests.length > 0 && (
+          <div className="mt-[22px] xl:hidden">
+            <SentRequestsList
+              requests={sentRequests}
+              cancelingIds={cancelingRequests}
+              onCancel={cancelRequest}
+            />
+          </div>
         )}
       </div>
 

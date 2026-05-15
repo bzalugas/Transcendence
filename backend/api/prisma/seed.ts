@@ -27,6 +27,14 @@ type SeedPost = {
   }>;
 };
 
+type SeedProject = {
+  name: string;
+  slug: string;
+  color: string;
+  description: string;
+  sortOrder: number;
+};
+
 const users: SeedUser[] = [
   {
     firstName: 'Alice',
@@ -365,6 +373,41 @@ const interests = [
   },
 ];
 
+const projectColors = {
+  c: '#2B9E8F',
+  cpp: '#7F77DD',
+  infra: '#C8870A',
+  network: '#667085',
+  docs: '#21A67A',
+};
+
+let projectSortOrder = 0;
+
+const projects: SeedProject[] = [
+  createSeedProject('Libft', 'libft', projectColors.c, 'Your own C library -- strings, memory, lists'),
+  createSeedProject('get_next_line', 'get_next_line', projectColors.c, 'Read files line by line -- buffers, static state, file descriptors'),
+  createSeedProject('ft_printf', 'ft_printf', projectColors.c, 'Recreate printf -- variadic functions, formatting, conversions'),
+  createSeedProject('Born2beroot', 'born2beroot', projectColors.infra, 'Virtual machine administration -- users, sudo, monitoring, security'),
+  createSeedProject('push_swap', 'push_swap', projectColors.c, 'Sorting with two stacks -- algorithms, operations, complexity'),
+  createSeedProject('pipex', 'pipex', projectColors.c, 'Unix pipes -- fork, execve, dup2, redirections'),
+  createSeedProject('minitalk', 'minitalk', projectColors.c, 'Client/server signals -- bit encoding, SIGUSR1, SIGUSR2'),
+  createSeedProject('so_long', 'so_long', projectColors.c, 'Small 2D game -- maps, sprites, input, MiniLibX'),
+  createSeedProject('FdF', 'fdf', projectColors.c, 'Wireframe renderer -- projections, parsing, MiniLibX'),
+  createSeedProject('fract-ol', 'fract-ol', projectColors.c, 'Fractal explorer -- complex numbers, zoom, rendering'),
+  createSeedProject('Philosophers', 'philosophers', projectColors.c, 'Dining philosophers -- threads, mutexes, timing'),
+  createSeedProject('minishell', 'minishell', projectColors.c, 'A small shell -- parsing, pipes, redirections, signals'),
+  createSeedProject('NetPractice', 'netpractice', projectColors.network, 'Networking basics -- subnetting, routing, TCP/IP'),
+  createSeedProject('cub3d', 'cub3d', projectColors.c, 'Raycasting engine -- Wolfenstein-style 3D maze'),
+  createSeedProject('miniRT', 'minirt', projectColors.c, 'Raytracing engine -- primitives, lighting, cameras'),
+  createSeedProject('CPP 00 - 04', 'cpp-00-04', projectColors.cpp, 'C++ fundamentals -- classes, memory, operators, inheritance, polymorphism'),
+  createSeedProject('CPP 05 - 09', 'cpp-05-09', projectColors.cpp, 'Advanced C++ practice -- exceptions, casts, templates, STL'),
+  createSeedProject('Inception', 'inception', projectColors.infra, 'Docker infrastructure -- WordPress, MariaDB, NGINX'),
+  createSeedProject('webserv', 'webserv', projectColors.cpp, 'HTTP server in C++98 -- config, CGI, methods'),
+  createSeedProject('ft_irc', 'ft_irc', projectColors.cpp, 'IRC server in C++98 -- channels, operators, authentication'),
+  createSeedProject('ft_transcendence', 'ft_transcendence', projectColors.cpp, 'Full-stack web app -- Pong, chat, auth, user management'),
+  createSeedProject('Collaborative_resume', 'collaborative_resume', projectColors.docs, 'Collaborative resume work -- feedback, structure, final polish'),
+];
+
 const samplePosts: SeedPost[] = [
   {
     channelName: 'Cycling',
@@ -607,6 +650,10 @@ async function main() {
     await upsertInterestWithChannel(seedInterest);
   }
 
+  for (const seedProject of projects) {
+    await upsertProject(seedProject);
+  }
+
   for (const seedUser of users) {
     await seedJoinedInterests(seedUser);
   }
@@ -713,6 +760,19 @@ async function upsertInterestWithChannel(
     },
     update: {
       description: seedInterest.description,
+    },
+  });
+}
+
+async function upsertProject(seedProject: SeedProject) {
+  await prisma.project.upsert({
+    where: { slug: seedProject.slug },
+    create: seedProject,
+    update: {
+      name: seedProject.name,
+      color: seedProject.color,
+      description: seedProject.description,
+      sortOrder: seedProject.sortOrder,
     },
   });
 }
@@ -900,7 +960,14 @@ function validateSeedData() {
     );
   }
 
+  if (projects.length !== 22) {
+    throw new Error(
+      `Seed must contain exactly 22 projects, found ${projects.length}`,
+    );
+  }
+
   validateSeededUsers();
+  validateSeededProjects();
   validateSeededPosts();
   validateSeededFriendships();
 }
@@ -966,6 +1033,30 @@ function validateSeededPosts() {
         `Seeded channel has more than 5 root posts: ${channelName}`,
       );
     }
+  }
+}
+
+function validateSeededProjects() {
+  const names = new Set<string>();
+  const slugs = new Set<string>();
+  const sortOrders = new Set<number>();
+
+  for (const project of projects) {
+    if (names.has(project.name)) {
+      throw new Error(`Duplicate seeded project name: ${project.name}`);
+    }
+
+    if (slugs.has(project.slug)) {
+      throw new Error(`Duplicate seeded project slug: ${project.slug}`);
+    }
+
+    if (sortOrders.has(project.sortOrder)) {
+      throw new Error(`Duplicate seeded project order: ${project.sortOrder}`);
+    }
+
+    names.add(project.name);
+    slugs.add(project.slug);
+    sortOrders.add(project.sortOrder);
   }
 }
 
@@ -1099,6 +1190,21 @@ function randomSeedPostDate(after?: Date): Date {
   const timestamp = earliest + Math.random() * (latest - earliest);
 
   return new Date(timestamp);
+}
+
+function createSeedProject(
+  name: string,
+  slug: string,
+  color: string,
+  description: string,
+): SeedProject {
+  return {
+    name,
+    slug,
+    color,
+    description,
+    sortOrder: projectSortOrder++,
+  };
 }
 
 main()

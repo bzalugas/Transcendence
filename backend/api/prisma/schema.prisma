@@ -10,36 +10,36 @@ datasource db {
 // Data Models
 
 model User {
-  id             String          @id
-  email          String          @unique
-  login          String?         @unique
-  role           UserRole        @default(USER)
-  profile        Profile? /// regroupe les attributs facultatifs
-  channels       User_Channel[] // explicit N-N relation via User_Channel
-  chats          Chat[] // implicit N-N relation: a User_Chat model/table will be inferred/generated
-  notifs         Notification[]
-  posts          Post[]
-  messages       Message[]
-  projectMessages ProjectMessage[]
-  reactions      Reaction[] /// reactions to posts
-  interests      User_Interest[]
-  friendsReqSent FriendRequest[] @relation(name: "sent")
-  friendsReqRecv FriendRequest[] @relation(name: "received")
-  players        Player[]
-  name           String?
+  id               String            @id
+  email            String            @unique
+  login            String?           @unique
+  role             UserRole          @default(USER)
+  profile          Profile? /// regroupe les attributs facultatifs
+  channels         User_Channel[] // explicit N-N relation via User_Channel
+  chats            Chat[] // implicit N-N relation: a User_Chat model/table will be inferred/generated
+  notifs           Notification[]
+  posts            Post[]
+  messages         Message[]
+  projectMessages  ProjectMessage[]
+  reactions        Reaction[] /// reactions to posts
+  interests        User_Interest[]
+  friendsReqSent   FriendRequest[]   @relation(name: "sent")
+  friendsReqRecv   FriendRequest[]   @relation(name: "received")
+  players          Player[]
+  name             String?
   bannedAt         DateTime?
   moderationReason String?
-  emailVerified  Boolean         @default(false)
-  image          String?
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  sessions       Session[]
-  accounts       Account[]
-  files          FileAsset[]
-  dataRequests      DataRequest[]
+  emailVerified    Boolean           @default(false)
+  image            String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  sessions         Session[]
+  accounts         Account[]
+  files            FileAsset[]
+  dataRequests     DataRequest[]
   interestRequests InterestRequest[]
-  blockedUsers      BlockedUser[] @relation("blockedBy")
-  blockedByUsers    BlockedUser[] @relation("blockedUsers")
+  blockedUsers     BlockedUser[]     @relation("blockedBy")
+  blockedByUsers   BlockedUser[]     @relation("blockedUsers")
 
   @@map("user")
 }
@@ -140,6 +140,7 @@ model Channel {
   interest    Interest       @relation(name: "mainInterest", fields: [interestId], references: [id])
   posts       Post[]
   users       User_Channel[]
+  chat        Chat?
   //imageUri    String?               // déplacé dans Interest
   //title       String      @unique   // supprimé  (redondant avec Interest.name)
   //tags        Interest[]            // supprimé
@@ -245,23 +246,25 @@ model Attachment {
 }
 
 model Chat {
-  id       Int       @id @default(autoincrement())
-  name     String
-  type     ChatType
-  messages Message[]
-  users    User[]
+  id        Int       @id @default(autoincrement())
+  name      String
+  type      ChatType
+  channelId Int?      @unique
+  channel   Channel?  @relation(fields: [channelId], references: [id], onDelete: SetNull)
+  messages  Message[]
+  users     User[]
 }
 
 model Message {
-  id        Int            @id @default(autoincrement())
-  createdAt DateTime       @default(now())
-  content   String
-  type      MessageType    @default(Normal)
-  senderId  String
-  chatId    Int
-  sender    User           @relation(fields: [senderId], references: [id])
-  chat      Chat           @relation(fields: [chatId], references: [id])
-  notifs    Notification[]
+  id          Int            @id @default(autoincrement())
+  createdAt   DateTime       @default(now())
+  content     String
+  type        MessageType    @default(Normal)
+  senderId    String
+  chatId      Int
+  sender      User           @relation(fields: [senderId], references: [id])
+  chat        Chat           @relation(fields: [chatId], references: [id])
+  notifs      Notification[]
   attachments Attachment[]
 }
 

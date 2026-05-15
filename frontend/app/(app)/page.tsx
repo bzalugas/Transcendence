@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Post from "@/components/Post";
 import FriendsPanel from "@/components/FriendsPanel";
 import PanelToggleIcon from "@/components/icons/PanelToggleIcon";
 import { getHomeFeed, type HomePostFeedItem } from "@/lib/data/feed";
 import { listenForChannelsUpdated } from "@/lib/data/channel-events";
+import { appendUniqueComment } from "@/lib/data/comments";
 import { useCurrentUser } from "@/lib/data/auth";
 import {
   createChannelReply,
@@ -25,6 +26,25 @@ export default function HomePage() {
   const [loadingFeed, setLoadingFeed] = useState(true);
   const [feedError, setFeedError] = useState("");
   const { user: currentUser } = useCurrentUser();
+
+  const appendCommentToFeed = useCallback(
+    (postId: string, comment: Comment) => {
+      setFeed((items) =>
+        items.map((item) =>
+          item.post.id === postId
+            ? {
+                ...item,
+                post: {
+                  ...item.post,
+                  comments: appendUniqueComment(item.post.comments, comment),
+                },
+              }
+            : item,
+        ),
+      );
+    },
+    [],
+  );
 
   useEffect(() => {
     let active = true;
@@ -96,7 +116,7 @@ export default function HomePage() {
         leaveChannelRealtime(slug);
       }
     };
-  }, []);
+  }, [appendCommentToFeed]);
 
   function removePostFromFeed(postId: string) {
     setFeed((items) => items.filter((item) => item.post.id !== postId));
@@ -134,22 +154,6 @@ export default function HomePage() {
     const comment = await createChannelReply(channelSlug, postId, replyBody);
     appendCommentToFeed(postId, comment);
     return comment;
-  }
-
-  function appendCommentToFeed(postId: string, comment: Comment) {
-    setFeed((items) =>
-      items.map((item) =>
-        item.post.id === postId
-          ? {
-              ...item,
-              post: {
-                ...item.post,
-                comments: appendComment(item.post.comments, comment),
-              },
-            }
-          : item,
-      ),
-    );
   }
 
   //   IF NOT LOGGED -> REDIRECT TO SIGN IN SIGN UP
@@ -224,12 +228,4 @@ export default function HomePage() {
 
 function postTimestamp(item: HomePostFeedItem): number {
   return item.post.createdAt ? new Date(item.post.createdAt).getTime() : 0;
-}
-
-function appendComment(comments: Comment[], comment: Comment): Comment[] {
-  if (comment.id && comments.some((candidate) => candidate.id === comment.id)) {
-    return comments;
-  }
-
-  return [...comments, comment];
 }

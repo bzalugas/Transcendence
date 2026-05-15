@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Avatar from "@/components/Avatar";
 import FriendsPanel from "@/components/FriendsPanel";
 import MessageComposer from "@/components/MessageComposer";
@@ -129,6 +129,44 @@ export default function MessagesPage() {
         : undefined),
     [activeConv, activeId, pending],
   );
+  const effectiveConvId = effectiveConv?.id;
+  const effectiveConvType = effectiveConv?.type;
+  const effectiveConvName = effectiveConv?.name;
+  const effectiveConvInitials = effectiveConv?.initials;
+  const effectiveConvAvatarUrl = effectiveConv?.avatarUrl;
+  const effectiveConvLevel = effectiveConv?.level;
+  const effectiveConvOtherUserId = effectiveConv?.otherUserId;
+  const effectiveConvChannelSlug = effectiveConv?.channelSlug;
+  const effectiveConvChannelColor = effectiveConv?.channelColor;
+  const messageLoadConversation: Conversation | undefined = useMemo(() => {
+    if (!effectiveConvId || !effectiveConvType || !effectiveConvName) {
+      return undefined;
+    }
+
+    return {
+      id: effectiveConvId,
+      type: effectiveConvType,
+      name: effectiveConvName,
+      initials: effectiveConvInitials,
+      avatarUrl: effectiveConvAvatarUrl,
+      level: effectiveConvLevel,
+      otherUserId: effectiveConvOtherUserId,
+      channelSlug: effectiveConvChannelSlug,
+      channelColor: effectiveConvChannelColor,
+      preview: "",
+      time: "",
+    };
+  }, [
+    effectiveConvAvatarUrl,
+    effectiveConvChannelColor,
+    effectiveConvChannelSlug,
+    effectiveConvId,
+    effectiveConvInitials,
+    effectiveConvLevel,
+    effectiveConvName,
+    effectiveConvOtherUserId,
+    effectiveConvType,
+  ]);
   const filteredFriendConvs = friendConvs.filter((conv) => {
     const q = search.trim().toLowerCase();
     if (!q) return true;
@@ -152,17 +190,84 @@ export default function MessagesPage() {
     0,
   );
 
+  const updateConversationPreview = useCallback(
+    (
+      conversationId: string,
+      chatType: "Private" | "Interest" | "Group",
+      senderId: string,
+      preview: string,
+      createdAt: string,
+      options: { incrementUnread?: boolean } = {},
+    ) => {
+      const date = new Date(createdAt);
+      const time = Number.isNaN(date.getTime())
+        ? ""
+        : `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+
+      setFriendConvs((conversations) =>
+        sortConversationsByActivity(
+          conversations.map((conversation) =>
+            chatType === "Private" &&
+            isFriendConversationForMessage(
+              conversation,
+              conversationId,
+              senderId,
+            )
+              ? {
+                  ...conversation,
+                  id: conversationId,
+                  preview,
+                  time,
+                  lastMessageAt: createdAt,
+                  unread: options.incrementUnread
+                    ? (conversation.unread ?? 0) + 1
+                    : conversation.unread,
+                }
+              : conversation,
+          ),
+        ),
+      );
+      setChannelConvs((conversations) =>
+        sortConversationsByActivity(
+          conversations.map((conversation) =>
+            chatType === "Interest" && conversation.id === conversationId
+              ? {
+                  ...conversation,
+                  preview,
+                  time,
+                  lastMessageAt: createdAt,
+                  unread: options.incrementUnread
+                    ? (conversation.unread ?? 0) + 1
+                    : conversation.unread,
+                }
+              : conversation,
+          ),
+        ),
+      );
+    },
+    [],
+  );
+
   useEffect(() => {
-    if (!effectiveConv) {
-      setMessages([]);
-      return;
+    let active = true;
+    const selectedConversation = messageLoadConversation;
+
+    if (!selectedConversation) {
+      queueMicrotask(() => {
+        if (active) setMessages([]);
+      });
+      return () => {
+        active = false;
+      };
     }
 
-    let active = true;
-    setMessagesLoading(true);
-    setChatError(null);
+    queueMicrotask(() => {
+      if (!active) return;
+      setMessagesLoading(true);
+      setChatError(null);
+    });
 
-    getChatMessages(effectiveConv, currentUser?.id)
+    getChatMessages(selectedConversation, currentUser?.id)
       .then(({ conversation, messages: nextMessages }) => {
         if (!active) return;
         setMessages(nextMessages);
@@ -172,7 +277,8 @@ export default function MessagesPage() {
         void markChatRead(conversation.id);
         setFriendConvs((conversations) =>
           conversations.map((candidate) =>
-            effectiveConv.type === "friend" && candidate.id === effectiveConv.id
+            selectedConversation.type === "friend" &&
+            candidate.id === selectedConversation.id
               ? {
                   ...candidate,
                   id: conversation.id,
@@ -184,8 +290,8 @@ export default function MessagesPage() {
         );
         setChannelConvs((conversations) =>
           conversations.map((candidate) =>
-            effectiveConv.type === "channel" &&
-            candidate.id === effectiveConv.id
+            selectedConversation.type === "channel" &&
+            candidate.id === selectedConversation.id
               ? {
                   ...candidate,
                   id: conversation.id,
@@ -207,7 +313,10 @@ export default function MessagesPage() {
     return () => {
       active = false;
     };
-  }, [currentUser?.id, effectiveConv?.id, effectiveConv?.type]);
+  }, [
+    currentUser?.id,
+    messageLoadConversation,
+  ]);
 
   useEffect(() => {
     const initialMessage = pendingInitialMessageRef.current.trim();
@@ -271,7 +380,7 @@ export default function MessagesPage() {
         incrementUnreadMessageCount(messageChatId);
       }
     }, setChatError);
-  }, [currentUser?.id]);
+  }, [currentUser?.id, updateConversationPreview]);
 
   // Scroll to bottom on new message
   useEffect(() => {
@@ -322,57 +431,6 @@ export default function MessagesPage() {
       clearUnreadMessageCount(conversation.id);
       void markChatRead(conversation.id);
     }
-  }
-
-  function updateConversationPreview(
-    conversationId: string,
-    chatType: "Private" | "Interest" | "Group",
-    senderId: string,
-    preview: string,
-    createdAt: string,
-    options: { incrementUnread?: boolean } = {},
-  ) {
-    const date = new Date(createdAt);
-    const time = Number.isNaN(date.getTime())
-      ? ""
-      : `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
-
-    setFriendConvs((conversations) =>
-      sortConversationsByActivity(
-        conversations.map((conversation) =>
-          chatType === "Private" &&
-          isFriendConversationForMessage(conversation, conversationId, senderId)
-            ? {
-                ...conversation,
-                id: conversationId,
-                preview,
-                time,
-                lastMessageAt: createdAt,
-                unread: options.incrementUnread
-                  ? (conversation.unread ?? 0) + 1
-                  : conversation.unread,
-              }
-            : conversation,
-        ),
-      ),
-    );
-    setChannelConvs((conversations) =>
-      sortConversationsByActivity(
-        conversations.map((conversation) =>
-          chatType === "Interest" && conversation.id === conversationId
-            ? {
-                ...conversation,
-                preview,
-                time,
-                lastMessageAt: createdAt,
-                unread: options.incrementUnread
-                  ? (conversation.unread ?? 0) + 1
-                  : conversation.unread,
-              }
-            : conversation,
-        ),
-      ),
-    );
   }
 
   function clearConversationUnread(

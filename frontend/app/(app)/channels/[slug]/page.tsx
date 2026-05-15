@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import { use, useCallback, useEffect, useState } from "react";
 import { notFound, useRouter } from "next/navigation";
 import Post from "@/components/Post";
 import ChannelHeader from "@/components/channel/ChannelHeader";
@@ -21,6 +21,7 @@ import {
   subscribeToChannelPosts,
   subscribeToChannelReplies,
 } from "@/lib/data/channels";
+import { appendUniqueComment } from "@/lib/data/comments";
 import { useCurrentUser } from "@/lib/data/auth";
 import type {
   Channel,
@@ -44,6 +45,25 @@ export default function ChannelPage({ params }: ChannelPageProps) {
   const [members, setMembers] = useState<ChannelMember[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [panelOpen, setPanelOpen] = useState(true);
+
+  const appendCommentToFeed = useCallback(
+    (postId: string, comment: Comment) => {
+      setFeed((items) =>
+        items.map((item) =>
+          item.kind === "post" && item.post.id === postId
+            ? {
+                kind: "post",
+                post: {
+                  ...item.post,
+                  comments: appendUniqueComment(item.post.comments, comment),
+                },
+              }
+            : item,
+        ),
+      );
+    },
+    [],
+  );
 
   // Reset feed when navigating to a different channel
   useEffect(() => {
@@ -81,7 +101,7 @@ export default function ChannelPage({ params }: ChannelPageProps) {
     return () => {
       active = false;
     };
-  }, [slug]);
+  }, [slug, currentUser]);
 
   useEffect(() => {
     joinChannelRealtime(slug);
@@ -112,7 +132,7 @@ export default function ChannelPage({ params }: ChannelPageProps) {
       unsubscribeReplies();
       leaveChannelRealtime(slug);
     };
-  }, [slug]);
+  }, [slug, appendCommentToFeed]);
 
   if (loaded && !channel) notFound();
 
@@ -166,22 +186,6 @@ export default function ChannelPage({ params }: ChannelPageProps) {
     const comment = await createChannelReply(slug, postId, replyBody);
     appendCommentToFeed(postId, comment);
     return comment;
-  }
-
-  function appendCommentToFeed(postId: string, comment: Comment) {
-    setFeed((items) =>
-      items.map((item) =>
-        item.kind === "post" && item.post.id === postId
-          ? {
-              kind: "post",
-              post: {
-                ...item.post,
-                comments: appendComment(item.post.comments, comment),
-              },
-            }
-          : item,
-      ),
-    );
   }
 
   async function refreshChannelVisibility() {
@@ -252,12 +256,4 @@ export default function ChannelPage({ params }: ChannelPageProps) {
       )}
     </>
   );
-}
-
-function appendComment(comments: Comment[], comment: Comment): Comment[] {
-  if (comment.id && comments.some((candidate) => candidate.id === comment.id)) {
-    return comments;
-  }
-
-  return [...comments, comment];
 }

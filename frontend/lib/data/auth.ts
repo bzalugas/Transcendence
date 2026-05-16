@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { createContext, createElement, useContext, useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import { authClient } from "@/lib/auth-client";
 import { API_BASE_URL } from "@/lib/api-url";
 import type { ProfileSocial, User } from "@/lib/types";
@@ -23,6 +24,18 @@ type BetterAuthSessionUser = {
   socials?: ProfileSocial[] | null;
 };
 
+const CurrentUserContext = createContext<User | null>(null);
+
+export function CurrentUserProvider({
+  user,
+  children,
+}: {
+  user: User;
+  children: ReactNode;
+}) {
+  return createElement(CurrentUserContext.Provider, { value: user }, children);
+}
+
 // Reads the better-auth session and exposes the logged-in user in the app's User shape.
 export function useCurrentUser(): {
   user: User | null;
@@ -30,16 +43,19 @@ export function useCurrentUser(): {
   isAuthenticated: boolean;
   isBanned: boolean;
 } {
+  const initialUser = useContext(CurrentUserContext);
   const session = authClient.useSession();
   const sessionUser = session.data?.user as BetterAuthSessionUser | undefined;
-  const sessionUserId = sessionUser?.id;
-  const [profileUser, setProfileUser] = useState<User | null>(null);
+  const sessionUserId = sessionUser?.id ?? initialUser?.id;
+  const [profileUser, setProfileUser] = useState<User | null>(initialUser);
   const [isProfilePending, setIsProfilePending] = useState(false);
   const [profileFailedUserId, setProfileFailedUserId] = useState<string | null>(null);
   const [isBanned, setIsBanned] = useState(false);
 
   useEffect(() => {
     if (!sessionUserId) {
+      if (session.isPending) return;
+
       queueMicrotask(() => {
         setProfileUser(null);
         setProfileFailedUserId(null);
@@ -102,7 +118,7 @@ export function useCurrentUser(): {
       window.removeEventListener("focus", revalidateProfile);
       document.removeEventListener("visibilitychange", revalidateProfile);
     };
-  }, [sessionUserId]);
+  }, [sessionUserId, session.isPending]);
 
   const user = profileUser;
   const isResolvingProfile =
@@ -112,7 +128,7 @@ export function useCurrentUser(): {
 
   return {
     user,
-    isPending: session.isPending || isResolvingProfile,
+    isPending: !profileUser && (session.isPending || isResolvingProfile),
     isAuthenticated: Boolean(user),
     isBanned,
   };

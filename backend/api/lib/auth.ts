@@ -17,9 +17,9 @@ const ADMIN_EMAILS = [
 const apiBaseUrl =
   process.env.BETTER_AUTH_URL ??
   process.env.NEXT_PUBLIC_API_URL ??
-  "http://localhost:3000";
+  "https://localhost";
 const frontendBaseUrl =
-  process.env.NEXT_PUBLIC_FRONTEND_URL ?? "http://localhost:8080";
+  process.env.NEXT_PUBLIC_FRONTEND_URL ?? "https://localhost";
 const fortyTwoRedirectUri =
   process.env.FORTY_TWO_REDIRECT_URI ??
   `${apiBaseUrl.replace(/\/+$/, "")}/api/auth/oauth2/callback/42school`;
@@ -27,8 +27,6 @@ const trustedOrigins = Array.from(
   new Set([
     frontendBaseUrl,
     "https://localhost",
-    "http://localhost",
-    "http://localhost:8080",
   ]),
 );
 

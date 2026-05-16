@@ -1,4 +1,4 @@
-# Development And Runtime Guide
+# Development and Runtime Guide
 
 ## Prerequisites
 
@@ -124,7 +124,7 @@ make dev-build
 make dev-logs
 make dev-down
 make dev-down-v
-make dev-recreate-one service=< container >
+make dev-recreate-one service=<container>
 ```
 
 On SELinux-enabled systems (Fedora), bind mounts use the `:z` option so containers can read project files.
@@ -192,7 +192,7 @@ For VS Code:
 
 ## Notes
 
-- The frontend production build is served with `next start` on port `8080`.
+- The frontend production build is served by Next.js on port `8080`.
 - The API production build starts from `dist/src/main.js`.
 - Caddy owns public ports `80` and `443`.
 - In production, frontend and API ports do not need to be exposed directly.

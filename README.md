@@ -29,7 +29,7 @@ Then fill the required secrets in `docker/.env`, especially:
 - PostgreSQL credentials
 - 42 OAuth credentials
 - Better Auth public URL
-- frontend and API public URLs
+- Frontend and API public URLs
 - SMTP credentials for email features
 
 For the current local HTTPS setup, the public URLs should use:
@@ -94,9 +94,9 @@ make migrate-generate name=<migration_name>
 
 Main architecture:
 
-- Caddy is the public HTTPS entrypoint.
+- Caddy is the public HTTPS entry point.
 - `/api/*` is forwarded to the NestJS API.
-- every other route is forwarded to the Next.js frontend.
+- Every other route is forwarded to the Next.js frontend.
 - the API is the only service that talks directly to PostgreSQL.
 
 ## Frontend Design System
@@ -257,7 +257,7 @@ SEO is implemented with Next metadata APIs:
 
 | Service | Role | Internal port | Public access |
 | --- | --- | --- | --- |
-| `proxy` | Caddy reverse proxy, HTTPS entrypoint, routes traffic | `80`, `443` | yes |
+| `proxy` | Caddy reverse proxy, HTTPS entry point, routes traffic | `80`, `443` | yes |
 | `front` | Next.js application served by Bun | `8080` | through `proxy` in production |
 | `api` | NestJS API, Better Auth, Prisma access | `3000` | through `proxy` at `/api/*` |
 | `db` | PostgreSQL database | `5432` | no in production |
@@ -269,7 +269,7 @@ Production uses `docker/compose.yaml`.
 
 - `proxy` exposes ports `80` and `443`.
 - `front`, `api`, and `db` are intended to be reached through Docker networking.
-- the API entrypoint waits for PostgreSQL, then runs `prisma migrate deploy`.
+- the API entry point waits for PostgreSQL, then runs `prisma migrate deploy`.
 
 Development overlays `docker/compose-dev.yaml`.
 
@@ -340,11 +340,11 @@ Additional schema documentation (class diagram):
 
 | Member | Role(s) | Responsibilities |
 | --- | --- | --- |
-| ade-sarr | Developer | Chat part, instant notifications (WebSockets), Prisma schema integration from design. |
-| albestae | Product Owner, Developer | Original idea, website mockup, frontend structure and UI, frontend data layer, responsive and some full-stack features. |
-| bazaluga | Technical Lead, Developer | Architecture (Docker, Makefile), documentation, HTTPS proxy, 42 API fetch, friendship and GDPR. |
-| ilavillu | Product Manager, Developer | Better Auth registration/login, profile/auth integration, database/backend setup support. |
-| licohen | Developer | Jaccard recommendation algorithm, advanced permissions: admin routes, cascade user deletion. |
+| ade-sarr | Developer | Chat, WebSocket notifications, message encryption, file/message integration, and Prisma schema support. |
+| albestae | Product Owner, Developer | Product idea, mockups, frontend structure, design system, SSR/SEO pages, and user-facing flows. |
+| bazaluga | Technical Lead, Developer | Architecture, Docker/Makefile, Bun migration, HTTPS proxy, 42 OAuth integration, files, GDPR, and documentation. |
+| ilavillu | Product Manager, Developer | Better Auth registration/login, password recovery, profile/auth integration, and backend setup support. |
+| licohen | Developer | Jaccard suggestions, advanced permissions, admin routes, organization management, and cascade deletion. |
 
 ## Project Management
 
@@ -360,11 +360,11 @@ To complete before evaluation:
 
 | Member | Contributions |
 | --- | --- |
-| ade-sarr | Worked on the early chat prototype and WebSocket-oriented structure, contributed to the first Prisma schema iterations, added channel membership fields such as favorites, and helped with Docker/Makefile adjustments during integration. |
-| albestae | Designed and implemented much of the frontend foundation: application layout, reusable UI structure, themes, login/register/guest/forgot-password pages, privacy and terms pages, channel/profile/message views, frontend data clients, responsive fixes, and invitation flow improvements. |
-| bazaluga | Set up and maintained most of the project infrastructure: Docker Compose, Makefile targets, Bun migration, development workflow, database documentation, Caddy HTTPS reverse proxy, production fixes, 42 OAuth/profile level synchronization, interests/channels, friendships, suggestions integration, file uploads, GDPR export/deletion flow, password reset, and architecture documentation. |
-| ilavillu | Worked on Better Auth registration and login flows, profile/auth integration, early database and backend setup support, Prisma setup/version fixes, port corrections, and permissions/group fixes during integration. |
-| licohen | Implemented the Jaccard recommendation algorithm and its NestJS/Prisma integration, aligned suggestion responses with frontend needs, added seed/test support, cleaned the Jaccard module and documentation, and implemented advanced permissions with admin routes, validation, and cascade user deletion. |
+| ade-sarr | Worked on the chat prototype, WebSocket-oriented structure, instant message notifications, private message encryption support, file/message integration, early Prisma schema iterations, channel membership fields such as favorites, and Docker/Makefile integration fixes. |
+| albestae | Designed and implemented much of the frontend foundation: application layout, reusable UI structure, custom design system, themes, login/register/guest/forgot-password pages, privacy and terms pages, channel/profile/message/project/admin views, frontend data clients, SSR/SEO page splits, responsive fixes, and invitation flow improvements. |
+| bazaluga | Set up and maintained most of the project infrastructure: Docker Compose, Makefile targets, Bun migration, development workflow, database documentation, Caddy HTTPS reverse proxy, production fixes, 42 OAuth/profile level synchronization, interests/channels, friendships, suggestions integration, file uploads, GDPR export/deletion flow, password reset, private-message encryption integration, admin/project/channel management support, and architecture documentation. |
+| ilavillu | Worked on Better Auth registration and login flows, password recovery, profile/auth integration, early database and backend setup support, Prisma setup/version fixes, port corrections, and permissions/group fixes during integration. |
+| licohen | Implemented the Jaccard recommendation algorithm and its NestJS/Prisma integration, aligned suggestion responses with frontend needs, added seed/test support, cleaned the Jaccard module and documentation, and implemented advanced permissions with admin routes, validation, organization/channel management support, and cascade user deletion. |
 
 ## Resources
 
@@ -376,4 +376,4 @@ To complete before evaluation:
 - [Mermaid documentation](https://mermaid.js.org/)
 - [42 API documentation](https://api.intra.42.fr/apidoc)
 
-AI was used to generate a seed for the database, to check for errors in code and diagrams and to clean this README.
+AI was used to generate a seed for the database, check code and diagrams for errors, and clean this README.

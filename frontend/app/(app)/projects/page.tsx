@@ -6,6 +6,7 @@ import FriendsPanel from "@/components/FriendsPanel";
 import MessageComposer from "@/components/MessageComposer";
 import PanelToggleIcon from "@/components/icons/PanelToggleIcon";
 import { getBlockedUsers } from "@/lib/data/blocks";
+import { fileUrl, formatFileSize } from "@/lib/data/files";
 import {
   createProjectMessage,
   getAllProjects,
@@ -13,6 +14,7 @@ import {
   type ProjectGridItem,
 } from "@/lib/data/projects";
 import { useCurrentUser } from "@/lib/data/auth";
+import type { MessageAttachment } from "@/lib/types";
 
 export default function ProjectsPage() {
   const [showPanel, setShowPanel] = useState(true);
@@ -133,13 +135,17 @@ export default function ProjectsPage() {
     return <LockedProjectsView />;
   }
 
-  async function handleSend() {
+  async function handleSend(attachmentIds: number[] = []) {
     const text = draft.trim();
-    if (!text || !currentUser) return;
+    if ((!text && attachmentIds.length === 0) || !currentUser) return;
 
     if (!activeProject) return;
 
-    const message = await createProjectMessage(activeProject.slug, text);
+    const message = await createProjectMessage(
+      activeProject.slug,
+      text,
+      attachmentIds,
+    );
     setProjects((currentProjects) =>
       currentProjects.map((project) =>
         project.slug === activeProject.slug
@@ -268,7 +274,10 @@ export default function ProjectsPage() {
               <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4 sm:px-5">
                 <div className="flex w-full flex-col gap-3">
                   {activeMessages.map((message, index) => (
-                    <ProjectMessage key={`${message.sender}-${message.time}-${index}`} message={message} />
+                    <ProjectMessage
+                      key={message.id ?? `${message.sender}-${message.time}-${index}`}
+                      message={message}
+                    />
                   ))}
                   <div ref={messagesEndRef} />
                 </div>
@@ -423,6 +432,8 @@ function ProjectListItem({
 }
 
 function ProjectMessage({ message }: { message: ProjectDiscussionMessage }) {
+  const hasAttachments = Boolean(message.attachments?.length);
+
   return (
     <div className={`flex gap-2.5 ${message.me ? "justify-end" : ""}`}>
       {!message.me && (
@@ -444,9 +455,59 @@ function ProjectMessage({ message }: { message: ProjectDiscussionMessage }) {
               : "border border-border-default bg-bg-secondary text-text-secondary"
           }`}
         >
-          {message.text}
+          {message.text && <div>{message.text}</div>}
+          {hasAttachments && (
+            <div className={`grid gap-2 ${message.text ? "mt-2" : ""}`}>
+              {message.attachments!.map((attachment) => (
+                <ProjectMessageAttachmentCard
+                  key={attachment.id}
+                  attachment={attachment}
+                />
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>
+  );
+}
+
+function ProjectMessageAttachmentCard({
+  attachment,
+}: {
+  attachment: MessageAttachment;
+}) {
+  const canPreview =
+    attachment.category === "image" ||
+    attachment.mimeType === "application/pdf" ||
+    attachment.mimeType === "text/plain";
+
+  return (
+    <a
+      href={fileUrl(canPreview ? attachment.previewUrl : attachment.downloadUrl)}
+      target="_blank"
+      rel="noreferrer"
+      className="flex min-w-0 items-center gap-2 rounded-[8px] border border-border-default bg-bg-hover/60 p-2 text-left transition-colors hover:border-border-strong"
+    >
+      {attachment.category === "image" ? (
+        <img
+          src={fileUrl(attachment.previewUrl)}
+          alt={attachment.originalName}
+          className="h-12 w-12 shrink-0 rounded-[6px] object-cover"
+        />
+      ) : (
+        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[6px] bg-bg-secondary text-[10px] font-semibold uppercase text-text-muted">
+          {attachment.type === "archive" ? "zip" : "file"}
+        </span>
+      )}
+      <span className="min-w-0">
+        <span className="block truncate text-[12px] font-medium text-text-primary">
+          {attachment.originalName}
+        </span>
+        <span className="mt-0.5 block text-[11px] text-text-muted">
+          {formatFileSize(attachment.sizeBytes)}
+        </span>
+      </span>
+    </a>
   );
 }

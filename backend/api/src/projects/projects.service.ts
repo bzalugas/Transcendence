@@ -1,5 +1,19 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import type { AttachmentType, FileCategory } from '@prisma/client';
+import { FilesService } from '../files/files.service';
 import { PrismaService } from '../prisma/prisma.service';
+
+export interface ProjectMessageAttachmentDto {
+  id: string;
+  fileId: number;
+  originalName: string;
+  mimeType: string;
+  sizeBytes: number;
+  category: FileCategory;
+  type: AttachmentType;
+  previewUrl: string;
+  downloadUrl: string;
+}
 
 export interface ProjectMessageDto {
   id: string;
@@ -11,6 +25,7 @@ export interface ProjectMessageDto {
   time: string;
   daysAgo: number;
   me: boolean;
+  attachments: ProjectMessageAttachmentDto[];
 }
 
 export interface ProjectDto {
@@ -24,19 +39,16 @@ export interface ProjectDto {
 
 @Injectable()
 export class ProjectsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly filesService: FilesService,
+  ) {}
 
   async findAll(currentUserId: string): Promise<ProjectDto[]> {
     const projects = await this.prisma.project.findMany({
       include: {
         messages: {
-          include: {
-            sender: {
-              include: {
-                profile: true,
-              },
-            },
-          },
+          include: this.messageInclude(),
           orderBy: { createdAt: 'asc' },
           take: 100,
         },
@@ -60,11 +72,13 @@ export class ProjectsService {
     currentUserId: string,
     slug: string,
     content?: string,
+    attachmentIds?: number[],
   ): Promise<ProjectMessageDto> {
     const trimmedContent = content?.trim();
+    const fileAssets = await this.findAttachableFiles(currentUserId, attachmentIds);
 
-    if (!trimmedContent) {
-      throw new BadRequestException('Message content is required');
+    if (!trimmedContent && fileAssets.length === 0) {
+      throw new BadRequestException('Message content or attachment is required');
     }
 
     const project = await this.prisma.project.findUnique({
@@ -74,22 +88,105 @@ export class ProjectsService {
 
     if (!project) throw new NotFoundException('Project not found');
 
-    const message = await this.prisma.projectMessage.create({
-      data: {
-        projectId: project.id,
-        senderId: currentUserId,
-        content: trimmedContent,
-      },
-      include: {
-        sender: {
-          include: {
-            profile: true,
-          },
+    const message = await this.prisma.$transaction(async (tx) => {
+      const createdMessage = await tx.projectMessage.create({
+        data: {
+          projectId: project.id,
+          senderId: currentUserId,
+          content: trimmedContent ?? '',
+          attachments: fileAssets.length
+            ? {
+                create: fileAssets.map((file) => ({
+                  fileId: file.id,
+                  type: file.attachmentType,
+                })),
+              }
+            : undefined,
         },
-      },
+        include: this.messageInclude(),
+      });
+
+      if (fileAssets.length > 0) {
+        await tx.fileAsset.updateMany({
+          where: {
+            id: {
+              in: fileAssets.map((file) => file.id),
+            },
+          },
+          data: {
+            status: 'attached',
+          },
+        });
+      }
+
+      return createdMessage;
     });
 
     return this.toMessageDto(message, currentUserId);
+  }
+
+  private messageInclude() {
+    return {
+      sender: {
+        include: {
+          profile: true,
+        },
+      },
+      attachments: {
+        include: {
+          file: true,
+        },
+      },
+    } as const;
+  }
+
+  private async findAttachableFiles(userId: string, attachmentIds?: number[]) {
+    const uniqueIds = this.validateAttachmentIds(attachmentIds);
+
+    if (uniqueIds.length === 0) return [];
+
+    const files = await this.prisma.fileAsset.findMany({
+      where: {
+        id: {
+          in: uniqueIds,
+        },
+        ownerId: userId,
+        status: 'uploaded',
+      },
+      include: {
+        attachments: true,
+      },
+    });
+
+    const orderedFiles = uniqueIds
+      .map((id) => files.find((file) => file.id === id))
+      .filter((file): file is NonNullable<typeof file> => Boolean(file));
+
+    if (
+      orderedFiles.length !== uniqueIds.length ||
+      orderedFiles.some((file) => file.attachments.length > 0)
+    ) {
+      throw new BadRequestException('One or more files cannot be attached');
+    }
+
+    return orderedFiles;
+  }
+
+  private validateAttachmentIds(attachmentIds?: number[]): number[] {
+    if (!attachmentIds) return [];
+    if (!Array.isArray(attachmentIds)) {
+      throw new BadRequestException('Message attachment ids must be a list');
+    }
+    if (attachmentIds.length > 4) {
+      throw new BadRequestException('Only four message attachments are supported');
+    }
+
+    const uniqueIds = Array.from(new Set(attachmentIds));
+    if (uniqueIds.some((id) => !Number.isInteger(id) || id <= 0)) {
+      throw new BadRequestException('Message attachment ids are invalid');
+    }
+
+    return uniqueIds;
   }
 
   private toMessageDto(
@@ -107,6 +204,19 @@ export class ProjectsService {
           avatarUri: string | null;
         } | null;
       };
+      attachments: Array<{
+        id: number;
+        type: AttachmentType;
+        fileId: number;
+        file: {
+          id: number;
+          originalName: string;
+          mimeType: string;
+          sizeBytes: number;
+          category: FileCategory;
+          attachmentType: AttachmentType;
+        };
+      }>;
     },
     currentUserId: string,
   ): ProjectMessageDto {
@@ -124,6 +234,21 @@ export class ProjectsService {
         Math.max(0, Date.now() - message.createdAt.getTime()) / 86_400_000,
       ),
       me: message.senderId === currentUserId,
+      attachments: message.attachments.map((attachment) => {
+        const file = this.filesService.toDto(attachment.file);
+
+        return {
+          id: String(attachment.id),
+          fileId: attachment.fileId,
+          originalName: file.originalName,
+          mimeType: file.mimeType,
+          sizeBytes: file.sizeBytes,
+          category: file.category,
+          type: attachment.type,
+          previewUrl: file.previewUrl,
+          downloadUrl: file.downloadUrl,
+        };
+      }),
     };
   }
 

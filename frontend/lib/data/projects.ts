@@ -1,4 +1,5 @@
 import { API_BASE_URL } from "@/lib/api-url";
+import type { MessageAttachment } from "@/lib/types";
 
 export interface ProjectDiscussionMessage {
   id?: string;
@@ -10,6 +11,7 @@ export interface ProjectDiscussionMessage {
   time: string;
   daysAgo: number;
   me?: boolean;
+  attachments?: MessageAttachment[];
 }
 
 export interface ProjectGridItem {
@@ -51,6 +53,7 @@ export async function getAllProjects(): Promise<ProjectGridItem[]> {
 export async function createProjectMessage(
   slug: string,
   content: string,
+  attachmentIds: number[] = [],
 ): Promise<ProjectDiscussionMessage> {
   const response = await fetch(
     `${API_BASE_URL}/projects/${encodeURIComponent(slug)}/messages`,
@@ -58,7 +61,7 @@ export async function createProjectMessage(
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content }),
+      body: JSON.stringify({ content, attachmentIds }),
     },
   );
 

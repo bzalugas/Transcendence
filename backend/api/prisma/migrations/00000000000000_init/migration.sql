@@ -235,6 +235,7 @@ CREATE TABLE "Attachment" (
     "fileId" INTEGER NOT NULL,
     "postId" INTEGER,
     "messageId" INTEGER,
+    "projectMessageId" INTEGER,
 
     CONSTRAINT "Attachment_pkey" PRIMARY KEY ("id")
 );
@@ -443,6 +444,9 @@ CREATE INDEX "Attachment_postId_idx" ON "Attachment"("postId");
 CREATE INDEX "Attachment_messageId_idx" ON "Attachment"("messageId");
 
 -- CreateIndex
+CREATE INDEX "Attachment_projectMessageId_idx" ON "Attachment"("projectMessageId");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "Chat_privateKey_key" ON "Chat"("privateKey");
 
 -- CreateIndex
@@ -545,6 +549,9 @@ ALTER TABLE "Attachment" ADD CONSTRAINT "Attachment_postId_fkey" FOREIGN KEY ("p
 ALTER TABLE "Attachment" ADD CONSTRAINT "Attachment_messageId_fkey" FOREIGN KEY ("messageId") REFERENCES "Message"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "Attachment" ADD CONSTRAINT "Attachment_projectMessageId_fkey" FOREIGN KEY ("projectMessageId") REFERENCES "ProjectMessage"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "Message" ADD CONSTRAINT "Message_senderId_fkey" FOREIGN KEY ("senderId") REFERENCES "user"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -588,4 +595,3 @@ ALTER TABLE "_ChatToUser" ADD CONSTRAINT "_ChatToUser_A_fkey" FOREIGN KEY ("A") 
 
 -- AddForeignKey
 ALTER TABLE "_ChatToUser" ADD CONSTRAINT "_ChatToUser_B_fkey" FOREIGN KEY ("B") REFERENCES "user"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-

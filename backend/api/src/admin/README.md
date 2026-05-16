@@ -1,82 +1,121 @@
 # Admin Module
 
-Système de permissions avancé : assignation des rôles utilisateurs et routes d'administration.
+Advanced permissions module for user roles, moderation actions, and
+administrator-only routes.
 
 ---
 
-## Rôles
+## Roles
 
-| Rôle | Origine |
-|------|---------|
-| `GUEST` | Inscription email/mot de passe |
-| `USER` | Connexion via l'API 42 (OAuth) |
-| `ADMIN` | Membres de la team Transcendance |
+| Role | Source |
+| --- | --- |
+| `GUEST` | Email/password registration |
+| `USER` | 42 OAuth login |
+| `ADMIN` | Members of the Transcendence team |
 
-L'assignation se fait automatiquement à la création du compte dans `lib/auth.ts`, via le hook `databaseHooks.account.create.after` de better-auth. Priorité :
+Role assignment is handled automatically when an account is created in
+`lib/auth.ts`, through the Better Auth `databaseHooks.account.create.after`
+hook. Priority order:
 
-1. Email dans `ADMIN_EMAILS` → `ADMIN` (peu importe le provider, un admin peut se connecter via 42 OAuth)
-2. Provider `42school` → `USER`
-3. Sinon → `GUEST`
+1. Email listed in `ADMIN_EMAILS` -> `ADMIN`, regardless of the provider.
+2. Provider `42school` -> `USER`.
+3. Otherwise -> `GUEST`.
 
 ---
 
-## Fichiers
+## Files
 
-```
+```text
 src/admin/
-├── admin.controller.ts   routes HTTP
-├── admin.service.ts      logique métier
-└── admin.module.ts       déclaration NestJS
+├── admin.controller.ts   HTTP routes
+├── admin.service.ts      business logic
+└── admin.module.ts       NestJS module declaration
 ```
 
-Toutes les routes passent par `getSessionAdmin()` dans `src/auth/session.ts`, qui vérifie la session et le rôle `ADMIN`. Retourne 401 si non connecté, 403 si pas admin.
+All routes go through `getSessionAdmin()` in `src/auth/session.ts`, which
+checks both the active session and the `ADMIN` role. It returns `401` when the
+user is not authenticated and `403` when the user is not an administrator.
 
 ---
 
 ## Routes
 
-### Utilisateurs
+### Users
 
+```text
+GET    /admin/users                 list all users
+GET    /admin/users/:id/posts       list a user's posts and project messages
+POST   /admin/users/:id/ban         ban a user
+POST   /admin/users/:id/unban       unban a user
+DELETE /admin/users/:id             delete a user and related data
 ```
-GET    /admin/users         liste tous les utilisateurs
-DELETE /admin/users/:id     supprime un utilisateur
+
+### Content Moderation
+
+```text
+DELETE /admin/posts/:id             delete a channel post
+DELETE /admin/project-messages/:id  delete a project message
+```
+
+### Projects
+
+```text
+GET    /admin/projects              list all projects
+POST   /admin/projects              create a project { name, description, color }
+DELETE /admin/projects/:id          delete a project
 ```
 
 ### Channels
 
-Un channel est toujours lié à un Interest — les créer/supprimer fait les deux.
+A channel is always linked to an interest. Creating or deleting a channel also
+creates or deletes the related interest.
 
-```
-GET    /admin/channels              liste tous les channels
-POST   /admin/channels              crée un channel  { name, color }
-DELETE /admin/channels/:id          supprime le channel et son interest
+```text
+GET    /admin/channels              list all channels
+POST   /admin/channels              create a channel { name, color, description? }
+DELETE /admin/channels/:id          delete the channel and its interest
+GET    /admin/channels/:id/members  list channel members
 ```
 
-### Membres
+### Channel Members
 
+```text
+POST   /admin/users/:userId/channels/:channelId    add a user to a channel
+DELETE /admin/users/:userId/channels/:channelId    remove a user from a channel
 ```
-POST   /admin/users/:userId/channels/:channelId    ajoute un user au channel
-DELETE /admin/users/:userId/channels/:channelId    retire un user du channel
+
+### Interest Requests
+
+```text
+GET    /admin/interest-requests              list pending interest requests
+POST   /admin/interest-requests/:id/approve  approve a request and create a channel
+POST   /admin/interest-requests/:id/reject   reject a request
 ```
 
 ---
 
-## Tests
+## Manual Checks
 
-Testés manuellement avec `curl` sur `https://localhost/api`.
+The routes were manually tested with `curl` through `https://localhost/api`.
 
 **Guards**
-- Sans session → 401
-- Connecté en `USER` → 403
-- Connecté en `ADMIN` → accès autorisé
+
+- No session -> `401`.
+- Connected as `USER` -> `403`.
+- Connected as `ADMIN` -> access granted.
 
 **Channels**
-- `GET /admin/channels` → 200, liste avec interest et nombre de membres
-- `POST /admin/channels` avec `{ name: "TestChannel", color: "#FF0000" }` → 201
-- `DELETE /admin/channels/:id` → 200
 
-  > La suppression du channel doit précéder celle de l'interest (contrainte FK en base).
+- `GET /admin/channels` -> `200`, with interest data and member counts.
+- `POST /admin/channels` with `{ "name": "TestChannel", "color": "#FF0000" }`
+  -> `201`.
+- `DELETE /admin/channels/:id` -> `200`.
 
-**Membres**
-- `POST /admin/users/:id/channels/3` → 201, entrées créées dans `User_Channel` et `User_Interest`
-- `DELETE /admin/users/:id/channels/3` → 200, entrées supprimées
+The channel must be deleted before its interest because of the database foreign
+key constraint.
+
+**Channel Members**
+
+- `POST /admin/users/:id/channels/3` -> `201`, creates entries in
+  `User_Channel` and `User_Interest`.
+- `DELETE /admin/users/:id/channels/3` -> `200`, removes those entries.

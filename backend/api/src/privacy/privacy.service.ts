@@ -634,7 +634,7 @@ export class PrivacyService {
     body: string;
     confirmationToken: string;
   }): Promise<void> {
-    const frontendUrl = process.env.NEXT_PUBLIC_FRONTEND_URL ?? 'http://localhost:8080';
+    const frontendUrl = process.env.NEXT_PUBLIC_FRONTEND_URL ?? 'https://localhost';
     const confirmationLink = `${frontendUrl}/settings/privacy?token=${input.confirmationToken}`;
 
     await this.emailService.send({

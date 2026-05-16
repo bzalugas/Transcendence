@@ -23,7 +23,7 @@ interface AuthenticatedSocket extends Socket {
 @WebSocketGateway({
   path: '/api/socket.io',
   cors: {
-    origin: process.env.NEXT_PUBLIC_FRONTEND_URL ?? 'http://localhost:8080',
+    origin: process.env.NEXT_PUBLIC_FRONTEND_URL ?? 'https://localhost',
     credentials: true,
   },
 })

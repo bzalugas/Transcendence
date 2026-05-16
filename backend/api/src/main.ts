@@ -5,7 +5,7 @@ import { auth } from '../lib/auth';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  const frontendOrigin = process.env.NEXT_PUBLIC_FRONTEND_URL ?? "http://localhost:8080";
+  const frontendOrigin = process.env.NEXT_PUBLIC_FRONTEND_URL ?? "https://localhost";
 
   app.setGlobalPrefix("api");
 

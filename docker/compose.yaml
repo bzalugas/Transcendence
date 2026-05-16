@@ -8,6 +8,14 @@ services:
       target: prod
     restart: always
     env_file: .env
+    environment:
+      NEXT_INTERNAL_API_URL: ${NEXT_INTERNAL_API_URL}
+      NODE_EXTRA_CA_CERTS: ${CADDY_INTERNAL_CA_CERT}
+    depends_on:
+      proxy:
+        condition: service_healthy
+    volumes:
+      - caddy-data:/caddy-data:ro
   
   api:
     image: transcendence_api
@@ -50,9 +58,12 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro,z
       - caddy-data:/data
       - caddy-config:/config
-    depends_on:
-      - front
-      - api
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /data/caddy/pki/authorities/local/root.crt"]
+      interval: 2s
+      timeout: 2s
+      retries: 20
+      start_period: 2s
 
 
 volumes:

@@ -145,5 +145,5 @@ function getFrontendBaseUrl() {
     return window.location.origin;
   }
 
-  return process.env.NEXT_PUBLIC_FRONTEND_URL ?? "http://localhost:8080";
+  return process.env.NEXT_PUBLIC_FRONTEND_URL ?? "https://localhost";
 }

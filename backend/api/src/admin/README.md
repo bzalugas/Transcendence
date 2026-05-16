@@ -63,7 +63,7 @@ DELETE /admin/users/:userId/channels/:channelId    retire un user du channel
 
 ## Tests
 
-Testés manuellement avec `curl` sur `http://localhost:3000`.
+Testés manuellement avec `curl` sur `https://localhost/api`.
 
 **Guards**
 - Sans session → 401

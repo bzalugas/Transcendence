@@ -1,29 +1,317 @@
-This project has been created as part of the 42 curriculum
-by ade-sarr, albestae, bazaluga, ilavillu, licohen
+*This project has been created as part of the 42 curriculum by ade-sarr, albestae, bazaluga, ilavillu, licohen.*
 
-# Description
+# 42Connect
 
-# Instructions
+## Description
 
-# Resources
+42Connect is a social web application for 42 students. It lets users authenticate, manage their profile, discover people with shared interests, join interest-based channels, publish posts and exchange messages.
 
-# Team Information
+The application is built as a separate frontend/backend/database stack behind an HTTPS reverse proxy.
 
-# Project Management
+## Instructions
 
-# Technical Stack
+### Prerequisites
 
-## Frontend Design System
+- Docker and Docker Compose
+- Make
+- Google Chrome, latest stable version
 
-The frontend includes a custom-made design system with shared color tokens,
-typography, custom icons, and reusable React components. See
-`docs/README.md` for the component inventory and design token
-notes.
+### Environment
 
-# Database Schema
+Create the local environment file:
 
-# Features List
+```sh
+cp docker/.env.example docker/.env
+```
 
-# Modules
+Then fill the required secrets in `docker/.env`, especially:
 
-# Individual Contributions
+- PostgreSQL credentials
+- 42 OAuth credentials
+- Better Auth public URL
+- frontend and API public URLs
+- SMTP credentials for email features
+
+For the current local HTTPS setup, the public URLs should use:
+
+```env
+BETTER_AUTH_URL=https://localhost
+NEXT_PUBLIC_API_URL=https://localhost
+NEXT_PUBLIC_FRONTEND_URL=https://localhost
+```
+
+### Run
+
+Production-like stack:
+
+```sh
+make
+```
+
+Open:
+
+```text
+https://localhost
+```
+
+Development stack:
+
+```sh
+make dev
+```
+
+Useful development URLs:
+
+- Frontend: `http://localhost:8080`
+- API: `http://localhost:3000`
+- HTTPS proxy: `https://localhost`
+- Adminer: `http://localhost:8081`
+- PostgreSQL host port: `5433`
+
+Useful commands:
+
+```sh
+make logs
+make down
+make dev-logs
+make dev-down
+make db-setup
+make migrate-generate name=<migration_name>
+```
+
+## Technical Stack
+
+| Layer | Technologies |
+| --- | --- |
+| Frontend | Next.js, React, TypeScript, Tailwind CSS, Bun |
+| Backend | NestJS, TypeScript, Bun, Better Auth |
+| Database | PostgreSQL |
+| ORM | Prisma |
+| Reverse proxy | Caddy |
+| Runtime | Docker Compose |
+
+Main architecture:
+
+- Caddy is the public HTTPS entrypoint.
+- `/api/*` is forwarded to the NestJS API.
+- every other route is forwarded to the Next.js frontend.
+- the API is the only service that talks directly to PostgreSQL.
+
+<details>
+<summary>Architecture details</summary>
+
+### Project Architecture
+
+The project is split into a frontend, an API, a PostgreSQL database, and a Caddy reverse proxy.
+
+In production, the browser should only talk to Caddy. Caddy exposes HTTP/HTTPS, routes frontend pages to the `front` container, and routes every `/api/*` request to the `api` container. The API is the only service that talks directly to PostgreSQL.
+
+#### Runtime Topology
+
+```mermaid
+flowchart LR
+  Browser(["Browser<br/>single public origin"])
+  FortyTwo["42 API<br/>OAuth + profile data"]
+
+  subgraph Runtime["Docker Compose runtime"]
+    direction LR
+
+    Proxy["Caddy<br/>reverse proxy<br/>ports 80 / 443"]
+
+    subgraph Web["Web tier"]
+      direction TB
+      Front["front<br/>Next.js<br/>port 8080"]
+      Api["api<br/>NestJS<br/>port 3000"]
+    end
+
+    subgraph Persistence["Persistence"]
+      direction TB
+      Db[("db<br/>PostgreSQL<br/>port 5432")]
+      DbVolume[("transcendence-db-data")]
+    end
+
+    CaddyState[("caddy-data<br/>caddy-config")]
+  end
+
+  Browser -->|"HTTPS /"| Proxy
+  Browser -->|"frontend runtime<br/>calls /api/*"| Proxy
+
+  Proxy -->|"non-/api routes"| Front
+  Proxy -->|"/api/*"| Api
+  Front -. "client-side code calls /api/* on same origin" .-> Proxy
+
+  Api -->|"Prisma<br/>DATABASE_URL"| Db
+  Api -->|"OAuth flow<br/>/api/auth/*"| FortyTwo
+
+  Db ---|"persists data"| DbVolume
+  Proxy ---|"certificates<br/>proxy state"| CaddyState
+
+  classDef client fill:#eef6ff,stroke:#4f7ead,color:#111827,stroke-width:1px
+  classDef proxy fill:#ecfdf5,stroke:#3f8f62,color:#111827,stroke-width:2px
+  classDef app fill:#fff7ed,stroke:#b56a28,color:#111827,stroke-width:1px
+  classDef data fill:#f5f3ff,stroke:#7c65b7,color:#111827,stroke-width:1px
+  classDef volume fill:#f8fafc,stroke:#64748b,color:#111827,stroke-width:1px
+  classDef external fill:#fef2f2,stroke:#b45454,color:#111827,stroke-width:1px
+
+  class Browser client
+  class Proxy proxy
+  class Front,Api app
+  class Db data
+  class DbVolume,CaddyState volume
+  class FortyTwo external
+
+  style Runtime fill:#f8fafc,stroke:#94a3b8,color:#0f172a
+  style Web fill:#ffffff,stroke:#cbd5e1,color:#334155
+  style Persistence fill:#ffffff,stroke:#cbd5e1,color:#334155
+```
+
+#### Request Flow
+
+```mermaid
+sequenceDiagram
+  participant B as Browser
+  participant P as Caddy proxy
+  participant F as Frontend
+  participant A as API
+  participant D as PostgreSQL
+  participant O as 42 API
+
+  B->>P: GET /
+  P->>F: reverse_proxy front:8080
+  F-->>P: Next.js page/assets
+  P-->>B: HTML/CSS/JS
+
+  B->>P: GET /api/...
+  P->>A: reverse_proxy api:3000
+  A->>D: Prisma query/mutation
+  D-->>A: data
+  A-->>P: JSON response
+  P-->>B: JSON response
+
+  B->>P: GET /api/auth/...
+  P->>A: Better Auth route
+  A->>O: OAuth/token/profile request
+  O-->>A: 42 user data
+  A->>D: session/account/profile update
+  A-->>B: auth cookie/session response
+```
+
+#### Services
+
+| Service | Role | Internal port | Public access |
+| --- | --- | --- | --- |
+| `proxy` | Caddy reverse proxy, HTTPS entrypoint, routes traffic | `80`, `443` | yes |
+| `front` | Next.js application served by Bun | `8080` | through `proxy` in production |
+| `api` | NestJS API, Better Auth, Prisma access | `3000` | through `proxy` at `/api/*` |
+| `db` | PostgreSQL database | `5432` | no in production |
+| `adminer` | Database UI for development only | `8080` in container, `8081` on host | dev only |
+
+#### Production vs Development
+
+Production uses `docker/compose.yaml`.
+
+- `proxy` exposes ports `80` and `443`.
+- `front`, `api`, and `db` are intended to be reached through Docker networking.
+- the API entrypoint waits for PostgreSQL, then runs `prisma migrate deploy`.
+
+Development overlays `docker/compose-dev.yaml`.
+
+- `front` is also exposed on host port `8080`.
+- `api` is also exposed on host port `3000`.
+- `db` is exposed on host port `5433`.
+- `adminer` is exposed on host port `8081`.
+- source folders are bind-mounted for live development.
+
+</details>
+
+## Database Schema
+
+The database is defined with Prisma in [backend/api/prisma/schema.prisma](backend/api/prisma/schema.prisma).
+
+![Database entity-relationship diagram](docs/er_db_mermaid.png)
+
+Main schema areas:
+
+- users, sessions, accounts, profiles, and profile socials
+- interests, channels, posts, reactions, files, and attachments
+- friend requests, chats, messages, and notifications
+- privacy data requests
+- games, game sessions, and players
+
+Additional schema documentation (class diagram):
+
+- [Mermaid schema](docs/schema_db_mermaid.md)
+
+## Features List
+
+| Feature | Description | Owner(s) |
+| --- | --- | --- |
+| Authentication | Email/password authentication and 42 OAuth login through Better Auth. | ilavillu |
+| Profiles | User profile display and editing, including avatar/profile metadata. | albestae, bazaluga, ilavillu |
+| Interests | Interest catalog and user-interest selection. | bazaluga |
+| Suggestions | User suggestions based on shared interests. | licohen, bazaluga |
+| Channels | Interest-based channels with posts, replies, reactions, and attachments. | bazaluga, albestae |
+| Friends | Friendship management. | licohen, bazaluga |
+| Messages | Chat and messages. | ade-sarr, albestae |
+| Files | Upload and attachment management for supported file types. | bazaluga, ade-sarr |
+| Privacy | Privacy policy, terms page, data export/deletion request model. | albestae, bazaluga |
+
+## Modules
+
+| Module | Type | Points | Implementation notes | Owner(s) |
+| --- | --- | --- | --- | --- |
+| Frontend and backend frameworks | Major | 2 | Next.js frontend and NestJS backend. | albestae, bazaluga |
+| Real-time features using WebSockets | Major | 2 | WebSocket-oriented chat and instant notification work. | ade-sarr |
+| Public API to interact with the database | Major | 2 | Database-backed REST endpoints under `/api/*` through NestJS controllers and Prisma services. | bazaluga, licohen |
+| ORM | Minor | 1 | Prisma models, migrations, and typed database client. | ilavillu, ade-sarr, bazaluga, licohen |
+| User interaction | Major | 2 | Profiles, friends, channels, posts, and messaging foundations. | albestae, bazaluga, ade-sarr |
+| Standard user management | Major | 2 | Authentication, profile management, avatar/profile fields. | ilavillu, bazaluga, albestae |
+| OAuth authentication | Minor | 1 | 42 OAuth through Better Auth. | bazaluga, ilavillu |
+| Advanced permissions system | Major | 2 | Role-based admin access, admin routes, user/channel management, validation, and cascade user deletion. | licohen |
+| Organization system | Major | 2 | Channel/interest organization structure with user membership and admin management. | bazaluga, licohen |
+| Support for additional browsers | Minor | 1 | Compatibility work for browsers beyond Chrome, mainly through responsive frontend fixes and standards-based Next.js UI. | albestae |
+| File upload and management | Minor | 1 | File assets and attachments with backend validation/storage logic. | bazaluga |
+| GDPR compliance features | Minor | 1 | Data request model and privacy service. | bazaluga, albestae |
+| **Total** |  | **19** |  |  |
+
+## Team Information
+
+| Member | Role(s) | Responsibilities |
+| --- | --- | --- |
+| ade-sarr | Developer | Chat part, instant notifications (WebSockets), Prisma schema integration from design. |
+| albestae | Product Owner, Developer | Original idea, website mockup, frontend structure and UI, frontend data layer, responsive and some full-stack features. |
+| bazaluga | Technical Lead, Developer | Architecture (Docker, Makefile), documentation, HTTPS proxy, 42 API fetch, friendship and GDPR. |
+| ilavillu | Product Manager, Developer | Better Auth registration/login, profile/auth integration, database/backend setup support. |
+| licohen | Developer | Jaccard recommendation algorithm, advanced permissions: admin routes, cascade user deletion. |
+
+## Project Management
+
+To complete before evaluation:
+
+- role distribution
+- task tracking tool
+- meeting rhythm
+- communication channel
+- code review process
+
+## Individual Contributions
+
+| Member | Contributions |
+| --- | --- |
+| ade-sarr | Worked on the early chat prototype and WebSocket-oriented structure, contributed to the first Prisma schema iterations, added channel membership fields such as favorites, and helped with Docker/Makefile adjustments during integration. |
+| albestae | Designed and implemented much of the frontend foundation: application layout, reusable UI structure, themes, login/register/guest/forgot-password pages, privacy and terms pages, channel/profile/message views, frontend data clients, responsive fixes, and invitation flow improvements. |
+| bazaluga | Set up and maintained most of the project infrastructure: Docker Compose, Makefile targets, Bun migration, development workflow, database documentation, Caddy HTTPS reverse proxy, production fixes, 42 OAuth/profile level synchronization, interests/channels, friendships, suggestions integration, file uploads, GDPR export/deletion flow, password reset, and architecture documentation. |
+| ilavillu | Worked on Better Auth registration and login flows, profile/auth integration, early database and backend setup support, Prisma setup/version fixes, port corrections, and permissions/group fixes during integration. |
+| licohen | Implemented the Jaccard recommendation algorithm and its NestJS/Prisma integration, aligned suggestion responses with frontend needs, added seed/test support, cleaned the Jaccard module and documentation, and implemented advanced permissions with admin routes, validation, and cascade user deletion. |
+
+## Resources
+
+- [Next.js documentation](https://nextjs.org/docs)
+- [NestJS documentation](https://docs.nestjs.com/)
+- [Prisma documentation](https://www.prisma.io/docs)
+- [Caddy documentation](https://caddyserver.com/docs/)
+- [Better Auth documentation](https://www.better-auth.com/docs)
+- [Mermaid documentation](https://mermaid.js.org/)
+- [42 API documentation](https://api.intra.42.fr/apidoc)
+
+AI was used to generate a seed for the database, to check for errors in code and diagrams and to clean this README.

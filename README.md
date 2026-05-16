@@ -17,7 +17,7 @@ by ade-sarr, albestae, bazaluga, ilavillu, licohen
 
 The frontend includes a custom-made design system with shared color tokens,
 typography, custom icons, and reusable React components. See
-`frontend/components/README.md` for the component inventory and design token
+`docs/README.md` for the component inventory and design token
 notes.
 
 # Database Schema

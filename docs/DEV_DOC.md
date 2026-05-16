@@ -16,12 +16,15 @@ docker/.env
 
 It contains the database variables, Better Auth public URLs, 42 OAuth credentials, and SMTP settings.
 
-For the HTTPS/Caddy setup, the public URLs should point to the public frontend origin. In local HTTPS mode they are currently expected to look like:
+42 OAuth must use the exact same callback URL in `docker/.env` and in the
+42 application dashboard. For the default HTTPS/Caddy setup, the public URLs
+should point to the public frontend origin:
 
 ```env
 BETTER_AUTH_URL=https://localhost
 NEXT_PUBLIC_API_URL=https://localhost
 NEXT_PUBLIC_FRONTEND_URL=https://localhost
+FORTY_TWO_REDIRECT_URI=https://localhost/api/auth/oauth2/callback/42school
 ```
 
 ## Architecture
@@ -36,8 +39,8 @@ The stack is split into four main services:
 Public traffic goes through Caddy:
 
 ```text
-https://domain/        -> front:8080
-https://domain/api/*   -> api:3000
+https://localhost/        -> front:8080
+https://localhost/api/*   -> api:3000
 ```
 
 The API uses the global `/api` prefix for Nest controllers. Better Auth is mounted at:
@@ -108,8 +111,6 @@ In dev mode, the source directories are bind-mounted into the containers:
 
 The dev stack exposes extra ports for debugging:
 
-- Frontend: `http://localhost:8080`
-- API: `http://localhost:3000`
 - PostgreSQL: `localhost:5433` on host, `5432` in container
 - Adminer: `http://localhost:8081`
 - Caddy HTTPS proxy: `https://localhost`

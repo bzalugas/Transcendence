@@ -10,6 +10,8 @@ classDiagram
     +String login
     +UserRole role
     +String name
+    +DateTime bannedAt
+    +String moderationReason
     +Boolean emailVerified
     +String image
     +DateTime createdAt
@@ -61,17 +63,35 @@ classDiagram
     +String imageUri
   }
 
-  class UserInterest {
-    +InterestLevel interestLvl
+  class InterestRequest {
+    +String name
+    +String normalizedName
+    +String description
+    +InterestRequestStatus status
+    +DateTime requestedAt
+    +DateTime reviewedAt
+    +DateTime updatedAt
   }
 
   class Channel {
     +Int interestId
+    +String description
   }
 
-  class UserChannel {
-    +DateTime joinedAt
-    +Boolean isFavorite
+  class Project {
+    +String slug
+    +String name
+    +String color
+    +String description
+    +Int sortOrder
+    +DateTime createdAt
+    +DateTime updatedAt
+  }
+
+  class ProjectMessage {
+    +String content
+    +DateTime createdAt
+    +DateTime updatedAt
   }
 
   class Post {
@@ -105,15 +125,23 @@ classDiagram
     +DateTime UpdatedAt
   }
 
+  class BlockedUser {
+    +DateTime createdAt
+  }
+
   class Chat {
     +String name
     +ChatType type
+    +String privateKey
   }
 
   class Message {
     +DateTime createdAt
     +String content
     +MessageType type
+    +Boolean encrypted
+    +String encryptionIv
+    +String encryptionTag
   }
 
   class Notification {
@@ -165,13 +193,6 @@ classDiagram
     Rejected
   }
 
-  class InterestLevel {
-    <<Enumeration>>
-    Moderate
-    High
-    VeryHigh
-  }
-
   class AttachmentType {
     <<Enumeration>>
     image
@@ -213,9 +234,15 @@ classDiagram
     expired
   }
 
+  class InterestRequestStatus {
+    <<Enumeration>>
+    pending
+    approved
+    rejected
+  }
+
   class ChatType {
     <<Enumeration>>
-    Interest
     Group
     Private
   }
@@ -248,13 +275,13 @@ classDiagram
 
   UserRole .. User
   FriendRequestStatus .. FriendRequest
-  InterestLevel .. UserInterest
   AttachmentType .. FileAsset
   AttachmentType .. Attachment
   FileCategory .. FileAsset
   FileStatus .. FileAsset
   DataRequestType .. DataRequest
   DataRequestStatus .. DataRequest
+  InterestRequestStatus .. InterestRequest
   ChatType .. Chat
   MessageType .. Message
   PostType .. Post
@@ -267,13 +294,10 @@ classDiagram
   User "1" --> "*" Account : has
 
   User "*" --> "*" Interest : has
-  User .. UserInterest
-  Interest .. UserInterest
+  User "1" --> "*" InterestRequest : requests
   Interest "0..1" --> "*" Interest : children
   Interest "1" --> "0..1" Channel : linked
   User "*" --> "*" Channel : member
-  User .. UserChannel
-  Channel .. UserChannel
 
   User "1" --> "*" Post : writes
   Channel "1" --> "*" Post : contains
@@ -286,12 +310,17 @@ classDiagram
   FileAsset "1" --> "*" Attachment : file
   Post "0..1" --> "*" Attachment : contains
   Message "0..1" --> "*" Attachment : contains
+  ProjectMessage "0..1" --> "*" Attachment : contains
 
   User "1" --> "*" FriendRequest : sends
   User "1" --> "*" FriendRequest : receives
+  User "1" --> "*" BlockedUser : blocks
+  User "1" --> "*" BlockedUser : blockedBy
   User "*" --> "*" Chat : participates
   Chat "1" --> "*" Message : contains
   User "1" --> "*" Message : writes
+  Project "1" --> "*" ProjectMessage : contains
+  User "1" --> "*" ProjectMessage : writes
   User "1" --> "*" Notification : receives
   Post "0..1" --> "*" Notification : triggers
   Message "0..1" --> "*" Notification : triggers
@@ -310,7 +339,6 @@ config:
   layout: elk
 ---
 erDiagram
-  direction LR
 
   USER {
     string id PK
@@ -318,6 +346,8 @@ erDiagram
     string login UK
     string role
     string name
+    datetime bannedAt
+    string moderationReason
     boolean emailVerified
     string image
     datetime createdAt
@@ -388,6 +418,18 @@ erDiagram
     int parentId FK
   }
 
+  INTEREST_REQUEST {
+    int id PK
+    string requesterId FK
+    string name
+    string normalizedName
+    string description
+    string status
+    datetime requestedAt
+    datetime reviewedAt
+    datetime updatedAt
+  }
+
   USER_INTEREST {
     string userId PK, FK
     int interestId PK, FK
@@ -397,6 +439,27 @@ erDiagram
   CHANNEL {
     int id PK
     int interestId FK, UK
+    string description
+  }
+
+  PROJECT {
+    int id PK
+    string slug UK
+    string name
+    string color
+    string description
+    int sortOrder
+    datetime createdAt
+    datetime updatedAt
+  }
+
+  PROJECT_MESSAGE {
+    int id PK
+    int projectId FK
+    string senderId FK
+    string content
+    datetime createdAt
+    datetime updatedAt
   }
 
   USER_CHANNEL {
@@ -443,6 +506,7 @@ erDiagram
     int fileId FK
     int postId FK
     int messageId FK
+    int projectMessageId FK
   }
 
   FRIEND_REQUEST {
@@ -455,10 +519,17 @@ erDiagram
     datetime UpdatedAt
   }
 
+  BLOCKED_USER {
+    string blockerId PK, FK
+    string blockedId PK, FK
+    datetime createdAt
+  }
+
   CHAT {
     int id PK
     string name
     string type
+    string privateKey UK
   }
 
   CHAT_TO_USER {
@@ -471,6 +542,9 @@ erDiagram
     datetime createdAt
     string content
     string type
+    boolean encrypted
+    string encryptionIv
+    string encryptionTag
     string senderId FK
     int chatId FK
   }
@@ -535,6 +609,7 @@ erDiagram
 
   USER ||--o{ USER_INTEREST : has
   INTEREST ||--o{ USER_INTEREST : has
+  USER ||--o{ INTEREST_REQUEST : requests
   INTEREST ||--o{ INTEREST : parent
   INTEREST ||--o| CHANNEL : owns
   USER ||--o{ USER_CHANNEL : joins
@@ -547,6 +622,7 @@ erDiagram
   USER ||--o{ REACTION : adds
   POST ||--o{ ATTACHMENT : has
   MESSAGE ||--o{ ATTACHMENT : has
+  PROJECT_MESSAGE ||--o{ ATTACHMENT : has
   FILE_ASSET ||--o{ ATTACHMENT : backs
   USER ||--o{ FILE_ASSET : owns
   INTEREST ||--o{ INTEREST_TO_POST : tags
@@ -554,11 +630,15 @@ erDiagram
 
   USER ||--o{ FRIEND_REQUEST : sends
   USER ||--o{ FRIEND_REQUEST : receives
+  USER ||--o{ BLOCKED_USER : blocks
+  USER ||--o{ BLOCKED_USER : is_blocked_by
 
   USER ||--o{ CHAT_TO_USER : participates
   CHAT ||--o{ CHAT_TO_USER : has
   USER ||--o{ MESSAGE : sends
   CHAT ||--o{ MESSAGE : contains
+  PROJECT ||--o{ PROJECT_MESSAGE : has
+  USER ||--o{ PROJECT_MESSAGE : sends
 
   USER ||--o{ NOTIFICATION : receives
   POST ||--o{ NOTIFICATION : triggers
@@ -576,9 +656,9 @@ erDiagram
   classDef messaging fill:#f3efff,stroke:#8066b3,color:#1f2937
   classDef games fill:#f7f7f7,stroke:#7a7a7a,color:#1f2937
 
-  class USER,PROFILE,PROFILE_SOCIAL,SESSION,ACCOUNT,VERIFICATION,DATA_REQUEST identity
-  class INTEREST,USER_INTEREST,CHANNEL,USER_CHANNEL,INTEREST_TO_POST community
-  class POST,REACTION,FILE_ASSET,ATTACHMENT,NOTIFICATION content
+  class USER,PROFILE,PROFILE_SOCIAL,SESSION,ACCOUNT,VERIFICATION,DATA_REQUEST,BLOCKED_USER identity
+  class INTEREST,INTEREST_REQUEST,USER_INTEREST,CHANNEL,USER_CHANNEL,INTEREST_TO_POST community
+  class POST,REACTION,FILE_ASSET,ATTACHMENT,NOTIFICATION,PROJECT,PROJECT_MESSAGE content
   class FRIEND_REQUEST,CHAT,CHAT_TO_USER,MESSAGE messaging
   class GAME,GAME_SESSION,PLAYER games
 ```

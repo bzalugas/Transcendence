@@ -38,6 +38,8 @@ For the current local HTTPS setup, the public URLs should use:
 BETTER_AUTH_URL=https://localhost
 NEXT_PUBLIC_API_URL=https://localhost
 NEXT_PUBLIC_FRONTEND_URL=https://localhost
+NEXT_INTERNAL_API_URL=https://proxy/api
+CADDY_INTERNAL_CA_CERT=/caddy-data/caddy/pki/authorities/local/root.crt
 ```
 
 ### Run
@@ -62,8 +64,8 @@ make dev
 
 Useful development URLs:
 
-- Frontend: `http://localhost:8080`
-- API: `http://localhost:3000`
+- Frontend: `https://localhost`
+- API: `https://localhost/api`
 - HTTPS proxy: `https://localhost`
 - Adminer: `http://localhost:8081`
 - PostgreSQL host port: `5433`
@@ -96,6 +98,13 @@ Main architecture:
 - `/api/*` is forwarded to the NestJS API.
 - every other route is forwarded to the Next.js frontend.
 - the API is the only service that talks directly to PostgreSQL.
+
+## Frontend Design System
+
+The frontend includes a custom-made design system with shared color tokens,
+typography, custom icons, and reusable React components. See
+[docs/FRONTEND_DESIGN_SYSTEM.md](docs/FRONTEND_DESIGN_SYSTEM.md) for the
+component inventory and design token notes.
 
 <details>
 <summary>Architecture details</summary>
@@ -139,6 +148,7 @@ flowchart LR
   Proxy -->|"non-/api routes"| Front
   Proxy -->|"/api/*"| Api
   Front -. "client-side code calls /api/* on same origin" .-> Proxy
+  Front -. "SSR code calls<br/>https://proxy/api" .-> Proxy
 
   Api -->|"Prisma<br/>DATABASE_URL"| Db
   Api -->|"OAuth flow<br/>/api/auth/*"| FortyTwo
@@ -196,6 +206,53 @@ sequenceDiagram
   A-->>B: auth cookie/session response
 ```
 
+#### SSR, SEO, and HTTPS Routing Rule
+
+The project uses Next.js server components for the SSR/SEO module. An SSR route is
+implemented as a small server `page.tsx` that loads the first screen of data, then
+passes that data to a colocated client component for interactivity.
+
+Example pattern:
+
+```text
+frontend/app/(app)/profile/[username]/page.tsx
+  server component
+  reads route params
+  calls lib/server/api.ts
+  exports generateMetadata(...)
+  renders ProfilePageClient
+
+frontend/app/(app)/profile/[username]/ProfilePageClient.tsx
+  client component
+  receives initialProfile
+  manages state, modals, forms, sockets, and user actions
+```
+
+When adding or updating an SSR route, follow these rules:
+
+- keep `page.tsx` as a server component, without `"use client"`;
+- move browser-only behavior into a colocated `*Client.tsx` component;
+- use `frontend/lib/server/api.ts` for authenticated server-side API calls;
+- do not call `https://localhost/api` from SSR code, because inside the `front`
+  container `localhost` means the frontend container itself;
+- do not call the API with plain `http://api:3000` from SSR code, because the
+  subject requires HTTPS for backend access;
+- use `NEXT_INTERNAL_API_URL=https://proxy/api`, which sends SSR requests through
+  Caddy over HTTPS inside the Docker network;
+- keep `NODE_EXTRA_CA_CERTS` mapped from `CADDY_INTERNAL_CA_CERT` for the frontend
+  container so Node trusts Caddy's internal certificate authority.
+
+SEO is implemented with Next metadata APIs:
+
+- `frontend/app/layout.tsx` defines the global title, description, Open Graph,
+  and Twitter metadata;
+- public pages such as `/login`, `/privacy`, and `/terms` define route metadata;
+- dynamic SSR routes such as `/profile/[username]` and `/channels/[slug]` use
+  `generateMetadata(...)`;
+- authenticated app routes are marked `noindex`;
+- `frontend/app/robots.ts` generates `/robots.txt`;
+- `frontend/app/sitemap.ts` generates `/sitemap.xml`.
+
 #### Services
 
 | Service | Role | Internal port | Public access |
@@ -216,8 +273,7 @@ Production uses `docker/compose.yaml`.
 
 Development overlays `docker/compose-dev.yaml`.
 
-- `front` is also exposed on host port `8080`.
-- `api` is also exposed on host port `3000`.
+- `front` and `api` are not exposed directly on host ports; use the HTTPS proxy.
 - `db` is exposed on host port `5433`.
 - `adminer` is exposed on host port `8081`.
 - source folders are bind-mounted for live development.
@@ -228,7 +284,7 @@ Development overlays `docker/compose-dev.yaml`.
 
 The database is defined with Prisma in [backend/api/prisma/schema.prisma](backend/api/prisma/schema.prisma).
 
-![Database entity-relationship diagram](docs/er_db_mermaid.png)
+![Database entity-relationship diagram](docs/er_schema_db.png)
 
 Main schema areas:
 
@@ -240,7 +296,7 @@ Main schema areas:
 
 Additional schema documentation (class diagram):
 
-- [Mermaid schema](docs/schema_db_mermaid.md)
+- [Mermaid schema](docs/class_diagram_db.md)
 
 ## Features List
 
@@ -262,16 +318,17 @@ Additional schema documentation (class diagram):
 | --- | --- | --- | --- | --- |
 | Frontend and backend frameworks | Major | 2 | Next.js frontend and NestJS backend. | albestae, bazaluga |
 | Real-time features using WebSockets | Major | 2 | WebSocket-oriented chat and instant notification work. | ade-sarr |
-| Public API to interact with the database | Major | 2 | Database-backed REST endpoints under `/api/*` through NestJS controllers and Prisma services. | bazaluga, licohen |
 | ORM | Minor | 1 | Prisma models, migrations, and typed database client. | ilavillu, ade-sarr, bazaluga, licohen |
 | User interaction | Major | 2 | Profiles, friends, channels, posts, and messaging foundations. | albestae, bazaluga, ade-sarr |
 | Standard user management | Major | 2 | Authentication, profile management, avatar/profile fields. | ilavillu, bazaluga, albestae |
 | OAuth authentication | Minor | 1 | 42 OAuth through Better Auth. | bazaluga, ilavillu |
 | Advanced permissions system | Major | 2 | Role-based admin access, admin routes, user/channel management, validation, and cascade user deletion. | licohen |
-| Organization system | Major | 2 | Channel/interest organization structure with user membership and admin management. | bazaluga, licohen |
-| Support for additional browsers | Minor | 1 | Compatibility work for browsers beyond Chrome, mainly through responsive frontend fixes and standards-based Next.js UI. | albestae |
+| Organization system | Major | 2 | Interests/channels act as organizations: admins can create/delete channels, add/remove users, and members can read, create, and update posts inside channel spaces. | bazaluga, licohen |
 | File upload and management | Minor | 1 | File assets and attachments with backend validation/storage logic. | bazaluga |
 | GDPR compliance features | Minor | 1 | Data request model and privacy service. | bazaluga, albestae |
+| Server-side rendering and SEO | Minor | 1 | Next.js server components fetch initial data for selected routes, route metadata improves SEO, and robots/sitemap are generated. | albestae, bazaluga |
+| Custom-made design system | Minor | 1 | Shared color tokens, typography, custom icons, and more than 10 reusable React components documented in `docs/FRONTEND_DESIGN_SYSTEM.md`. | albestae |
+| Private message encryption | Minor custom | 1 | Private chat message bodies are encrypted before storage with authenticated encryption, per-message IV/tag metadata, and `MESSAGE_ENCRYPTION_KEY` configuration. | ade-sarr, bazaluga |
 | **Total** |  | **19** |  |  |
 
 ## Team Information

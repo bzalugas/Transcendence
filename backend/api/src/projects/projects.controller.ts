@@ -17,9 +17,14 @@ export class ProjectsController {
   async createMessage(
     @Req() req: Request,
     @Param('slug') slug: string,
-    @Body() body: { content?: string },
+    @Body() body: { content?: string; attachmentIds?: number[] },
   ) {
     const { userId } = await getSessionUserWithRole(req, ['USER', 'ADMIN']);
-    return this.projectsService.createMessageBySlug(userId, slug, body.content);
+    return this.projectsService.createMessageBySlug(
+      userId,
+      slug,
+      body.content,
+      body.attachmentIds,
+    );
   }
 }

@@ -168,6 +168,7 @@ model ProjectMessage {
   updatedAt DateTime @updatedAt
   project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   sender    User     @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  attachments Attachment[]
 
   @@index([projectId, createdAt])
   @@index([senderId, createdAt])
@@ -230,18 +231,21 @@ model FileAsset {
 }
 
 model Attachment {
-  id        Int            @id @default(autoincrement())
-  type      AttachmentType
-  fileId    Int
-  postId    Int?
-  messageId Int?
-  file      FileAsset      @relation(fields: [fileId], references: [id], onDelete: Cascade)
-  post      Post?          @relation(fields: [postId], references: [id], onDelete: Cascade)
-  message   Message?       @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  id               Int             @id @default(autoincrement())
+  type             AttachmentType
+  fileId           Int
+  postId           Int?
+  messageId        Int?
+  projectMessageId Int?
+  file             FileAsset       @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  post             Post?           @relation(fields: [postId], references: [id], onDelete: Cascade)
+  message          Message?        @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  projectMessage   ProjectMessage? @relation(fields: [projectMessageId], references: [id], onDelete: Cascade)
 
   @@index([fileId])
   @@index([postId])
   @@index([messageId])
+  @@index([projectMessageId])
 }
 
 model Chat {

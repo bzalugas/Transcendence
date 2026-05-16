@@ -160,6 +160,11 @@ export class FilesService {
                 },
               },
             },
+            projectMessage: {
+              select: {
+                id: true,
+              },
+            },
           },
         },
       },
@@ -174,8 +179,11 @@ export class FilesService {
     const isMessageParticipant = asset.attachments.some(
       (attachment) => (attachment.message?.chat.users.length ?? 0) > 0,
     );
+    const isProjectMessageAttachment = asset.attachments.some(
+      (attachment) => attachment.projectMessage !== null,
+    );
 
-    if (!isOwner && !isPostAttachment && !isMessageParticipant) {
+    if (!isOwner && !isPostAttachment && !isMessageParticipant && !isProjectMessageAttachment) {
       throw new ForbiddenException('You cannot access this file');
     }
 

@@ -289,28 +289,33 @@ The database is defined with Prisma in [backend/api/prisma/schema.prisma](backen
 Main schema areas:
 
 - users, sessions, accounts, profiles, and profile socials
-- interests, channels, posts, reactions, files, and attachments
-- friend requests, chats, messages, and notifications
-- privacy data requests
+- interests, interest requests, channels, posts, reactions, files, and attachments
+- projects, project messages, friend requests, blocked users, chats, messages, and notifications
+- privacy data requests and export metadata
 - games, game sessions, and players
 
 Additional schema documentation (class diagram):
 
-- [Mermaid schema](docs/class_diagram_db.md)
+- [Mermaid schema](docs/class_diagram_db.png)
+- [Mermaid source](docs/schema_db_mermaid.md)
 
 ## Features List
 
 | Feature | Description | Owner(s) |
 | --- | --- | --- |
 | Authentication | Email/password authentication and 42 OAuth login through Better Auth. | ilavillu |
+| Password recovery | Forgot-password and reset-password flow backed by the email service. | ilavillu, bazaluga |
 | Profiles | User profile display and editing, including avatar/profile metadata. | albestae, bazaluga, ilavillu |
-| Interests | Interest catalog and user-interest selection. | bazaluga |
+| Interests | Interest catalog, user-interest selection, and user-submitted interest requests. | bazaluga |
 | Suggestions | User suggestions based on shared interests. | licohen, bazaluga |
 | Channels | Interest-based channels with posts, replies, reactions, and attachments. | bazaluga, albestae |
 | Friends | Friendship management. | licohen, bazaluga |
-| Messages | Chat and messages. | ade-sarr, albestae |
+| User blocking | Block/unblock users and hide blocked users from social surfaces. | bazaluga, ade-sarr |
+| Messages | Chat, persisted message history, unread badges, and encrypted private message storage. | ade-sarr, albestae, bazaluga |
+| Projects | Project spaces with project discussions and administrator project management. | albestae, bazaluga |
+| Admin and moderation | Administrator panel for users, roles, bans, channel/project management, member removal, and content deletion. | licohen, bazaluga, albestae |
 | Files | Upload and attachment management for supported file types. | bazaluga, ade-sarr |
-| Privacy | Privacy policy, terms page, data export/deletion request model. | albestae, bazaluga |
+| Privacy | Privacy policy, terms page, confirmed data export flow, export download, and account deletion request flow. | albestae, bazaluga |
 
 ## Modules
 
@@ -325,7 +330,7 @@ Additional schema documentation (class diagram):
 | Advanced permissions system | Major | 2 | Role-based admin access, admin routes, user/channel management, validation, and cascade user deletion. | licohen |
 | Organization system | Major | 2 | Interests/channels act as organizations: admins can create/delete channels, add/remove users, and members can read, create, and update posts inside channel spaces. | bazaluga, licohen |
 | File upload and management | Minor | 1 | File assets and attachments with backend validation/storage logic. | bazaluga |
-| GDPR compliance features | Minor | 1 | Data request model and privacy service. | bazaluga, albestae |
+| GDPR compliance features | Minor | 1 | Data export/deletion requests with email confirmation, export generation, download, and account deletion flow. | bazaluga, albestae |
 | Server-side rendering and SEO | Minor | 1 | Next.js server components fetch initial data for selected routes, route metadata improves SEO, and robots/sitemap are generated. | albestae, bazaluga |
 | Custom-made design system | Minor | 1 | Shared color tokens, typography, custom icons, and more than 10 reusable React components documented in `docs/FRONTEND_DESIGN_SYSTEM.md`. | albestae |
 | Private message encryption | Minor custom | 1 | Private chat message bodies are encrypted before storage with authenticated encryption, per-message IV/tag metadata, and `MESSAGE_ENCRYPTION_KEY` configuration. | ade-sarr, bazaluga |

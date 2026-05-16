@@ -1,5 +1,22 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import Logo42 from "@/components/Logo42";
+import { absoluteUrl } from "@/lib/seo";
+
+export const metadata: Metadata = {
+  title: "Terms of Service",
+  description:
+    "Review the rules, responsibilities, and acceptable use policy for using 42 Connect.",
+  alternates: {
+    canonical: absoluteUrl("/terms"),
+  },
+  openGraph: {
+    title: "Terms of Service | 42 Connect",
+    description:
+      "Review the rules, responsibilities, and acceptable use policy for using 42 Connect.",
+    url: absoluteUrl("/terms"),
+  },
+};
 
 export default function TermsOfServicePage() {
   return (

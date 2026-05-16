@@ -1,5 +1,22 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import Logo42 from "@/components/Logo42";
+import { absoluteUrl } from "@/lib/seo";
+
+export const metadata: Metadata = {
+  title: "Privacy Policy",
+  description:
+    "Read how 42 Connect collects, protects, and manages personal data for students using the platform.",
+  alternates: {
+    canonical: absoluteUrl("/privacy"),
+  },
+  openGraph: {
+    title: "Privacy Policy | 42 Connect",
+    description:
+      "Read how 42 Connect collects, protects, and manages personal data for students using the platform.",
+    url: absoluteUrl("/privacy"),
+  },
+};
 
 export default function PrivacyPolicyPage() {
   return (

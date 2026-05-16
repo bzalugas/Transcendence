@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Script from "next/script";
 import { ThemeProvider } from "@/lib/ThemeContext";
+import { absoluteUrl, siteDescription, siteName } from "@/lib/seo";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -15,8 +16,25 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "42 Connect",
-  description: "Social intranet for 42 students",
+  metadataBase: new URL(absoluteUrl()),
+  applicationName: siteName,
+  title: {
+    default: siteName,
+    template: `%s | ${siteName}`,
+  },
+  description: siteDescription,
+  openGraph: {
+    type: "website",
+    url: absoluteUrl(),
+    siteName,
+    title: siteName,
+    description: siteDescription,
+  },
+  twitter: {
+    card: "summary",
+    title: siteName,
+    description: siteDescription,
+  },
 };
 
 export default function RootLayout({

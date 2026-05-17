@@ -28,7 +28,7 @@ export default function ChannelHeader({
           type="button"
           onClick={onTogglePanel}
           title="Toggle panel"
-          className={`ml-auto hidden items-center rounded-[5px] p-1 transition-colors hover:bg-bg-hover hover:text-text-primary md:flex ${
+          className={`ml-auto hidden items-center rounded-[5px] p-1 transition-colors hover:bg-bg-hover hover:text-text-primary xl:flex ${
             panelOpen ? "text-text-dimmed" : "bg-bg-hover text-text-primary"
           }`}
         >

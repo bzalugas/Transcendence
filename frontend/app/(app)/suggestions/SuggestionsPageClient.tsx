@@ -6,7 +6,6 @@ import Avatar from "@/components/Avatar";
 import CohortStatsPanel from "@/components/CohortStatsPanel";
 import FriendsList from "@/components/FriendsList";
 import PanelToggleIcon from "@/components/icons/PanelToggleIcon";
-import ResponsiveRightPanel, { useResponsiveRightPanel } from "@/components/ResponsiveRightPanel";
 import {
   getSuggestions,
   getFriendRequests,
@@ -32,13 +31,7 @@ export default function SuggestionsPageClient({
     sentRequests: FriendRequest[];
   };
 }) {
-  const {
-    desktopOpen: panelDesktopOpen,
-    overlayOpen: panelOverlayOpen,
-    panelOpen,
-    togglePanel,
-    closeOverlay,
-  } = useResponsiveRightPanel();
+  const [showPanel, setShowPanel] = useState(true);
   const [search, setSearch] = useState("");
   const [requested, setRequested] = useState<Set<string>>(new Set());
   const [outgoingSuggestions, setOutgoingSuggestions] = useState<Set<string>>(new Set());
@@ -245,9 +238,9 @@ export default function SuggestionsPageClient({
           <div className="text-[19px] font-medium">Suggestions for you</div>
           <button
             type="button"
-            onClick={togglePanel}
-            className={`hidden items-center rounded-[5px] p-1 transition-colors hover:bg-bg-hover hover:text-text-primary md:flex ${
-              panelOpen ? "text-text-dimmed" : "bg-bg-hover text-text-primary"
+            onClick={() => setShowPanel(!showPanel)}
+            className={`hidden items-center rounded-[5px] p-1 transition-colors hover:bg-bg-hover hover:text-text-primary xl:flex ${
+              showPanel ? "text-text-dimmed" : "bg-bg-hover text-text-primary"
             }`}
             title="Toggle panel"
           >
@@ -266,16 +259,6 @@ export default function SuggestionsPageClient({
           className="mb-[22px] w-full rounded-full border border-border-default bg-bg-secondary px-4 py-2.5 text-[13.5px] text-text-primary outline-none placeholder:text-text-dimmed focus:border-border-strong"
           placeholder="Search a profile by name or interest..."
         />
-
-        {pendingRequests.length > 0 && (
-          <div className="mb-[22px] rounded-xl border border-border-default bg-bg-secondary p-4 xl:hidden">
-            <FriendRequestsList
-              requests={pendingRequests}
-              onAccept={acceptRequest}
-              onReject={rejectRequest}
-            />
-          </div>
-        )}
 
         {/* Cards grid */}
         {suggestionsLoading ? (
@@ -370,21 +353,19 @@ export default function SuggestionsPageClient({
         )}
       </div>
 
-      <ResponsiveRightPanel
-        desktopOpen={panelDesktopOpen}
-        overlayOpen={panelOverlayOpen}
-        onCloseOverlay={closeOverlay}
-      >
-        <SuggestionsPanel
-          pendingRequests={pendingRequests}
-          sentRequests={sentRequests}
-          cancelingIds={cancelingRequests}
-          friends={friendsList}
-          onAccept={acceptRequest}
-          onReject={rejectRequest}
-          onCancelSent={cancelRequest}
-        />
-      </ResponsiveRightPanel>
+      {showPanel && (
+        <div className="hidden w-[260px] shrink-0 xl:flex">
+          <SuggestionsPanel
+            pendingRequests={pendingRequests}
+            sentRequests={sentRequests}
+            cancelingIds={cancelingRequests}
+            friends={friendsList}
+            onAccept={acceptRequest}
+            onReject={rejectRequest}
+            onCancelSent={cancelRequest}
+          />
+        </div>
+      )}
     </>
   );
 }
@@ -409,11 +390,42 @@ function SuggestionsPanel({
   return (
     <aside className="flex w-full flex-col overflow-hidden border-l border-border-default bg-bg-secondary">
       <div className="flex-1 overflow-y-auto px-[18px] py-6">
-        <FriendRequestsList
-          requests={pendingRequests}
-          onAccept={onAccept}
-          onReject={onReject}
-        />
+        {/* Friend requests */}
+        <div className="mb-3 text-[10.5px] font-semibold uppercase tracking-wider text-text-muted">
+          Friend requests{" "}
+          <span className="ml-1 rounded-[10px] bg-bg-hover px-1.5 py-px text-[10px] font-semibold text-text-primary">
+            {pendingRequests.length}
+          </span>
+        </div>
+        <div className="flex flex-col gap-0.5">
+          {pendingRequests.map((r) => (
+            <div key={r.name} className="flex items-center gap-[9px] py-[7px]">
+              <Link href={`/profile/${r.name}`} className="flex min-w-0 flex-1 items-center gap-[9px] hover:opacity-80">
+                <Avatar initials={r.initials} size="md" />
+                <div className="min-w-0">
+                  <div className="text-[13px] font-medium">{r.name}</div>
+                  <div className="mt-[1px] text-[11px] text-text-dimmed">{r.sharedCount} shared interests</div>
+                </div>
+              </Link>
+              <div className="flex gap-[5px]">
+                <button
+                  type="button"
+                  onClick={() => onAccept(r)}
+                  className="rounded-[5px] bg-text-primary px-2.5 py-1 text-[11.5px] font-medium text-bg-tertiary hover:opacity-90"
+                >
+                  Accept
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onReject(r)}
+                  className="rounded-[5px] border border-border-default px-2.5 py-1 text-[11.5px] text-text-muted hover:bg-bg-hover hover:text-text-primary"
+                >
+                  &#x2715;
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
 
         <div className="my-4 h-px bg-border-default" />
 
@@ -444,58 +456,6 @@ function SuggestionsPanel({
         </div>
       </div>
     </aside>
-  );
-}
-
-function FriendRequestsList({
-  requests,
-  onAccept,
-  onReject,
-}: {
-  requests: FriendRequest[];
-  onAccept: (request: FriendRequest) => void;
-  onReject: (request: FriendRequest) => void;
-}) {
-  return (
-    <div>
-      <div className="mb-3 text-[10.5px] font-semibold uppercase tracking-wider text-text-muted">
-        Friend requests{" "}
-        <span className="ml-1 rounded-[10px] bg-bg-hover px-1.5 py-px text-[10px] font-semibold text-text-primary">
-          {requests.length}
-        </span>
-      </div>
-      <div className="flex flex-col gap-0.5">
-        {requests.map((request) => (
-          <div key={request.name} className="flex items-center gap-[9px] py-[7px]">
-            <Link href={`/profile/${request.name}`} className="flex min-w-0 flex-1 items-center gap-[9px] hover:opacity-80">
-              <Avatar initials={request.initials} size="md" />
-              <div className="min-w-0">
-                <div className="text-[13px] font-medium">{request.name}</div>
-                <div className="mt-[1px] text-[11px] text-text-dimmed">
-                  {request.sharedCount} shared interests
-                </div>
-              </div>
-            </Link>
-            <div className="flex gap-[5px]">
-              <button
-                type="button"
-                onClick={() => onAccept(request)}
-                className="rounded-[5px] bg-text-primary px-2.5 py-1 text-[11.5px] font-medium text-bg-tertiary hover:opacity-90"
-              >
-                Accept
-              </button>
-              <button
-                type="button"
-                onClick={() => onReject(request)}
-                className="rounded-[5px] border border-border-default px-2.5 py-1 text-[11.5px] text-text-muted hover:bg-bg-hover hover:text-text-primary"
-              >
-                &#x2715;
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
   );
 }
 

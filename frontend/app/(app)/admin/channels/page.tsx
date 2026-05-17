@@ -281,12 +281,6 @@ export default function AdminChannelsPage() {
           <div className="mt-2 text-[13px] leading-relaxed text-text-muted">
             Please use a desktop screen to manage channels.
           </div>
-          <Link
-            href="/"
-            className="mt-5 inline-flex rounded-[7px] bg-accent-blue px-3.5 py-2 text-[12.5px] font-semibold text-white transition-opacity hover:opacity-85"
-          >
-            Back to app
-          </Link>
         </div>
       </div>
 
@@ -330,10 +324,10 @@ export default function AdminChannelsPage() {
           </div>
         </aside>
 
-        <main className="flex min-w-0 flex-1 flex-col overflow-x-hidden bg-bg-tertiary">
-          <header className="flex min-h-[68px] shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border-default px-4 py-3 sm:px-7 sm:py-0">
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
+        <main className="flex min-w-0 flex-1 flex-col bg-bg-tertiary">
+          <header className="flex h-[68px] shrink-0 items-center justify-between border-b border-border-default px-7">
+            <div>
+              <div className="flex items-center gap-2">
                 <span className="rounded-full bg-danger/10 px-2 py-0.5 text-[10.5px] font-semibold uppercase tracking-[0.12em] text-danger">
                   Admin mode
                 </span>
@@ -348,13 +342,13 @@ export default function AdminChannelsPage() {
 
             <Link
               href="/"
-              className="ml-auto shrink-0 rounded-[7px] bg-accent-blue px-3.5 py-2 text-[12.5px] font-semibold text-white transition-opacity hover:opacity-85 max-[520px]:w-full max-[520px]:text-center"
+              className="rounded-[7px] bg-accent-blue px-3.5 py-2 text-[12.5px] font-semibold text-white transition-opacity hover:opacity-85"
             >
               Back to app
             </Link>
           </header>
 
-          <section className="grid min-h-0 flex-1 grid-cols-1 gap-6 overflow-y-auto px-4 py-4 xl:grid-cols-[minmax(360px,0.95fr)_minmax(420px,1.05fr)] xl:overflow-hidden xl:px-7 xl:py-6">
+          <section className="grid min-h-0 flex-1 grid-cols-[minmax(360px,0.95fr)_minmax(420px,1.05fr)] gap-6 overflow-hidden px-7 py-6">
             <div className="flex min-h-0 flex-col rounded-[8px] border border-border-default bg-bg-secondary">
               <div className="flex h-[58px] shrink-0 items-center justify-between border-b border-border-default px-4">
                 <div>

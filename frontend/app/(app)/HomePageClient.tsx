@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useState } from "react";
 import Post from "@/components/Post";
 import FriendsPanel from "@/components/FriendsPanel";
-import ResponsiveRightPanel, { useResponsiveRightPanel } from "@/components/ResponsiveRightPanel";
 import PanelToggleIcon from "@/components/icons/PanelToggleIcon";
 import { getHomeFeed, type HomePostFeedItem } from "@/lib/data/feed";
 import { listenForChannelsUpdated } from "@/lib/data/channel-events";
@@ -26,13 +25,7 @@ export default function HomePageClient({
 }: {
   initialFeed: HomePostFeedItem[];
 }) {
-  const {
-    desktopOpen: panelDesktopOpen,
-    overlayOpen: panelOverlayOpen,
-    panelOpen,
-    togglePanel,
-    closeOverlay,
-  } = useResponsiveRightPanel();
+  const [showPanel, setShowPanel] = useState(true);
   const [feed, setFeed] = useState<HomePostFeedItem[]>(initialFeed);
   const [loadingFeed, setLoadingFeed] = useState(false);
   const [feedError, setFeedError] = useState("");
@@ -179,9 +172,9 @@ export default function HomePageClient({
           </div>
           <button
             type="button"
-            onClick={togglePanel}
-            className={`hidden items-center rounded-[5px] p-1 transition-colors hover:bg-bg-hover hover:text-text-primary md:flex ${
-              panelOpen ? "text-text-dimmed" : "bg-bg-hover text-text-primary"
+            onClick={() => setShowPanel(!showPanel)}
+            className={`hidden items-center rounded-[5px] p-1 transition-colors hover:bg-bg-hover hover:text-text-primary xl:flex ${
+              showPanel ? "text-text-dimmed" : "bg-bg-hover text-text-primary"
             }`}
             title="Toggle panel"
           >
@@ -228,13 +221,11 @@ export default function HomePageClient({
         )}
       </div>
 
-      <ResponsiveRightPanel
-        desktopOpen={panelDesktopOpen}
-        overlayOpen={panelOverlayOpen}
-        onCloseOverlay={closeOverlay}
-      >
-        <FriendsPanel />
-      </ResponsiveRightPanel>
+      {showPanel && (
+        <div className="hidden w-[260px] shrink-0 xl:flex">
+          <FriendsPanel />
+        </div>
+      )}
     </>
   );
 }

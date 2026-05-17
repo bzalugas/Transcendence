@@ -7,7 +7,6 @@ import ChannelHeader from "@/components/channel/ChannelHeader";
 import ChannelComposer from "@/components/channel/ChannelComposer";
 import ChannelSystemEvent from "@/components/channel/ChannelSystemEvent";
 import ChannelAboutPanel from "@/components/channel/ChannelAboutPanel";
-import ResponsiveRightPanel, { useResponsiveRightPanel } from "@/components/ResponsiveRightPanel";
 import {
   getChannelBySlug,
   getChannelFeed,
@@ -49,13 +48,7 @@ export default function ChannelPageClient({ slug, initialChannel }: ChannelPageP
   const [channel, setChannel] = useState<Channel | null>(initialChannel.channel);
   const [members, setMembers] = useState<ChannelMember[]>(initialChannel.members);
   const [loaded, setLoaded] = useState(true);
-  const {
-    desktopOpen: panelDesktopOpen,
-    overlayOpen: panelOverlayOpen,
-    panelOpen,
-    togglePanel,
-    closeOverlay,
-  } = useResponsiveRightPanel();
+  const [panelOpen, setPanelOpen] = useState(true);
 
   const appendCommentToFeed = useCallback(
     (postId: string, comment: Comment) => {
@@ -220,7 +213,7 @@ export default function ChannelPageClient({ slug, initialChannel }: ChannelPageP
         <ChannelHeader
           channel={channel}
           panelOpen={panelOpen}
-          onTogglePanel={togglePanel}
+          onTogglePanel={() => setPanelOpen((p) => !p)}
         />
 
         <div className="flex flex-col gap-3 px-4 pb-7 pt-2 sm:px-6 md:px-8">
@@ -252,22 +245,19 @@ export default function ChannelPageClient({ slug, initialChannel }: ChannelPageP
         </div>
       </div>
 
-      <ResponsiveRightPanel
-        desktopOpen={panelDesktopOpen}
-        overlayOpen={panelOverlayOpen}
-        onCloseOverlay={closeOverlay}
-        widthClassName="w-[280px]"
-      >
-        <ChannelAboutPanel
-          channel={channel}
-          members={members}
-          onLeave={async () => {
-            await leaveChannel(slug);
-            router.push("/");
-          }}
-          onBlock={refreshChannelVisibility}
-        />
-      </ResponsiveRightPanel>
+      {panelOpen && (
+        <div className="hidden w-[280px] shrink-0 xl:flex">
+          <ChannelAboutPanel
+            channel={channel}
+            members={members}
+            onLeave={async () => {
+              await leaveChannel(slug);
+              router.push("/");
+            }}
+            onBlock={refreshChannelVisibility}
+          />
+        </div>
+      )}
     </>
   );
 }

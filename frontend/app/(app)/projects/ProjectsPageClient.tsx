@@ -4,7 +4,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Avatar from "@/components/Avatar";
 import FriendsPanel from "@/components/FriendsPanel";
 import MessageComposer from "@/components/MessageComposer";
-import ResponsiveRightPanel, { useResponsiveRightPanel } from "@/components/ResponsiveRightPanel";
 import PanelToggleIcon from "@/components/icons/PanelToggleIcon";
 import { getBlockedUsers } from "@/lib/data/blocks";
 import {
@@ -20,13 +19,7 @@ export default function ProjectsPageClient({
 }: {
   initialProjects: ProjectGridItem[];
 }) {
-  const {
-    desktopOpen: panelDesktopOpen,
-    overlayOpen: panelOverlayOpen,
-    panelOpen,
-    togglePanel,
-    closeOverlay,
-  } = useResponsiveRightPanel();
+  const [showPanel, setShowPanel] = useState(true);
   const [projectSearch, setProjectSearch] = useState("");
   const [projects, setProjects] = useState<ProjectGridItem[]>(initialProjects);
   const [projectsLoading, setProjectsLoading] = useState(false);
@@ -35,7 +28,7 @@ export default function ProjectsPageClient({
   const [draft, setDraft] = useState("");
   const [blockedNames, setBlockedNames] = useState<Set<string>>(new Set());
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
-  const composerInputRef = useRef<HTMLTextAreaElement | null>(null);
+  const composerInputRef = useRef<HTMLInputElement | null>(null);
 
   const filteredProjects = useMemo(() => {
     const q = projectSearch.trim().toLowerCase();
@@ -174,9 +167,9 @@ export default function ProjectsPageClient({
             </div>
             <button
               type="button"
-              onClick={togglePanel}
-              className={`mt-1 hidden items-center rounded-[5px] p-1 transition-colors hover:bg-bg-hover hover:text-text-primary md:flex ${
-                panelOpen ? "text-text-dimmed" : "bg-bg-hover text-text-primary"
+              onClick={() => setShowPanel(!showPanel)}
+              className={`mt-1 hidden items-center rounded-[5px] p-1 transition-colors hover:bg-bg-hover hover:text-text-primary xl:flex ${
+                showPanel ? "text-text-dimmed" : "bg-bg-hover text-text-primary"
               }`}
               title="Toggle panel"
             >
@@ -220,7 +213,7 @@ export default function ProjectsPageClient({
           </div>
         ) : (
           <div className="grid min-h-[calc(100dvh-150px)] flex-1 border-t border-border-subtle lg:min-h-0 lg:grid-cols-[184px_minmax(0,1fr)]">
-            <aside className="hidden min-h-0 border-r border-border-subtle bg-bg-secondary/40 md:flex md:flex-col">
+            <aside className="hidden min-h-0 border-r border-border-subtle bg-bg-secondary/40 lg:flex lg:flex-col">
               <div className="flex h-[62px] items-center border-b border-border-subtle px-3">
                 <button
                   type="button"
@@ -274,16 +267,6 @@ export default function ProjectsPageClient({
                     {activeProject.description}
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={togglePanel}
-                  className={`hidden shrink-0 rounded-[5px] p-1 transition-colors hover:bg-bg-hover hover:text-text-primary md:flex ${
-                    panelOpen ? "text-text-dimmed" : "bg-bg-hover text-text-primary"
-                  }`}
-                  title="Toggle panel"
-                >
-                  <PanelToggleIcon className="h-5 w-5" />
-                </button>
               </div>
 
               <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4 sm:px-5">
@@ -301,24 +284,21 @@ export default function ProjectsPageClient({
                 onChange={setDraft}
                 onSend={handleSend}
                 placeholder={`Message #${activeProject.name}`}
-                allowAttachments={false}
               />
             </section>
           </div>
         )}
       </div>
 
-      <ResponsiveRightPanel
-        desktopOpen={panelDesktopOpen}
-        overlayOpen={panelOverlayOpen}
-        onCloseOverlay={closeOverlay}
-      >
-        <FriendsPanel
-          topSlot={
-            <ProjectsActivityPanel projects={mostActiveProjects} />
-          }
-        />
-      </ResponsiveRightPanel>
+      {showPanel && (
+        <div className="hidden w-[260px] shrink-0 xl:flex">
+          <FriendsPanel
+            topSlot={
+              <ProjectsActivityPanel projects={mostActiveProjects} />
+            }
+          />
+        </div>
+      )}
     </>
   );
 }

@@ -184,9 +184,8 @@ export class BlocksService {
     login: string | null;
     name: string | null;
     email: string;
-    profile?: ({ pseudo?: string | null } & Record<string, unknown>) | null;
   }): string {
-    return user.profile?.pseudo ?? user.login ?? user.name ?? user.email.split('@')[0];
+    return user.login ?? user.name ?? user.email.split('@')[0];
   }
 
   private initials(value: string): string {

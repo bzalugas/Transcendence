@@ -68,32 +68,19 @@ export class ProfilesService {
   // Updates editable profile fields and returns the refreshed public user shape.
   async updateByUserId(
     userId: string,
-    updates: {
-      username?: string | null;
-      bio?: string | null;
-      socials?: unknown;
-      avatarUri?: string | null;
-    } = {},
+    updates: { bio?: string | null; socials?: unknown; avatarUri?: string | null } = {},
   ): Promise<ProfileUserDto> {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      include: {
-        profile: true,
-      },
     });
 
     if (!user) {
       throw new NotFoundException('Profile not found');
     }
 
-    const shouldUpdateUsername = Object.prototype.hasOwnProperty.call(updates, 'username');
     const shouldUpdateBio = Object.prototype.hasOwnProperty.call(updates, 'bio');
     const shouldUpdateSocials = Object.prototype.hasOwnProperty.call(updates, 'socials');
     const shouldUpdateAvatar = Object.prototype.hasOwnProperty.call(updates, 'avatarUri');
-
-    if (shouldUpdateUsername && updates.username !== null && typeof updates.username !== 'string') {
-      throw new BadRequestException('Username must be a string or null');
-    }
 
     if (shouldUpdateBio && updates.bio !== null && typeof updates.bio !== 'string') {
       throw new BadRequestException('Bio must be a string or null');
@@ -103,34 +90,25 @@ export class ProfilesService {
       this.assertAvatarUri(updates.avatarUri);
     }
 
-    if (!shouldUpdateUsername && !shouldUpdateBio && !shouldUpdateSocials && !shouldUpdateAvatar) {
+    if (!shouldUpdateBio && !shouldUpdateSocials && !shouldUpdateAvatar) {
       return this.findByUserId(userId);
     }
 
-    const pseudo = shouldUpdateUsername
-      ? this.normalizeUsername(updates.username, user)
-      : undefined;
     const bio = typeof updates.bio === 'string' ? updates.bio.trim() || null : null;
     const avatarUri = typeof updates.avatarUri === 'string' ? updates.avatarUri : null;
     const socials = shouldUpdateSocials
       ? this.normalizeSocials(updates.socials)
       : undefined;
 
-    if (shouldUpdateUsername && pseudo) {
-      await this.assertUsernameAvailable(userId, pseudo);
-    }
-
     await this.prisma.profile.upsert({
       where: { userId },
       create: {
         userId,
-        ...(shouldUpdateUsername ? { pseudo } : {}),
         ...(shouldUpdateBio ? { bio } : {}),
         ...(shouldUpdateAvatar ? { avatarUri } : {}),
         ...(socials && socials.length > 0 ? { socials: { create: socials } } : {}),
       },
       update: {
-        ...(shouldUpdateUsername ? { pseudo } : {}),
         ...(shouldUpdateBio ? { bio } : {}),
         ...(shouldUpdateAvatar ? { avatarUri } : {}),
         ...(socials
@@ -186,7 +164,6 @@ export class ProfilesService {
     image: string | null;
     role: 'GUEST' | 'USER' | 'ADMIN';
     profile: {
-      pseudo: string | null;
       avatarUri: string | null;
       bio: string | null;
       level: number | null;
@@ -225,49 +202,6 @@ export class ProfilesService {
         },
       },
     };
-  }
-
-  // Stores a public username separately from the immutable 42 login.
-  private normalizeUsername(
-    value: string | null | undefined,
-    user: {
-      login: string | null;
-      name: string | null;
-      email: string;
-      profile?: { pseudo?: string | null } | null;
-    },
-  ): string {
-    const fallback = this.userDisplayName(user);
-    const username = typeof value === 'string' ? value.trim() : '';
-
-    if (!username) return fallback;
-    if (username.length > 32) {
-      throw new BadRequestException('Username must be 32 characters or fewer');
-    }
-    if (!/^[a-zA-Z0-9._-]+$/.test(username)) {
-      throw new BadRequestException('Username can only contain letters, numbers, dots, underscores, and dashes');
-    }
-
-    return username;
-  }
-
-  private async assertUsernameAvailable(userId: string, username: string): Promise<void> {
-    const normalizedUsername = username.toLowerCase();
-    const users = await this.prisma.user.findMany({
-      include: this.userProfileInclude(),
-    });
-    const conflictingUser = users.find((candidate) => {
-      if (candidate.id === userId) return false;
-
-      const displayName = this.userDisplayName(candidate).toLowerCase();
-      const emailName = candidate.email.split('@')[0].toLowerCase();
-
-      return displayName === normalizedUsername || emailName === normalizedUsername;
-    });
-
-    if (conflictingUser) {
-      throw new BadRequestException('Username is already taken');
-    }
   }
 
   // Validates and normalizes the full social link list submitted by the frontend.
@@ -344,11 +278,8 @@ export class ProfilesService {
     login: string | null;
     name: string | null;
     email: string;
-    profile?: {
-      pseudo?: string | null;
-    } | null;
   }): string {
-    return user.profile?.pseudo ?? user.login ?? user.name ?? user.email.split('@')[0];
+    return user.login ?? user.name ?? user.email.split('@')[0];
   }
 
   // Builds compact initials from a login or display name.

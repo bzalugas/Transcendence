@@ -22,6 +22,7 @@ export default function SettingsPopup({
   onClose: () => void;
   anchorRef: React.RefObject<HTMLButtonElement | null>;
 }) {
+  const [lang, setLang] = useState<"en" | "fr">("en");
   const { theme, setTheme } = useTheme();
   const { user: currentUser } = useCurrentUser();
   const popupRef = useRef<HTMLDivElement>(null);
@@ -117,6 +118,13 @@ export default function SettingsPopup({
         <div className="px-3.5 pb-2.5 pt-3.5 text-[13px] font-semibold">Settings</div>
         <Sep />
 
+        {/* Language */}
+        <Section label="Language">
+          <Row active={lang === "en"} onClick={() => setLang("en")}>English</Row>
+          <Row active={lang === "fr"} onClick={() => setLang("fr")}>Francais</Row>
+        </Section>
+        <Sep />
+
         {/* Theme */}
         <Section label="Theme">
           <Row active={theme === "dark"} onClick={() => setTheme("dark")}>Dark</Row>
@@ -154,13 +162,6 @@ export default function SettingsPopup({
             className="flex w-full items-center rounded-[5px] px-2 py-[7px] text-[12.5px] text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary"
           >
             Privacy & data
-          </Link>
-          <Link
-            href="/privacy"
-            onClick={onClose}
-            className="flex w-full items-center rounded-[5px] px-2 py-[7px] text-[12.5px] text-text-secondary transition-colors hover:bg-bg-hover hover:text-text-primary"
-          >
-            Privacy & Terms
           </Link>
         </Section>
         <Sep />

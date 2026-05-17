@@ -11,7 +11,6 @@ import {
   ProjectsIcon,
   SuggestionsIcon,
   MessagesIcon,
-  ChannelsIcon,
   ProfileIcon,
   SettingsIcon,
 } from "@/components/icons/NavIcons";
@@ -33,7 +32,6 @@ const navItems = [
 export default function Sidebar() {
   const pathname = usePathname();
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [channelsOpen, setChannelsOpen] = useState(false);
   const [channels, setChannels] = useState<Channel[]>([]);
   const [navBadges, setNavBadges] = useState<NavBadges>({ suggestions: 0, messages: 0 });
   const settingsRef = useRef<HTMLButtonElement>(null);
@@ -62,10 +60,6 @@ export default function Sidebar() {
       stopListening();
     };
   }, []);
-
-  useEffect(() => {
-    setChannelsOpen(false);
-  }, [pathname]);
 
   useEffect(() => {
     let active = true;
@@ -212,58 +206,6 @@ export default function Sidebar() {
         anchorRef={settingsRef}
       />
     </aside>
-    {channelsOpen && (
-      <div
-        className="fixed inset-0 z-50 bg-black/35 px-3 pb-20 pt-4 md:hidden"
-        onClick={() => setChannelsOpen(false)}
-      >
-        <div
-          className="absolute inset-x-3 bottom-20 max-h-[min(440px,calc(100dvh-112px))] overflow-hidden rounded-[12px] border border-border-strong bg-bg-secondary shadow-[0_18px_48px_rgba(0,0,0,0.45)]"
-          onClick={(event) => event.stopPropagation()}
-        >
-          <div className="flex items-center justify-between border-b border-border-default px-4 py-3">
-            <div className="text-[13.5px] font-semibold text-text-primary">Channels</div>
-            <button
-              type="button"
-              onClick={() => setChannelsOpen(false)}
-              className="rounded-[6px] px-2 py-1 text-[12px] text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary"
-            >
-              Close
-            </button>
-          </div>
-          <div className="max-h-[calc(min(440px,calc(100dvh-112px))-49px)] overflow-y-auto p-2">
-            {channels.length === 0 ? (
-              <div className="px-3 py-5 text-center text-[12.5px] text-text-muted">
-                No joined channels yet.
-              </div>
-            ) : (
-              <div className="flex flex-col gap-0.5">
-                {channels.map(({ slug, label, color }) => {
-                  const href = `/channels/${slug}`;
-                  const active = pathname === href;
-
-                  return (
-                    <Link
-                      key={slug}
-                      href={href}
-                      className={`flex items-center gap-3 rounded-[8px] px-3 py-3 text-[13.5px] transition-colors hover:bg-bg-hover hover:text-text-primary ${
-                        active ? "bg-bg-hover text-text-primary" : "text-text-tertiary"
-                      }`}
-                    >
-                      <span
-                        className="h-2.5 w-2.5 shrink-0 rounded-full"
-                        style={{ background: color }}
-                      />
-                      <span className="min-w-0 flex-1 truncate">{label}</span>
-                    </Link>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    )}
     <nav className="fixed inset-x-0 bottom-0 z-40 flex h-16 items-center justify-around border-t border-border-default bg-bg-secondary px-2 md:hidden">
       {navItems.map(({ href, label, icon: Icon, badgeKey }) => {
         const isActive = pathname === href;
@@ -307,19 +249,6 @@ export default function Sidebar() {
           </Link>
         );
       })}
-      <button
-        type="button"
-        onClick={() => setChannelsOpen((open) => !open)}
-        aria-label="Channels"
-        className={`relative flex h-12 min-w-12 flex-col items-center justify-center gap-1 rounded-[7px] px-2 text-[10.5px] transition-colors ${
-          channelsOpen || pathname.startsWith("/channels/")
-            ? "bg-bg-hover text-text-primary"
-            : "text-text-tertiary"
-        }`}
-      >
-        <ChannelsIcon />
-        <span className="max-w-[56px] truncate">Channels</span>
-      </button>
     </nav>
     </>
   );

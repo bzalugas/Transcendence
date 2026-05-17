@@ -43,18 +43,6 @@ export function MessagesIcon() {
   );
 }
 
-export function ChannelsIcon() {
-  return (
-    <svg {...iconProps}>
-      <path d="M4 6h16" />
-      <path d="M4 12h16" />
-      <path d="M4 18h16" />
-      <path d="M8 4 6 20" />
-      <path d="M18 4l-2 16" />
-    </svg>
-  );
-}
-
 export function ProfileIcon() {
   return (
     <svg {...iconProps}>

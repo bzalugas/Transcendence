@@ -171,7 +171,6 @@ async function syncFortyTwoProfileData(userId: string, data: FortyTwoUserInfo) {
           update: {
             firstname: data.first_name ?? null,
             lastname: data.last_name ?? null,
-            pseudo: data.login,
             level,
           },
         },

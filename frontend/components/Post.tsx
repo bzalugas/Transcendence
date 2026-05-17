@@ -50,16 +50,12 @@ export default function Post({
   imageGrid,
   event,
   attachments,
-  likeCount,
-  liked,
   comments,
   onReply,
   onUpdate,
   onDelete,
 }: PostProps) {
   const { user: currentUser } = useCurrentUser();
-  const [isLiked, setIsLiked] = useState(liked ?? false);
-  const [count, setCount] = useState(likeCount);
   const [optimisticComments, setOptimisticComments] = useState<Comment[]>([]);
   const [commentText, setCommentText] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
@@ -135,12 +131,6 @@ export default function Post({
       appendUniqueComment(currentComments, newComment),
     );
     setCommentText("");
-  }
-
-  function toggleLike() {
-    const newLiked = !isLiked;
-    setIsLiked(newLiked);
-    setCount(newLiked ? count + 1 : count - 1);
   }
 
   async function deletePost() {
@@ -664,23 +654,6 @@ export default function Post({
           </div>
         </div>
       )}
-
-      {/* Like */}
-      <div className="flex items-center gap-1.5 px-4 pb-3">
-        <button
-          type="button"
-          onClick={toggleLike}
-          className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-colors ${
-            isLiked
-              ? "border-accent-blue/30 bg-accent-blue/10 text-accent-blue"
-              : "border-border-subtle bg-bg-tertiary text-text-muted hover:text-text-primary"
-          }`}
-          aria-pressed={isLiked}
-        >
-          <span>👍</span>
-          <span>{count}</span>
-        </button>
-      </div>
 
       {/* Comments */}
       {visibleComments.length > 0 && (

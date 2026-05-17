@@ -148,7 +148,7 @@ export async function updateCurrentUser(
     await client.updateUser?.({ name: updates.username });
   }
 
-  if ("bio" in updates || "socials" in updates || "avatarUrl" in updates) {
+  if ("username" in updates || "bio" in updates || "socials" in updates || "avatarUrl" in updates) {
     const response = await fetch(`${API_BASE_URL}/profiles/me`, {
       method: "PATCH",
       credentials: "include",
@@ -156,6 +156,7 @@ export async function updateCurrentUser(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
+        ...("username" in updates ? { username: updates.username ?? null } : {}),
         ...("bio" in updates ? { bio: updates.bio ?? null } : {}),
         ...("socials" in updates ? { socials: updates.socials ?? [] } : {}),
         ...("avatarUrl" in updates ? { avatarUri: updates.avatarUrl ?? null } : {}),

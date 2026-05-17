@@ -293,7 +293,12 @@ export async function deleteAdminChannel(channelId: number): Promise<void> {
   });
 
   if (!response.ok) {
-    throw new Error(`DELETE /admin/channels/${channelId} failed with ${response.status}`);
+    throw new Error(
+      await responseErrorMessage(
+        response,
+        `DELETE /admin/channels/${channelId} failed with ${response.status}`,
+      ),
+    );
   }
 }
 
@@ -442,4 +447,20 @@ function getInitials(name: string): string {
     .slice(0, 2)
     .map((part) => part[0]?.toUpperCase())
     .join("") || "?";
+}
+
+async function responseErrorMessage(
+  response: Response,
+  fallback: string,
+): Promise<string> {
+  try {
+    const payload = (await response.json()) as { message?: unknown };
+    if (typeof payload.message === "string" && payload.message.trim()) {
+      return payload.message;
+    }
+  } catch {
+    // Some error responses are empty or plain text.
+  }
+
+  return fallback;
 }

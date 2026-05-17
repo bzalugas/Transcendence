@@ -21,6 +21,7 @@ interface MessageComposerProps {
   onSend: (attachmentIds: number[]) => void | Promise<void>;
   placeholder: string;
   inputRef?: React.Ref<HTMLInputElement>;
+  allowAttachments?: boolean;
 }
 
 type UploadItem = {
@@ -43,6 +44,7 @@ export default function MessageComposer({
   onSend,
   placeholder,
   inputRef,
+  allowAttachments = true,
 }: MessageComposerProps) {
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [uploads, setUploads] = useState<UploadItem[]>([]);
@@ -53,7 +55,7 @@ export default function MessageComposer({
     .filter((upload) => upload.status === "uploaded" && upload.asset)
     .map((upload) => upload.asset as FileAsset);
   const isUploading = uploads.some((upload) => upload.status === "uploading");
-  const canSend = !isUploading && (value.trim() || uploadedAssets.length > 0);
+  const canSend = !isUploading && (value.trim() || (allowAttachments && uploadedAssets.length > 0));
 
   async function sendMessage() {
     if (!canSend) return;
@@ -68,6 +70,8 @@ export default function MessageComposer({
 
   function handleFiles(files: FileList | null) {
     if (!files) return;
+
+    if (!allowAttachments) return;
 
     const remainingSlots = MAX_ATTACHMENTS - uploads.length;
     const selectedFiles = Array.from(files).slice(
@@ -177,7 +181,7 @@ export default function MessageComposer({
 
   return (
     <div className="border-t border-border-default bg-bg-secondary px-3 py-3 sm:px-[22px] sm:py-3.5">
-      {(uploads.length > 0 || uploadError) && (
+      {allowAttachments && (uploads.length > 0 || uploadError) && (
         <div className="mb-3 flex flex-wrap gap-2">
           {uploads.map((upload) => (
             <div
@@ -228,36 +232,40 @@ export default function MessageComposer({
       )}
 
       <div className="flex items-center gap-3 sm:gap-5">
-        <input
-          ref={fileInputRef}
-          type="file"
-          multiple
-          accept={UPLOAD_ACCEPT}
-          onChange={(event) => handleFiles(event.target.files)}
-          className="hidden"
-        />
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={uploads.length >= MAX_ATTACHMENTS}
-          className="flex h-9 w-9 shrink-0 items-center justify-center text-text-dimmed transition-colors hover:text-text-primary disabled:opacity-40"
-          title="Attach"
-        >
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            <line x1="12" y1="5" x2="12" y2="19" />
-            <line x1="5" y1="12" x2="19" y2="12" />
-          </svg>
-        </button>
+        {allowAttachments && (
+          <>
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept={UPLOAD_ACCEPT}
+              onChange={(event) => handleFiles(event.target.files)}
+              className="hidden"
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploads.length >= MAX_ATTACHMENTS}
+              className="flex h-9 w-9 shrink-0 items-center justify-center text-text-dimmed transition-colors hover:text-text-primary disabled:opacity-40"
+              title="Attach"
+            >
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+            </button>
+          </>
+        )}
 
         <div className="relative hidden sm:block">
           <button

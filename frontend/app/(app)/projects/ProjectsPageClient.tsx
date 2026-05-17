@@ -284,6 +284,7 @@ export default function ProjectsPageClient({
                 onChange={setDraft}
                 onSend={handleSend}
                 placeholder={`Message #${activeProject.name}`}
+                allowAttachments={false}
               />
             </section>
           </div>

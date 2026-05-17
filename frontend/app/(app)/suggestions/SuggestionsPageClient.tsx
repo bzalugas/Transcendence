@@ -15,6 +15,7 @@ import {
   cancelSentRequest,
   acceptFriendRequest,
   rejectFriendRequest,
+  subscribeToFriendRequests,
   type FriendRequest,
   type SuggestionProfile,
 } from "@/lib/data/suggestions";
@@ -116,6 +117,16 @@ export default function SuggestionsPageClient({
     return () => {
       active = false;
     };
+  }, []);
+
+  useEffect(() => {
+    return subscribeToFriendRequests((request) => {
+      setPendingRequests((prev) =>
+        prev.some((item) => item.id === request.id)
+          ? prev
+          : [request, ...prev],
+      );
+    });
   }, []);
 
   // Sends a friend request and marks the suggestion as pending in the UI.

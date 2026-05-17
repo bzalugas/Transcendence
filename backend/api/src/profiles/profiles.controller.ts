@@ -18,7 +18,12 @@ export class ProfilesController {
   @Patch('me')
   async updateMine(
     @Req() req: Request,
-    @Body() body: { bio?: string | null; socials?: unknown; avatarUri?: string | null },
+    @Body() body: {
+      username?: string | null;
+      bio?: string | null;
+      socials?: unknown;
+      avatarUri?: string | null;
+    },
   ) {
     const userId = await getSessionUserId(req);
     return this.profilesService.updateByUserId(userId, body);

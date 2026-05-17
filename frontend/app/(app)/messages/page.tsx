@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Avatar from "@/components/Avatar";
 import FriendsPanel from "@/components/FriendsPanel";
 import MessageComposer from "@/components/MessageComposer";
+import ResponsiveRightPanel, { useResponsiveRightPanel } from "@/components/ResponsiveRightPanel";
 import PanelToggleIcon from "@/components/icons/PanelToggleIcon";
 import { fileUrl, formatFileSize } from "@/lib/data/files";
 import {
@@ -31,7 +32,13 @@ import type { ChatMessage, Conversation, MessageAttachment } from "@/lib/types";
 
 export default function MessagesPage() {
   const { user: currentUser } = useCurrentUser();
-  const [showPanel, setShowPanel] = useState(true);
+  const {
+    desktopOpen: panelDesktopOpen,
+    overlayOpen: panelOverlayOpen,
+    panelOpen,
+    togglePanel,
+    closeOverlay,
+  } = useResponsiveRightPanel();
   const pending = getPendingConv();
   const [friendConvs, setFriendConvs] = useState<Conversation[]>([]);
   const [conversationsLoading, setConversationsLoading] = useState(true);
@@ -45,7 +52,7 @@ export default function MessagesPage() {
     pending ? "chat" : "list",
   );
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const composerInputRef = useRef<HTMLInputElement | null>(null);
+  const composerInputRef = useRef<HTMLTextAreaElement | null>(null);
   const pendingInitialMessageRef = useRef(pending?.initialMessage ?? "");
   const activeIdRef = useRef(activeId);
 
@@ -369,9 +376,9 @@ export default function MessagesPage() {
     <>
       {/* Conversation list */}
       <div
-        className={`${mobileView === "chat" ? "hidden" : "flex"} min-h-0 w-full shrink-0 flex-col overflow-hidden bg-bg-secondary md:flex md:h-auto md:w-[270px] md:border-r md:border-border-default`}
+        className={`${mobileView === "chat" ? "hidden" : "flex"} min-h-0 w-full shrink-0 flex-col overflow-hidden bg-bg-secondary lg:flex lg:h-auto lg:w-[270px] lg:border-r lg:border-border-default`}
       >
-        <div className="border-b border-border-default px-4 pb-3.5 pt-5 md:hidden">
+        <div className="border-b border-border-default px-4 pb-3.5 pt-5 lg:hidden">
           <div className="flex items-center justify-between gap-3">
             <div className="text-[20px] font-semibold text-text-primary">
               Messages
@@ -385,7 +392,7 @@ export default function MessagesPage() {
           </div>
         </div>
 
-        <div className="hidden h-[62px] items-center justify-between gap-3 border-b border-border-default px-4 md:flex">
+        <div className="hidden h-[62px] items-center justify-between gap-3 border-b border-border-default px-4 lg:flex">
           <div className="min-w-0">
             <div className="text-[15px] font-semibold text-text-primary">
               Messages
@@ -452,15 +459,15 @@ export default function MessagesPage() {
 
       {/* Chat area */}
       <div
-        className={`${mobileView === "list" ? "hidden" : "flex"} min-h-0 flex-1 flex-col bg-bg-tertiary md:flex`}
+        className={`${mobileView === "list" ? "hidden" : "flex"} min-h-0 flex-1 flex-col bg-bg-tertiary lg:flex`}
       >
         {/* Chat header */}
         {effectiveConv && (
           <ChatHeader
             conv={effectiveConv}
             onBack={() => setMobileView("list")}
-            showPanel={showPanel}
-            onTogglePanel={() => setShowPanel(!showPanel)}
+            panelOpen={panelOpen}
+            onTogglePanel={togglePanel}
           />
         )}
 
@@ -482,17 +489,17 @@ export default function MessagesPage() {
                 {msg.sender}
               </div>
               <div
-                className={`flex items-end gap-[9px] ${msg.me ? "flex-row-reverse" : ""}`}
+                className={`flex min-w-0 items-end gap-[9px] ${msg.me ? "flex-row-reverse" : ""}`}
               >
                 <Avatar initials={msg.initials} size="md" />
                 <div
-                  className={`max-w-[min(420px,68vw)] rounded-[14px] px-3.5 py-2.5 text-[13.5px] leading-relaxed sm:max-w-[420px] ${
+                  className={`min-w-0 max-w-[calc(100vw-96px)] overflow-hidden rounded-[14px] px-3.5 py-2.5 text-[13.5px] leading-relaxed sm:max-w-[min(420px,68vw)] ${
                     msg.me
                       ? "bg-contrast-soft-bg text-contrast-soft-text"
                       : "border border-border-default bg-bg-secondary text-text-primary"
                   }`}
                 >
-                  {msg.text && <div>{msg.text}</div>}
+                  {msg.text && <div className="whitespace-pre-wrap break-words">{msg.text}</div>}
                   {msg.attachments && msg.attachments.length > 0 && (
                     <div
                       className={`mt-2 grid gap-2 ${msg.text ? "" : "mt-0"}`}
@@ -524,11 +531,13 @@ export default function MessagesPage() {
         />
       </div>
 
-      {showPanel && (
-        <div className="hidden w-[260px] shrink-0 xl:flex">
-          <FriendsPanel />
-        </div>
-      )}
+      <ResponsiveRightPanel
+        desktopOpen={panelDesktopOpen}
+        overlayOpen={panelOverlayOpen}
+        onCloseOverlay={closeOverlay}
+      >
+        <FriendsPanel />
+      </ResponsiveRightPanel>
     </>
   );
 }
@@ -634,16 +643,16 @@ function ConversationRow({
     <button
       type="button"
       onClick={onClick}
-      className={`flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-bg-hover md:gap-2.5 md:py-2.5 ${
+      className={`flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-bg-hover lg:gap-2.5 lg:py-2.5 ${
         active ? "bg-bg-hover" : ""
       }`}
     >
       <Avatar initials={conv.initials!} avatarUrl={conv.avatarUrl} size="lg" />
       <div className="min-w-0 flex-1">
-        <div className="truncate text-[13.5px] font-medium md:text-[13px]">
+        <div className="truncate text-[13.5px] font-medium lg:text-[13px]">
           {conv.name}
         </div>
-        <div className="mt-0.5 truncate text-[12.5px] text-text-muted md:text-[12px]">
+        <div className="mt-0.5 truncate text-[12.5px] text-text-muted lg:text-[12px]">
           {conv.preview}
         </div>
       </div>
@@ -662,12 +671,12 @@ function ConversationRow({
 function ChatHeader({
   conv,
   onBack,
-  showPanel,
+  panelOpen,
   onTogglePanel,
 }: {
   conv: Conversation;
   onBack: () => void;
-  showPanel: boolean;
+  panelOpen: boolean;
   onTogglePanel: () => void;
 }) {
   return (
@@ -675,7 +684,7 @@ function ChatHeader({
       <button
         type="button"
         onClick={onBack}
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary md:hidden"
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-text-muted transition-colors hover:bg-bg-hover hover:text-text-primary lg:hidden"
         aria-label="Back to conversations"
       >
         <svg
@@ -711,8 +720,8 @@ function ChatHeader({
       <button
         type="button"
         onClick={onTogglePanel}
-        className={`ml-auto hidden items-center rounded-[5px] p-1 transition-colors hover:bg-bg-hover hover:text-text-primary xl:flex ${
-          showPanel ? "text-text-dimmed" : "bg-bg-hover text-text-primary"
+        className={`ml-auto hidden items-center rounded-[5px] p-1 transition-colors hover:bg-bg-hover hover:text-text-primary lg:flex ${
+          panelOpen ? "text-text-dimmed" : "bg-bg-hover text-text-primary"
         }`}
         title="Toggle panel"
       >

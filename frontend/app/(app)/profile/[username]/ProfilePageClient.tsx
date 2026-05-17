@@ -8,6 +8,7 @@ import Avatar from "@/components/Avatar";
 import FriendsPanel from "@/components/FriendsPanel";
 import InterestPickerModal from "@/components/InterestPickerModal";
 import PanelToggleIcon from "@/components/icons/PanelToggleIcon";
+import ResponsiveRightPanel, { useResponsiveRightPanel } from "@/components/ResponsiveRightPanel";
 import UserActionMenu from "@/components/UserActionMenu";
 import { blockUser } from "@/lib/data/blocks";
 import { fileUrl } from "@/lib/data/files";
@@ -41,7 +42,13 @@ export default function ProfilePageClient({ username, initialProfile }: ProfileP
   const router = useRouter();
   const { user: currentUser } = useCurrentUser();
 
-  const [showPanel, setShowPanel] = useState(true);
+  const {
+    desktopOpen: panelDesktopOpen,
+    overlayOpen: panelOverlayOpen,
+    panelOpen,
+    togglePanel,
+    closeOverlay,
+  } = useResponsiveRightPanel();
   const [interests, setInterests] = useState<ProfileInterest[]>(
     initialProfile.profileInterests,
   );
@@ -385,9 +392,9 @@ export default function ProfilePageClient({ username, initialProfile }: ProfileP
             <div className="flex flex-col items-end gap-[7px] self-stretch">
               <button
                 type="button"
-                onClick={() => setShowPanel(!showPanel)}
-                className={`hidden items-center rounded-[5px] p-1 transition-colors hover:bg-bg-hover hover:text-text-primary xl:flex ${
-                  showPanel ? "text-text-dimmed" : "bg-bg-hover text-text-primary"
+                onClick={togglePanel}
+                className={`hidden items-center rounded-[5px] p-1 transition-colors hover:bg-bg-hover hover:text-text-primary md:flex ${
+                  panelOpen ? "text-text-dimmed" : "bg-bg-hover text-text-primary"
                 }`}
                 title="Toggle panel"
               >
@@ -509,7 +516,7 @@ export default function ProfilePageClient({ username, initialProfile }: ProfileP
         </div>
 
         {/* Body */}
-        <div className="flex flex-col items-stretch gap-3.5 px-4 py-5 sm:px-6 md:px-8 lg:flex-row">
+        <div className="flex flex-col items-stretch gap-3.5 px-4 py-5 sm:px-6 md:px-8 md:flex-row">
           <div className="order-1 lg:hidden">
             <Card title="Bio">
               {user.bio ? (
@@ -655,11 +662,13 @@ export default function ProfilePageClient({ username, initialProfile }: ProfileP
         </div>
       </div>
 
-      {showPanel && (
-        <div className="hidden w-[260px] shrink-0 xl:flex">
-          <FriendsPanel friends={!isCurrentUserProfile ? myFriends : undefined} />
-        </div>
-      )}
+      <ResponsiveRightPanel
+        desktopOpen={panelDesktopOpen}
+        overlayOpen={panelOverlayOpen}
+        onCloseOverlay={closeOverlay}
+      >
+        <FriendsPanel friends={!isCurrentUserProfile ? myFriends : undefined} />
+      </ResponsiveRightPanel>
 
       {isSelf && showPicker && (
         <InterestPickerModal

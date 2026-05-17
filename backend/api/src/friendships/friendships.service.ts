@@ -17,6 +17,12 @@ export interface FriendRequestDto {
   sharedCount: number;
 }
 
+export interface FriendRequestCreationResult {
+  sentRequest: FriendRequestDto;
+  receivedRequest?: FriendRequestDto;
+  receiverId?: string;
+}
+
 @Injectable()
 export class FriendshipsService {
   constructor(
@@ -94,7 +100,7 @@ export class FriendshipsService {
   async createRequestByUsername(
     userId: string,
     username: string,
-  ): Promise<FriendRequestDto> {
+  ): Promise<FriendRequestCreationResult> {
     const receiver = await this.findUserByUsername(username);
 
     if (receiver.id === userId) {
@@ -107,6 +113,7 @@ export class FriendshipsService {
 
     const pairKey = this.friendPairKey(userId, receiver.id);
     const currentInterestIds = await this.getInterestIds(userId);
+    const receiverInterestIds = await this.getInterestIds(receiver.id);
     const existing = await this.findRequestByPairKey(pairKey);
 
     if (existing) {
@@ -121,6 +128,12 @@ export class FriendshipsService {
             status: 'Pending',
           },
           include: {
+            sender: {
+              include: {
+                profile: true,
+                interests: true,
+              },
+            },
             receiver: {
               include: {
                 profile: true,
@@ -130,20 +143,30 @@ export class FriendshipsService {
           },
         });
 
-        return this.toFriendRequestDto(
-          request.id,
-          request.receiver,
-          currentInterestIds,
-        );
+        return {
+          sentRequest: this.toFriendRequestDto(
+            request.id,
+            request.receiver,
+            currentInterestIds,
+          ),
+          receivedRequest: this.toFriendRequestDto(
+            request.id,
+            request.sender,
+            receiverInterestIds,
+          ),
+          receiverId: receiver.id,
+        };
       }
 
       const requestUser = existing.senderId === userId ? existing.receiver : existing.sender;
 
-      return this.toFriendRequestDto(
-        existing.id,
-        requestUser,
-        currentInterestIds,
-      );
+      return {
+        sentRequest: this.toFriendRequestDto(
+          existing.id,
+          requestUser,
+          currentInterestIds,
+        ),
+      };
     }
 
     try {
@@ -161,14 +184,28 @@ export class FriendshipsService {
               interests: true,
             },
           },
+          sender: {
+            include: {
+              profile: true,
+              interests: true,
+            },
+          },
         },
       });
 
-      return this.toFriendRequestDto(
-        request.id,
-        request.receiver,
-        currentInterestIds,
-      );
+      return {
+        sentRequest: this.toFriendRequestDto(
+          request.id,
+          request.receiver,
+          currentInterestIds,
+        ),
+        receivedRequest: this.toFriendRequestDto(
+          request.id,
+          request.sender,
+          receiverInterestIds,
+        ),
+        receiverId: receiver.id,
+      };
     } catch (error) {
       if (!this.isUniqueConstraintError(error)) {
         throw error;
@@ -182,11 +219,13 @@ export class FriendshipsService {
 
       const requestUser = request.senderId === userId ? request.receiver : request.sender;
 
-      return this.toFriendRequestDto(
-        request.id,
-        requestUser,
-        currentInterestIds,
-      );
+      return {
+        sentRequest: this.toFriendRequestDto(
+          request.id,
+          requestUser,
+          currentInterestIds,
+        ),
+      };
     }
   }
 

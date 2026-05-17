@@ -21,6 +21,7 @@ type PostProps = PostType & {
   onReply?: (postId: string, body: string) => Promise<Comment>;
   onUpdate?: (postId: string, body: string, attachmentIds: number[]) => Promise<void>;
   onDelete?: (postId: string) => Promise<void>;
+  onDeleteComment?: (postId: string, commentId: string) => Promise<void>;
 };
 
 type UploadItem = {
@@ -54,11 +55,15 @@ export default function Post({
   onReply,
   onUpdate,
   onDelete,
+  onDeleteComment,
 }: PostProps) {
   const { user: currentUser } = useCurrentUser();
   const [optimisticComments, setOptimisticComments] = useState<Comment[]>([]);
   const [commentText, setCommentText] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
+  const [commentMenuOpenId, setCommentMenuOpenId] = useState<string | null>(null);
+  const [deletingCommentId, setDeletingCommentId] = useState<string | null>(null);
+  const [confirmDeleteComment, setConfirmDeleteComment] = useState<Comment | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [previewAttachment, setPreviewAttachment] = useState<PostAttachment | null>(null);
@@ -69,6 +74,7 @@ export default function Post({
   const [editError, setEditError] = useState("");
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const commentMenuRef = useRef<HTMLDivElement>(null);
   const editFileInputRef = useRef<HTMLInputElement>(null);
   const imageAttachments = attachments?.filter((attachment) => attachment.category === "image") ?? [];
   const previewImageIndex = previewAttachment?.category === "image"
@@ -92,15 +98,20 @@ export default function Post({
   const visibleComments = mergeComments(comments, optimisticComments);
 
   useEffect(() => {
-    if (!menuOpen) return;
+    if (!menuOpen && !commentMenuOpenId) return;
 
     function handlePointerDown(event: PointerEvent) {
       if (menuRef.current?.contains(event.target as Node)) return;
+      if (commentMenuRef.current?.contains(event.target as Node)) return;
       setMenuOpen(false);
+      setCommentMenuOpenId(null);
     }
 
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") setMenuOpen(false);
+      if (event.key === "Escape") {
+        setMenuOpen(false);
+        setCommentMenuOpenId(null);
+      }
     }
 
     document.addEventListener("pointerdown", handlePointerDown);
@@ -110,7 +121,7 @@ export default function Post({
       document.removeEventListener("pointerdown", handlePointerDown);
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [menuOpen]);
+  }, [menuOpen, commentMenuOpenId]);
 
   // Persists a reply when possible, then adds it to the displayed comments.
   async function submitComment() {
@@ -122,6 +133,7 @@ export default function Post({
       : {
           initials: currentUser.initials,
           avatarUrl: currentUser.avatarUrl,
+          authorId: currentUser.id,
           author: currentUser.username,
           text,
           time: "just now",
@@ -143,6 +155,41 @@ export default function Post({
       setConfirmDeleteOpen(false);
     } finally {
       setIsDeleting(false);
+    }
+  }
+
+  function canManageComment(comment: Comment): boolean {
+    if (!currentUser) return false;
+    if (comment.authorId === currentUser.id) return true;
+
+    const commentAuthor = normalizeIdentity(comment.author);
+    const currentUsername = normalizeIdentity(currentUser.username);
+    const postAuthor = normalizeIdentity(author);
+
+    if (currentUsername === commentAuthor) return true;
+
+    return (canEdit || canDelete) && postAuthor === commentAuthor;
+  }
+
+  function requestDeleteComment(comment: Comment) {
+    if (!comment.id || deletingCommentId) return;
+
+    setCommentMenuOpenId(null);
+    setConfirmDeleteComment(comment);
+  }
+
+  async function deleteComment(comment: Comment) {
+    if (!onDeleteComment || !comment.id || deletingCommentId) return;
+
+    setDeletingCommentId(comment.id);
+    try {
+      await onDeleteComment(id, comment.id);
+      setOptimisticComments((currentComments) =>
+        currentComments.filter((candidate) => candidate.id !== comment.id),
+      );
+      setConfirmDeleteComment(null);
+    } finally {
+      setDeletingCommentId(null);
     }
   }
 
@@ -387,6 +434,22 @@ export default function Post({
           }}
           onConfirm={() => {
             void deletePost();
+          }}
+        />
+      )}
+
+      {confirmDeleteComment && (
+        <ConfirmModal
+          title="Remove comment?"
+          description="This comment will be permanently removed from the post."
+          confirmLabel={deletingCommentId ? "Removing..." : "Remove"}
+          cancelLabel="Cancel"
+          tone="danger"
+          onCancel={() => {
+            if (!deletingCommentId) setConfirmDeleteComment(null);
+          }}
+          onConfirm={() => {
+            void deleteComment(confirmDeleteComment);
           }}
         />
       )}
@@ -658,23 +721,59 @@ export default function Post({
       {/* Comments */}
       {visibleComments.length > 0 && (
         <div className="border-t border-border-default px-4 py-2.5">
-          {visibleComments.map((c, i) => (
-            <div key={c.id ?? i} className="flex gap-2.5 py-1.5">
-              <Avatar initials={c.initials} avatarUrl={c.avatarUrl} size="sm" />
-              <div className="min-w-0">
-                <Link
-                  href={`/profile/${c.author}`}
-                  className="text-[12.5px] font-medium text-text-primary hover:underline"
-                >
-                  {c.author}
-                </Link>
-                <span className="ml-1.5 text-[12.5px] text-text-secondary">
-                  {c.text}
-                </span>
-                <div className="text-[11px] text-text-dimmed">{c.time}</div>
+          {visibleComments.map((c, i) => {
+            const commentMenuId = c.id ?? `comment-${i}`;
+
+            return (
+              <div key={commentMenuId} className="group flex gap-2.5 py-1.5">
+                <Avatar initials={c.initials} avatarUrl={c.avatarUrl} size="sm" />
+                <div className="min-w-0 flex-1">
+                  <Link
+                    href={`/profile/${c.author}`}
+                    className="text-[12.5px] font-medium text-text-primary hover:underline"
+                  >
+                    {c.author}
+                  </Link>
+                  <span className="ml-1.5 text-[12.5px] text-text-secondary">
+                    {c.text}
+                  </span>
+                  <div className="text-[11px] text-text-dimmed">{c.time}</div>
+                </div>
+                <div ref={commentMenuOpenId === commentMenuId ? commentMenuRef : undefined} className="relative shrink-0">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setCommentMenuOpenId((openId) =>
+                        openId === commentMenuId ? null : commentMenuId,
+                      )
+                    }
+                    className="px-1 text-[15px] leading-none text-text-muted transition-colors hover:text-text-primary"
+                    aria-haspopup="menu"
+                    aria-expanded={commentMenuOpenId === commentMenuId}
+                    aria-label="Comment options"
+                  >
+                    ···
+                  </button>
+                  {commentMenuOpenId === commentMenuId && (
+                    <div
+                      role="menu"
+                      className="absolute right-0 top-5 z-20 min-w-[148px] rounded-lg border border-border-subtle bg-bg-secondary py-1 shadow-lg"
+                    >
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => requestDeleteComment(c)}
+                        disabled={!onDeleteComment || !c.id || deletingCommentId === c.id}
+                        className="w-full px-3 py-2 text-left text-[12.5px] font-medium text-red-500 transition-colors hover:bg-bg-hover disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {deletingCommentId === c.id ? "Removing..." : "Remove comment"}
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -788,4 +887,8 @@ function mergeComments(
   optimisticComments: Comment[],
 ): Comment[] {
   return optimisticComments.reduce(appendUniqueComment, comments);
+}
+
+function normalizeIdentity(value: string): string {
+  return value.trim().toLowerCase();
 }

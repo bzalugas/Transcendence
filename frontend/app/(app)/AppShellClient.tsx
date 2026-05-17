@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
+import FriendRequestNotificationsProvider from "@/components/FriendRequestNotificationsProvider";
 import MessageNotificationsProvider from "@/components/MessageNotificationsProvider";
 import Sidebar from "@/components/Sidebar";
 import { CurrentUserProvider } from "@/lib/data/auth";
@@ -20,6 +21,7 @@ export default function AppShellClient({
   return (
     <CurrentUserProvider user={currentUser}>
       <div className="flex h-dvh overflow-hidden">
+        <FriendRequestNotificationsProvider />
         <MessageNotificationsProvider currentUserId={currentUser.id} />
         {!isAdminPage && <Sidebar />}
         <div

@@ -1,4 +1,5 @@
-import { API_BASE_URL } from "@/lib/api-url";
+import { io, type Socket } from "socket.io-client";
+import { API_BASE_URL, API_ORIGIN } from "@/lib/api-url";
 import type { Friend } from "@/lib/types";
 
 export interface SuggestionProfile {
@@ -68,6 +69,27 @@ export async function getSentRequests(): Promise<FriendRequest[]> {
   return request<FriendRequest[]>("/friendships/requests/sent");
 }
 
+export function subscribeToFriendRequests(
+  listener: (request: FriendRequest) => void,
+  onError?: (message: string) => void,
+): () => void {
+  const socket = getFriendshipSocket();
+  if (!socket.connected) socket.connect();
+
+  const handleRequest = (request: FriendRequest) => listener(request);
+  const handleError = (error: { message?: string }) => {
+    onError?.(error.message ?? "Friend request realtime error");
+  };
+
+  socket.on("friendship:request", handleRequest);
+  socket.on("friendship:error", handleError);
+
+  return () => {
+    socket.off("friendship:request", handleRequest);
+    socket.off("friendship:error", handleError);
+  };
+}
+
 // Sends an authenticated request to the backend friendship API.
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
@@ -82,4 +104,18 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (response.status === 204) return undefined as T;
 
   return response.json();
+}
+
+let friendshipSocket: Socket | null = null;
+
+function getFriendshipSocket(): Socket {
+  if (!friendshipSocket) {
+    friendshipSocket = io(API_ORIGIN, {
+      path: "/api/socket.io",
+      withCredentials: true,
+      autoConnect: false,
+    });
+  }
+
+  return friendshipSocket;
 }

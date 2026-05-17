@@ -9,11 +9,15 @@ import {
 } from '@nestjs/common';
 import type { Request } from 'express';
 import { getSessionUserId } from '../auth/session';
+import { FriendshipsGateway } from './friendships.gateway';
 import { FriendshipsService } from './friendships.service';
 
 @Controller('friendships')
 export class FriendshipsController {
-  constructor(private readonly friendshipsService: FriendshipsService) {}
+  constructor(
+    private readonly friendshipsService: FriendshipsService,
+    private readonly friendshipsGateway: FriendshipsGateway,
+  ) {}
 
   // Returns pending friend requests received by the current user.
   @Get('requests/received')
@@ -33,7 +37,19 @@ export class FriendshipsController {
   @Post('requests/:username')
   async createRequest(@Req() req: Request, @Param('username') username: string) {
     const userId = await getSessionUserId(req);
-    return this.friendshipsService.createRequestByUsername(userId, username);
+    const result = await this.friendshipsService.createRequestByUsername(
+      userId,
+      username,
+    );
+
+    if (result.receiverId && result.receivedRequest) {
+      this.friendshipsGateway.emitReceivedRequest(
+        result.receiverId,
+        result.receivedRequest,
+      );
+    }
+
+    return result.sentRequest;
   }
 
   // Accepts a pending friend request received by the current user.

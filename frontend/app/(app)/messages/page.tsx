@@ -720,7 +720,7 @@ function ChatHeader({
       <button
         type="button"
         onClick={onTogglePanel}
-        className={`ml-auto flex items-center rounded-[5px] p-1 transition-colors hover:bg-bg-hover hover:text-text-primary ${
+        className={`ml-auto hidden items-center rounded-[5px] p-1 transition-colors hover:bg-bg-hover hover:text-text-primary lg:flex ${
           panelOpen ? "text-text-dimmed" : "bg-bg-hover text-text-primary"
         }`}
         title="Toggle panel"

@@ -175,7 +175,7 @@ export default function ProjectsPageClient({
             <button
               type="button"
               onClick={togglePanel}
-              className={`mt-1 flex items-center rounded-[5px] p-1 transition-colors hover:bg-bg-hover hover:text-text-primary ${
+              className={`mt-1 hidden items-center rounded-[5px] p-1 transition-colors hover:bg-bg-hover hover:text-text-primary md:flex ${
                 panelOpen ? "text-text-dimmed" : "bg-bg-hover text-text-primary"
               }`}
               title="Toggle panel"
@@ -220,7 +220,7 @@ export default function ProjectsPageClient({
           </div>
         ) : (
           <div className="grid min-h-[calc(100dvh-150px)] flex-1 border-t border-border-subtle lg:min-h-0 lg:grid-cols-[184px_minmax(0,1fr)]">
-            <aside className="hidden min-h-0 border-r border-border-subtle bg-bg-secondary/40 lg:flex lg:flex-col">
+            <aside className="hidden min-h-0 border-r border-border-subtle bg-bg-secondary/40 md:flex md:flex-col">
               <div className="flex h-[62px] items-center border-b border-border-subtle px-3">
                 <button
                   type="button"
@@ -277,7 +277,7 @@ export default function ProjectsPageClient({
                 <button
                   type="button"
                   onClick={togglePanel}
-                  className={`shrink-0 rounded-[5px] p-1 transition-colors hover:bg-bg-hover hover:text-text-primary ${
+                  className={`hidden shrink-0 rounded-[5px] p-1 transition-colors hover:bg-bg-hover hover:text-text-primary md:flex ${
                     panelOpen ? "text-text-dimmed" : "bg-bg-hover text-text-primary"
                   }`}
                   title="Toggle panel"

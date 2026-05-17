@@ -137,9 +137,12 @@ export default function AdminChannelsPage() {
 
     try {
       await deleteAdminChannel(channelToDelete.id);
-      setChannels((currentChannels) =>
-        currentChannels.filter((channel) => channel.id !== channelToDelete.id),
-      );
+      await loadChannels();
+      if (membersChannel?.id === channelToDelete.id) {
+        setMembersChannel(null);
+        setMembers([]);
+        setMembersStatus("idle");
+      }
       setChannelToDelete(null);
       setChannelsError(null);
     } catch (error) {
@@ -371,10 +374,13 @@ export default function AdminChannelsPage() {
                 </div>
                 <button
                   type="button"
-                  onClick={loadChannels}
-                  className="rounded-[6px] border border-border-default px-2.5 py-1.5 text-[11.5px] text-text-secondary transition-colors hover:border-border-strong hover:bg-bg-hover hover:text-text-primary"
+                  onClick={() => {
+                    void loadChannels();
+                  }}
+                  disabled={channelsStatus === "loading"}
+                  className="rounded-[6px] border border-border-default px-2.5 py-1.5 text-[11.5px] text-text-secondary transition-colors hover:border-border-strong hover:bg-bg-hover hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-45"
                 >
-                  Refresh
+                  {channelsStatus === "loading" ? "Refreshing..." : "Refresh"}
                 </button>
               </div>
 
@@ -565,10 +571,13 @@ export default function AdminChannelsPage() {
                   </div>
                   <button
                     type="button"
-                    onClick={loadRequests}
-                    className="rounded-[6px] border border-border-default px-2.5 py-1.5 text-[11.5px] text-text-secondary transition-colors hover:border-border-strong hover:bg-bg-hover hover:text-text-primary"
+                    onClick={() => {
+                      void loadRequests();
+                    }}
+                    disabled={requestsStatus === "loading"}
+                    className="rounded-[6px] border border-border-default px-2.5 py-1.5 text-[11.5px] text-text-secondary transition-colors hover:border-border-strong hover:bg-bg-hover hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-45"
                   >
-                    Refresh
+                    {requestsStatus === "loading" ? "Refreshing..." : "Refresh"}
                   </button>
                 </div>
 

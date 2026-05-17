@@ -427,18 +427,76 @@ export class AdminService {
     });
   }
 
-  async deleteChannel(channelId: number) {
+  async deleteChannel(channelId: number): Promise<{ deleted: true }> {
     const channel = await this.prisma.channel.findUnique({
       where: { id: channelId },
     });
     if (!channel) throw new NotFoundException('Channel not found');
 
-    await this.prisma.user_Channel.deleteMany({ where: { channelId } });
-    await this.prisma.user_Interest.deleteMany({
-      where: { interestId: channel.interestId },
+    let storageKeys: string[] = [];
+
+    await this.prisma.$transaction(async (tx) => {
+      const attachments = await tx.attachment.findMany({
+        where: {
+          post: {
+            channelId,
+          },
+        },
+        select: {
+          fileId: true,
+          file: {
+            select: {
+              storageKey: true,
+            },
+          },
+        },
+      });
+      const fileIds = attachments.map((attachment) => attachment.fileId);
+      storageKeys = attachments.map((attachment) => attachment.file.storageKey);
+
+      const posts = await tx.post.findMany({
+        where: { channelId },
+        select: { id: true },
+      });
+      const postIds = posts.map((post) => post.id);
+
+      if (postIds.length > 0) {
+        await tx.notification.deleteMany({
+          where: { postId: { in: postIds } },
+        });
+        await tx.reaction.deleteMany({
+          where: { postId: { in: postIds } },
+        });
+
+        if (fileIds.length > 0) {
+          await tx.fileAsset.deleteMany({
+            where: { id: { in: fileIds } },
+          });
+        }
+
+        await tx.post.deleteMany({
+          where: { channelId, parentId: { not: null } },
+        });
+        await tx.post.deleteMany({
+          where: { channelId, parentId: null },
+        });
+      }
+
+      await tx.user_Channel.deleteMany({ where: { channelId } });
+      await tx.user_Interest.deleteMany({
+        where: { interestId: channel.interestId },
+      });
+      await tx.channel.delete({ where: { id: channelId } });
+      await tx.interest.updateMany({
+        where: { parentId: channel.interestId },
+        data: { parentId: null },
+      });
+      await tx.interest.delete({ where: { id: channel.interestId } });
     });
-    await this.prisma.channel.delete({ where: { id: channelId } });
-    await this.prisma.interest.delete({ where: { id: channel.interestId } });
+
+    await this.filesService.deleteStorageKeys(storageKeys);
+
+    return { deleted: true };
   }
 
   async findChannelMembers(channelId: number) {

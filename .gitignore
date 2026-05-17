@@ -8,3 +8,4 @@ subject.pdf
 backend/api/uploads
 DEV_DOC.md
 .vscode
+.env.local

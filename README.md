@@ -125,7 +125,7 @@ flowchart LR
   subgraph Runtime["Docker Compose runtime"]
     direction LR
 
-    Proxy["Caddy<br/>reverse proxy<br/>ports 80 / 443"]
+    Proxy["Caddy<br/>reverse proxy<br/>ports 2323"]
 
     subgraph Web["Web tier"]
       direction TB

@@ -95,6 +95,23 @@ export class ChannelsController {
     return reply;
   }
 
+  // Removes a persisted reply when the current user is its author.
+  @Delete(':slug/posts/:postId/replies/:replyId')
+  async deleteReply(
+    @Req() req: Request,
+    @Param('slug') slug: string,
+    @Param('postId', ParseIntPipe) postId: number,
+    @Param('replyId', ParseIntPipe) replyId: number,
+  ) {
+    const userId = await getSessionUserId(req);
+    return this.channelsService.deleteReplyBySlug(
+      userId,
+      slug,
+      postId,
+      replyId,
+    );
+  }
+
   // Updates a persisted root post and its attached files when the current user is its author.
   @Patch(':slug/posts/:postId')
   async updatePost(

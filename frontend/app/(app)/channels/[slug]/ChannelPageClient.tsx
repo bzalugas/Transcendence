@@ -14,6 +14,7 @@ import {
   getChannelMembers,
   createChannelPost,
   createChannelReply,
+  deleteChannelReply,
   updateChannelPost,
   deleteChannelPost,
   leaveChannel,
@@ -178,6 +179,24 @@ export default function ChannelPageClient({ slug, initialChannel }: ChannelPageP
     );
   }
 
+  function removeCommentFromFeed(postId: string, commentId: string) {
+    setFeed((items) =>
+      items.map((item) =>
+        item.kind === "post" && item.post.id === postId
+          ? {
+              kind: "post",
+              post: {
+                ...item.post,
+                comments: item.post.comments.filter(
+                  (comment) => comment.id !== commentId,
+                ),
+              },
+            }
+          : item,
+      ),
+    );
+  }
+
   async function handleUpdatePost(
     postId: string,
     body: string,
@@ -197,6 +216,11 @@ export default function ChannelPageClient({ slug, initialChannel }: ChannelPageP
     const comment = await createChannelReply(slug, postId, replyBody);
     appendCommentToFeed(postId, comment);
     return comment;
+  }
+
+  async function handleDeleteReply(postId: string, replyId: string) {
+    await deleteChannelReply(slug, postId, replyId);
+    removeCommentFromFeed(postId, replyId);
   }
 
   async function refreshChannelVisibility() {
@@ -239,6 +263,7 @@ export default function ChannelPageClient({ slug, initialChannel }: ChannelPageP
                   onReply={handleReply}
                   onUpdate={handleUpdatePost}
                   onDelete={handleDeletePost}
+                  onDeleteComment={handleDeleteReply}
                 />
               ) : (
                 <ChannelSystemEvent

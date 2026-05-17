@@ -5,6 +5,12 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import TermsAcceptanceModal from "@/components/TermsAcceptanceModal";
 import { authClient } from "@/lib/auth-client";
+import {
+  EMAIL_FORMAT_HINT,
+  INVALID_EMAIL_MESSAGE,
+  isValidEmailAddress,
+  normalizeEmail,
+} from "@/lib/validation/email";
 
 export default function GuestLoginPage() {
   const router = useRouter();
@@ -14,6 +20,9 @@ export default function GuestLoginPage() {
   const [showTerms, setShowTerms] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const normalizedEmail = normalizeEmail(email);
+  const emailHasValue = normalizedEmail.length > 0;
+  const emailValid = isValidEmailAddress(normalizedEmail);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -21,6 +30,11 @@ export default function GuestLoginPage() {
 
     if (!email || !password) {
       setError("Please fill in all fields.");
+      return;
+    }
+
+    if (!emailValid) {
+      setError(INVALID_EMAIL_MESSAGE);
       return;
     }
 
@@ -38,7 +52,7 @@ export default function GuestLoginPage() {
     setError("");
 
     const { error } = await authClient.signIn.email({
-      email,
+      email: normalizedEmail,
       password,
     });
 
@@ -94,7 +108,7 @@ export default function GuestLoginPage() {
         </p>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="flex flex-col gap-3.5">
+        <form onSubmit={handleSubmit} autoComplete="off" className="flex flex-col gap-3.5">
           {/* Email */}
           <div>
             <label className="mb-1.5 block text-[12px] font-medium text-text-muted">
@@ -105,8 +119,22 @@ export default function GuestLoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@example.com"
-              className="w-full rounded-[10px] border border-border-default bg-bg-primary px-3.5 py-3 text-[14px] text-text-primary outline-none placeholder:text-text-dimmed focus:border-border-strong"
+              autoComplete="off"
+              autoCapitalize="none"
+              spellCheck={false}
+              className={`w-full rounded-[10px] border bg-bg-primary px-3.5 py-3 text-[14px] text-text-primary outline-none placeholder:text-text-dimmed focus:border-border-strong ${
+                emailHasValue
+                  ? emailValid
+                    ? "border-accent-green"
+                    : "border-danger"
+                  : "border-border-default"
+              }`}
             />
+            {emailHasValue && (
+              <p className={`mt-1.5 text-[11.5px] ${emailValid ? "text-accent-green" : "text-danger"}`}>
+                {emailValid ? "Valid email address." : EMAIL_FORMAT_HINT}
+              </p>
+            )}
           </div>
 
           {/* Password */}
@@ -122,13 +150,16 @@ export default function GuestLoginPage() {
                 Forgot password?
               </Link>
             </div>
-            <div className={`relative transition-opacity ${!email ? "pointer-events-none opacity-40" : ""}`}>
+            <div className={`relative transition-opacity ${!emailValid ? "pointer-events-none opacity-40" : ""}`}>
               <input
                 type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                disabled={!email}
+                autoComplete="off"
+                data-lpignore="true"
+                data-1p-ignore="true"
+                disabled={!emailValid}
                 className="w-full rounded-[10px] border border-border-default bg-bg-primary px-3.5 py-3 pr-11 text-[14px] text-text-primary outline-none placeholder:text-text-dimmed focus:border-border-strong disabled:cursor-not-allowed"
               />
               <button

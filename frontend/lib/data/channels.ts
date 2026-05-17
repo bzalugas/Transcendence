@@ -164,6 +164,17 @@ export async function createChannelReply(
   });
 }
 
+// Removes a persisted reply owned by the current authenticated user.
+export async function deleteChannelReply(
+  slug: string,
+  postId: string,
+  replyId: string,
+): Promise<void> {
+  await request(`/channels/${slug}/posts/${postId}/replies/${replyId}`, {
+    method: "DELETE",
+  });
+}
+
 export function joinChannelRealtime(slug: string): void {
   const socket = getChannelSocket();
   if (!socket.connected) socket.connect();

@@ -66,6 +66,7 @@ export interface ChannelPostAttachmentDto {
 
 export interface ChannelCommentDto {
   id: string;
+  authorId: string;
   initials: string;
   avatarUrl?: string;
   author: string;
@@ -339,6 +340,45 @@ export class ChannelsService {
     });
 
     return this.toCommentDto(reply);
+  }
+
+  // Deletes a reply when requested by the original author.
+  async deleteReplyBySlug(
+    userId: string,
+    slug: string,
+    postId: number,
+    replyId: number,
+  ): Promise<{ deleted: true }> {
+    const channel = await this.findChannelBySlug(slug);
+    await this.assertChannelMembership(userId, channel.id);
+
+    const reply = await this.prisma.post.findFirst({
+      where: {
+        id: replyId,
+        channelId: channel.id,
+        parentId: postId,
+      },
+      select: {
+        id: true,
+        authorId: true,
+      },
+    });
+
+    if (!reply) {
+      throw new NotFoundException('Reply not found');
+    }
+
+    if (reply.authorId !== userId) {
+      throw new ForbiddenException('Only the reply author can remove it');
+    }
+
+    await this.prisma.$transaction([
+      this.prisma.reaction.deleteMany({ where: { postId: reply.id } }),
+      this.prisma.notification.deleteMany({ where: { postId: reply.id } }),
+      this.prisma.post.delete({ where: { id: reply.id } }),
+    ]);
+
+    return { deleted: true };
   }
 
   // Replaces a root post's text and full attachment list for the original author.
@@ -875,6 +915,7 @@ export class ChannelsService {
     id: number;
     createdAt: Date;
     content: string;
+    authorId: string;
     author: {
       login: string | null;
       name: string | null;
@@ -889,6 +930,7 @@ export class ChannelsService {
 
     return {
       id: String(comment.id),
+      authorId: comment.authorId,
       initials: this.initials(commentAuthor),
       avatarUrl:
         comment.author.profile?.avatarUri ?? comment.author.image ?? undefined,

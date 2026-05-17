@@ -11,6 +11,7 @@ import { appendUniqueComment } from "@/lib/data/comments";
 import { useCurrentUser } from "@/lib/data/auth";
 import {
   createChannelReply,
+  deleteChannelReply,
   deleteChannelPost,
   getJoinedChannels,
   joinChannelRealtime,
@@ -133,6 +134,24 @@ export default function HomePageClient({
     setFeed((items) => items.filter((item) => item.post.id !== postId));
   }
 
+  function removeCommentFromFeed(postId: string, commentId: string) {
+    setFeed((items) =>
+      items.map((item) =>
+        item.post.id === postId
+          ? {
+              ...item,
+              post: {
+                ...item.post,
+                comments: item.post.comments.filter(
+                  (comment) => comment.id !== commentId,
+                ),
+              },
+            }
+          : item,
+      ),
+    );
+  }
+
   async function handleDeletePost(channelSlug: string, postId: string) {
     await deleteChannelPost(channelSlug, postId);
     removePostFromFeed(postId);
@@ -165,6 +184,15 @@ export default function HomePageClient({
     const comment = await createChannelReply(channelSlug, postId, replyBody);
     appendCommentToFeed(postId, comment);
     return comment;
+  }
+
+  async function handleDeleteReply(
+    channelSlug: string,
+    postId: string,
+    replyId: string,
+  ) {
+    await deleteChannelReply(channelSlug, postId, replyId);
+    removeCommentFromFeed(postId, replyId);
   }
 
   //   IF NOT LOGGED -> REDIRECT TO SIGN IN SIGN UP
@@ -222,6 +250,9 @@ export default function HomePageClient({
               }
               onDelete={(postId) =>
                 handleDeletePost(item.post.channelSlug, postId)
+              }
+              onDeleteComment={(postId, commentId) =>
+                handleDeleteReply(item.post.channelSlug, postId, commentId)
               }
             />
           ))

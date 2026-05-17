@@ -115,7 +115,7 @@ function ResetPasswordForm() {
             Your password has been updated. Redirecting to sign in...
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="flex flex-col gap-3.5">
+          <form onSubmit={handleSubmit} autoComplete="off" className="flex flex-col gap-3.5">
             <div>
               <label className="mb-1.5 block text-[12px] font-medium text-text-muted">
                 New password
@@ -126,7 +126,9 @@ function ResetPasswordForm() {
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
                   placeholder="Min. 12 characters"
-                  autoComplete="new-password"
+                  autoComplete="off"
+                  data-lpignore="true"
+                  data-1p-ignore="true"
                   className="w-full rounded-[10px] border border-border-default bg-bg-primary px-3.5 py-3 pr-11 text-[14px] text-text-primary outline-none placeholder:text-text-dimmed focus:border-border-strong"
                 />
                 <button
@@ -170,7 +172,9 @@ function ResetPasswordForm() {
                 onChange={(event) => setConfirmPassword(event.target.value)}
                 onPaste={(event) => event.preventDefault()}
                 placeholder="Re-enter your password"
-                autoComplete="new-password"
+                autoComplete="off"
+                data-lpignore="true"
+                data-1p-ignore="true"
                 className="w-full rounded-[10px] border border-border-default bg-bg-primary px-3.5 py-3 text-[14px] text-text-primary outline-none placeholder:text-text-dimmed focus:border-border-strong"
               />
             </div>

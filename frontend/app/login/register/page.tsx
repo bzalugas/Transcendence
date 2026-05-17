@@ -5,6 +5,12 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import TermsAcceptanceModal from "@/components/TermsAcceptanceModal";
 import { authClient } from "@/lib/auth-client"; 
+import {
+  EMAIL_FORMAT_HINT,
+  INVALID_EMAIL_MESSAGE,
+  isValidEmailAddress,
+  normalizeEmail,
+} from "@/lib/validation/email";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -25,13 +31,16 @@ export default function RegisterPage() {
     { label: "A special character", test: /[^a-zA-Z0-9]/.test(password) },
   ];
   const passwordValid = pwRules.every((r) => r.test);
+  const normalizedEmail = normalizeEmail(email);
+  const emailHasValue = normalizedEmail.length > 0;
+  const emailValid = isValidEmailAddress(normalizedEmail);
 
   const registerUser = async () => {
     setLoading(true);
     setError("");
 
     const { error } = await authClient.signUp.email({
-      email,
+      email: normalizedEmail,
       password,
       name: `${firstName} ${lastName}`,
     });
@@ -52,6 +61,11 @@ export default function RegisterPage() {
 
     if (!firstName || !lastName || !email || !password || !confirmPassword) {
       setError("Please fill in all fields.");
+      return;
+    }
+
+    if (!emailValid) {
+      setError(INVALID_EMAIL_MESSAGE);
       return;
     }
 
@@ -116,7 +130,7 @@ export default function RegisterPage() {
         </p>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="flex flex-col gap-3.5">
+        <form onSubmit={handleSubmit} autoComplete="off" className="flex flex-col gap-3.5">
           {/* Name */}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
@@ -155,8 +169,22 @@ export default function RegisterPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@example.com"
-              className="w-full rounded-[10px] border border-border-default bg-bg-primary px-3.5 py-3 text-[14px] text-text-primary outline-none placeholder:text-text-dimmed focus:border-border-strong"
+              autoComplete="off"
+              autoCapitalize="none"
+              spellCheck={false}
+              className={`w-full rounded-[10px] border bg-bg-primary px-3.5 py-3 text-[14px] text-text-primary outline-none placeholder:text-text-dimmed focus:border-border-strong ${
+                emailHasValue
+                  ? emailValid
+                    ? "border-accent-green"
+                    : "border-danger"
+                  : "border-border-default"
+              }`}
             />
+            {emailHasValue && (
+              <p className={`mt-1.5 text-[11.5px] ${emailValid ? "text-accent-green" : "text-danger"}`}>
+                {emailValid ? "Valid email address." : EMAIL_FORMAT_HINT}
+              </p>
+            )}
           </div>
 
           {/* Password */}
@@ -170,7 +198,9 @@ export default function RegisterPage() {
 					value={password}
 					onChange={(e) => setPassword(e.target.value)}
 					placeholder="Min. 12 characters"
-					autoComplete="new-password"
+					autoComplete="off"
+					data-lpignore="true"
+					data-1p-ignore="true"
 					className="w-full rounded-[10px] border border-border-default bg-bg-primary px-3.5 py-3 pr-11 text-[14px] text-text-primary outline-none placeholder:text-text-dimmed focus:border-border-strong"
 				/>
 				<button
@@ -235,19 +265,21 @@ export default function RegisterPage() {
           </div>
 
           {/* Confirm password */}
-		  <div className={`transition-opacity ${!passwordValid ? "pointer-events-none opacity-40" : ""}`}>
-			<label className="mb-1.5 block text-[12px] font-medium text-text-muted">
-				Confirm password
-			</label>
+          <div className={`transition-opacity ${!passwordValid ? "pointer-events-none opacity-40" : ""}`}>
+            <label className="mb-1.5 block text-[12px] font-medium text-text-muted">
+              Confirm password
+            </label>
             <input
-            	type={showPassword ? "text" : "password"}
-            	value={confirmPassword}
-            	onChange={(e) => setConfirmPassword(e.target.value)}
-            	onPaste={(e) => e.preventDefault()}
-            	placeholder="Re-enter your password"
-            	autoComplete="new-password"
-            	// disabled={!passwordValid}
-            	className="w-full rounded-[10px] border border-border-default bg-bg-primary px-3.5 py-3 text-[14px] text-text-primary outline-none placeholder:text-text-dimmed focus:border-border-strong disabled:cursor-not-allowed"
+              type={showPassword ? "text" : "password"}
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              onPaste={(e) => e.preventDefault()}
+              placeholder="Re-enter your password"
+              autoComplete="off"
+              data-lpignore="true"
+              data-1p-ignore="true"
+              // disabled={!passwordValid}
+              className="w-full rounded-[10px] border border-border-default bg-bg-primary px-3.5 py-3 text-[14px] text-text-primary outline-none placeholder:text-text-dimmed focus:border-border-strong disabled:cursor-not-allowed"
             />
           </div>
 

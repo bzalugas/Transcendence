@@ -83,24 +83,9 @@ export class ChannelsService {
     private readonly blocksService: BlocksService,
   ) {}
 
-  // Reads all channels with their interest metadata and root post counts.
-  async findAll(): Promise<ChannelDto[]> {
-    const channels = await this.prisma.channel.findMany({
-      include: this.channelInclude(),
-    });
-    const rootPostCounts = await this.getRootPostCounts(
-      channels.map((channel) => channel.id),
-    );
-
-    return channels
-      .map((channel) =>
-        this.toChannelDto(
-          channel,
-          undefined,
-          rootPostCounts.get(channel.id) ?? 0,
-        ),
-      )
-      .sort((a, b) => a.label.localeCompare(b.label));
+  // Reads channels visible to one user through the User_Channel relation.
+  async findAll(userId: string): Promise<ChannelDto[]> {
+    return this.findJoinedForUser(userId);
   }
 
   // Reads channels joined by one user through the User_Channel relation.
@@ -131,22 +116,32 @@ export class ChannelsService {
       .sort((a, b) => a.label.localeCompare(b.label));
   }
 
-  // Finds one channel from the public slug derived from its interest name.
-  async findBySlug(slug: string): Promise<ChannelDto> {
+  // Finds one joined channel from the public slug derived from its interest name.
+  async findBySlug(userId: string, slug: string): Promise<ChannelDto> {
     const channel = await this.findChannelBySlug(slug);
+    const membership = await this.findChannelMembership(userId, channel.id);
+
+    if (!membership) {
+      throw new NotFoundException('Channel not found');
+    }
+
     return this.toChannelDto(
       channel,
-      undefined,
+      {
+        joined: true,
+        isFavorite: membership.isFavorite,
+      },
       await this.countRootPosts(channel.id),
     );
   }
 
-  // Lists users who joined the channel identified by slug.
+  // Lists users who joined the channel identified by slug, when visible to the current user.
   async findMembersBySlug(
     slug: string,
     currentUserId: string,
   ): Promise<ChannelMemberDto[]> {
     const channel = await this.findChannelBySlug(slug);
+    await this.assertChannelVisibility(currentUserId, channel.id);
     const memberships = await this.prisma.user_Channel.findMany({
       where: { channelId: channel.id },
       include: {
@@ -188,12 +183,13 @@ export class ChannelsService {
       }));
   }
 
-  // Reads persisted root posts for a channel and formats them for the feed UI.
+  // Reads persisted root posts for a joined channel and formats them for the feed UI.
   async findFeedBySlug(
     slug: string,
     currentUserId: string,
   ): Promise<ChannelFeedItemDto[]> {
     const channel = await this.findChannelBySlug(slug);
+    await this.assertChannelVisibility(currentUserId, channel.id);
     const blockedUserIds = new Set(
       await this.blocksService.getBlockedPairUserIds(currentUserId),
     );
@@ -357,6 +353,7 @@ export class ChannelsService {
     }
 
     const channel = await this.findChannelBySlug(slug);
+    await this.assertChannelMembership(userId, channel.id);
     const existingPost = await this.prisma.post.findFirst({
       where: {
         id: postId,
@@ -469,6 +466,7 @@ export class ChannelsService {
     postId: number,
   ): Promise<{ deleted: true }> {
     const channel = await this.findChannelBySlug(slug);
+    await this.assertChannelMembership(userId, channel.id);
     const post = await this.prisma.post.findFirst({
       where: {
         id: postId,
@@ -623,7 +621,27 @@ export class ChannelsService {
     userId: string,
     channelId: number,
   ): Promise<void> {
-    const membership = await this.prisma.user_Channel.findUnique({
+    const membership = await this.findChannelMembership(userId, channelId);
+
+    if (!membership) {
+      throw new ForbiddenException('Join the channel before posting');
+    }
+  }
+
+  // Hides a channel entirely unless the user joined it.
+  private async assertChannelVisibility(
+    userId: string,
+    channelId: number,
+  ): Promise<void> {
+    const membership = await this.findChannelMembership(userId, channelId);
+
+    if (!membership) {
+      throw new NotFoundException('Channel not found');
+    }
+  }
+
+  private async findChannelMembership(userId: string, channelId: number) {
+    return this.prisma.user_Channel.findUnique({
       where: {
         userId_channelId: {
           userId,
@@ -631,10 +649,6 @@ export class ChannelsService {
         },
       },
     });
-
-    if (!membership) {
-      throw new ForbiddenException('Join the channel before posting');
-    }
   }
 
   // Finds a channel by comparing the requested slug to each interest-name slug.

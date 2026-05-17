@@ -21,11 +21,11 @@ export class ChannelsController {
     private readonly channelsGateway: ChannelsGateway,
   ) {}
 
-  // Returns every channel backed by an Interest row.
+  // Returns channels visible to the current better-auth session user.
   @Get()
   async findAll(@Req() req: Request) {
-    await getSessionUserId(req);
-    return this.channelsService.findAll();
+    const userId = await getSessionUserId(req);
+    return this.channelsService.findAll(userId);
   }
 
   // Returns channels joined by the current better-auth session user.
@@ -35,21 +35,21 @@ export class ChannelsController {
     return this.channelsService.findJoinedForUser(userId);
   }
 
-  // Returns one channel by its interest-name slug.
+  // Returns one joined channel by its interest-name slug.
   @Get(':slug')
   async findOne(@Req() req: Request, @Param('slug') slug: string) {
-    await getSessionUserId(req);
-    return this.channelsService.findBySlug(slug);
+    const userId = await getSessionUserId(req);
+    return this.channelsService.findBySlug(userId, slug);
   }
 
-  // Returns members of one channel by its interest-name slug.
+  // Returns members of one joined channel by its interest-name slug.
   @Get(':slug/members')
   async findMembers(@Req() req: Request, @Param('slug') slug: string) {
     const userId = await getSessionUserId(req);
     return this.channelsService.findMembersBySlug(slug, userId);
   }
 
-  // Returns the persisted post feed for one channel.
+  // Returns the persisted post feed for one joined channel.
   @Get(':slug/feed')
   async findFeed(@Req() req: Request, @Param('slug') slug: string) {
     const userId = await getSessionUserId(req);

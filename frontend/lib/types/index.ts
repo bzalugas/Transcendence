@@ -63,6 +63,7 @@ export interface ChannelMember {
 
 export interface Comment {
   id?: string;
+  authorId?: string;
   initials: string;
   avatarUrl?: string;
   author: string;

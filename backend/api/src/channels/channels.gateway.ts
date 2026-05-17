@@ -8,6 +8,7 @@ import {
 } from '@nestjs/websockets';
 import type { Server, Socket } from 'socket.io';
 import { auth } from '../../lib/auth';
+import { BlocksService } from '../blocks/blocks.service';
 import {
   ChannelsService,
   type ChannelCommentDto,
@@ -31,7 +32,10 @@ export class ChannelsGateway implements OnGatewayConnection {
   @WebSocketServer()
   private readonly server!: Server;
 
-  constructor(private readonly channelsService: ChannelsService) {}
+  constructor(
+    private readonly channelsService: ChannelsService,
+    private readonly blocksService: BlocksService,
+  ) {}
 
   async handleConnection(client: AuthenticatedSocket) {
     try {
@@ -70,15 +74,15 @@ export class ChannelsGateway implements OnGatewayConnection {
     }
   }
 
-  emitPost(slug: string, post: ChannelPostDto) {
-    this.server.to(this.channelRoom(slug)).emit('channel:post', {
+  async emitPost(slug: string, post: ChannelPostDto) {
+    await this.emitVisibleToChannel(slug, post.authorId, 'channel:post', {
       slug,
       post,
     });
   }
 
-  emitReply(slug: string, postId: number, comment: ChannelCommentDto) {
-    this.server.to(this.channelRoom(slug)).emit('channel:reply', {
+  async emitReply(slug: string, postId: number, comment: ChannelCommentDto) {
+    await this.emitVisibleToChannel(slug, comment.authorId, 'channel:reply', {
       slug,
       postId: String(postId),
       comment,
@@ -130,6 +134,31 @@ export class ChannelsGateway implements OnGatewayConnection {
 
   private channelRoom(slug: string): string {
     return `channel:${slug}`;
+  }
+
+  private async emitVisibleToChannel(
+    slug: string,
+    authorId: string,
+    event: 'channel:post' | 'channel:reply',
+    payload: unknown,
+  ) {
+    const sockets = await this.server.in(this.channelRoom(slug)).fetchSockets();
+
+    await Promise.all(
+      sockets.map(async (socket) => {
+        const receiverId = socket.data.userId;
+
+        if (
+          !receiverId ||
+          (receiverId !== authorId &&
+            (await this.blocksService.isBlockedBetween(receiverId, authorId)))
+        ) {
+          return;
+        }
+
+        socket.emit(event, payload);
+      }),
+    );
   }
 
   private emitError(client: Socket, error: unknown) {

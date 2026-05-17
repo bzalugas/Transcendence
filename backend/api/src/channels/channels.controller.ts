@@ -70,7 +70,7 @@ export class ChannelsController {
       body.content,
       body.attachmentIds,
     );
-    this.channelsGateway.emitPost(slug, post);
+    await this.channelsGateway.emitPost(slug, post);
 
     return post;
   }
@@ -90,7 +90,7 @@ export class ChannelsController {
       postId,
       body.content,
     );
-    this.channelsGateway.emitReply(slug, postId, reply);
+    await this.channelsGateway.emitReply(slug, postId, reply);
 
     return reply;
   }

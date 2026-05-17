@@ -66,6 +66,7 @@ export interface ChannelPostAttachmentDto {
 
 export interface ChannelCommentDto {
   id: string;
+  authorId: string;
   initials: string;
   avatarUrl?: string;
   author: string;
@@ -889,6 +890,7 @@ export class ChannelsService {
     id: number;
     createdAt: Date;
     content: string;
+    authorId: string;
     author: {
       login: string | null;
       name: string | null;
@@ -903,6 +905,7 @@ export class ChannelsService {
 
     return {
       id: String(comment.id),
+      authorId: comment.authorId,
       initials: this.initials(commentAuthor),
       avatarUrl:
         comment.author.profile?.avatarUri ?? comment.author.image ?? undefined,

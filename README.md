@@ -1,6 +1,6 @@
 *This project has been created as part of the 42 curriculum by ade-sarr, albestae, bazaluga, ilavillu, licohen.*
 
-# 42Connect
+# 42Connect - ft_transcendence
 
 ## Description
 

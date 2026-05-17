@@ -888,3 +888,7 @@ function mergeComments(
 ): Comment[] {
   return optimisticComments.reduce(appendUniqueComment, comments);
 }
+
+function normalizeIdentity(value: string): string {
+  return value.trim().toLowerCase();
+}

@@ -35,10 +35,10 @@ Then fill the required secrets in `docker/.env`, especially:
 For the current local HTTPS setup, the public URLs should use:
 
 ```env
-BETTER_AUTH_URL=https://localhost
-NEXT_PUBLIC_API_URL=https://localhost
-NEXT_PUBLIC_FRONTEND_URL=https://localhost
-NEXT_INTERNAL_API_URL=https://proxy/api
+BETTER_AUTH_URL=https://localhost:2323
+NEXT_PUBLIC_API_URL=https://localhost:2323
+NEXT_PUBLIC_FRONTEND_URL=https://localhost:2323
+NEXT_INTERNAL_API_URL=https://proxy:2323/api
 CADDY_INTERNAL_CA_CERT=/caddy-data/caddy/pki/authorities/local/root.crt
 ```
 
@@ -53,7 +53,7 @@ make
 Open:
 
 ```text
-https://localhost
+https://localhost:2323
 ```
 
 Development stack:
@@ -64,9 +64,9 @@ make dev
 
 Useful development URLs:
 
-- Frontend: `https://localhost`
-- API: `https://localhost/api`
-- HTTPS proxy: `https://localhost`
+- Frontend: `https://localhost:2323`
+- API: `https://localhost:2323/api`
+- HTTPS proxy: `https://localhost:2323`
 - Adminer: `http://localhost:8081`
 - PostgreSQL host port: `5433`
 
@@ -233,14 +233,10 @@ When adding or updating an SSR route, follow these rules:
 - keep `page.tsx` as a server component, without `"use client"`;
 - move browser-only behavior into a colocated `*Client.tsx` component;
 - use `frontend/lib/server/api.ts` for authenticated server-side API calls;
-- do not call `https://localhost/api` from SSR code, because inside the `front`
-  container `localhost` means the frontend container itself;
-- do not call the API with plain `http://api:3000` from SSR code, because the
-  subject requires HTTPS for backend access;
-- use `NEXT_INTERNAL_API_URL=https://proxy/api`, which sends SSR requests through
-  Caddy over HTTPS inside the Docker network;
-- keep `NODE_EXTRA_CA_CERTS` mapped from `CADDY_INTERNAL_CA_CERT` for the frontend
-  container so Node trusts Caddy's internal certificate authority.
+- do not call `https://localhost/api` from SSR code, because inside the `front` container `localhost` means the frontend container itself;
+- do not call the API with plain `http://api:3000` from SSR code, because the subject requires HTTPS for backend access;
+- use `NEXT_INTERNAL_API_URL=https://proxy:2323/api`, which sends SSR requests through Caddy over HTTPS inside the Docker network;
+- keep `NODE_EXTRA_CA_CERTS` mapped from `CADDY_INTERNAL_CA_CERT` for the frontend container so Node trusts Caddy's internal certificate authority.
 
 SEO is implemented with Next metadata APIs:
 
@@ -257,7 +253,7 @@ SEO is implemented with Next metadata APIs:
 
 | Service | Role | Internal port | Public access |
 | --- | --- | --- | --- |
-| `proxy` | Caddy reverse proxy, HTTPS entry point, routes traffic | `80`, `443` | yes |
+| `proxy` | Caddy reverse proxy, HTTPS entry point, routes traffic | `2323` | yes |
 | `front` | Next.js application served by Bun | `8080` | through `proxy` in production |
 | `api` | NestJS API, Better Auth, Prisma access | `3000` | through `proxy` at `/api/*` |
 | `db` | PostgreSQL database | `5432` | no in production |
@@ -267,7 +263,7 @@ SEO is implemented with Next metadata APIs:
 
 Production uses `docker/compose.yaml`.
 
-- `proxy` exposes ports `80` and `443`.
+- `proxy` exposes ports `2323`.
 - `front`, `api`, and `db` are intended to be reached through Docker networking.
 - the API entry point waits for PostgreSQL, then runs `prisma migrate deploy`.
 

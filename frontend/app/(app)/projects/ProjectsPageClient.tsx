@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Avatar from "@/components/Avatar";
 import FriendsPanel from "@/components/FriendsPanel";
 import MessageComposer from "@/components/MessageComposer";
+import ResponsiveRightPanel, { useResponsiveRightPanel } from "@/components/ResponsiveRightPanel";
 import PanelToggleIcon from "@/components/icons/PanelToggleIcon";
 import { getBlockedUsers } from "@/lib/data/blocks";
 import {
@@ -19,7 +20,13 @@ export default function ProjectsPageClient({
 }: {
   initialProjects: ProjectGridItem[];
 }) {
-  const [showPanel, setShowPanel] = useState(true);
+  const {
+    desktopOpen: panelDesktopOpen,
+    overlayOpen: panelOverlayOpen,
+    panelOpen,
+    togglePanel,
+    closeOverlay,
+  } = useResponsiveRightPanel();
   const [projectSearch, setProjectSearch] = useState("");
   const [projects, setProjects] = useState<ProjectGridItem[]>(initialProjects);
   const [projectsLoading, setProjectsLoading] = useState(false);
@@ -28,7 +35,7 @@ export default function ProjectsPageClient({
   const [draft, setDraft] = useState("");
   const [blockedNames, setBlockedNames] = useState<Set<string>>(new Set());
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
-  const composerInputRef = useRef<HTMLInputElement | null>(null);
+  const composerInputRef = useRef<HTMLTextAreaElement | null>(null);
 
   const filteredProjects = useMemo(() => {
     const q = projectSearch.trim().toLowerCase();
@@ -167,9 +174,9 @@ export default function ProjectsPageClient({
             </div>
             <button
               type="button"
-              onClick={() => setShowPanel(!showPanel)}
-              className={`mt-1 hidden items-center rounded-[5px] p-1 transition-colors hover:bg-bg-hover hover:text-text-primary xl:flex ${
-                showPanel ? "text-text-dimmed" : "bg-bg-hover text-text-primary"
+              onClick={togglePanel}
+              className={`mt-1 flex items-center rounded-[5px] p-1 transition-colors hover:bg-bg-hover hover:text-text-primary ${
+                panelOpen ? "text-text-dimmed" : "bg-bg-hover text-text-primary"
               }`}
               title="Toggle panel"
             >
@@ -267,6 +274,16 @@ export default function ProjectsPageClient({
                     {activeProject.description}
                   </div>
                 </div>
+                <button
+                  type="button"
+                  onClick={togglePanel}
+                  className={`shrink-0 rounded-[5px] p-1 transition-colors hover:bg-bg-hover hover:text-text-primary ${
+                    panelOpen ? "text-text-dimmed" : "bg-bg-hover text-text-primary"
+                  }`}
+                  title="Toggle panel"
+                >
+                  <PanelToggleIcon className="h-5 w-5" />
+                </button>
               </div>
 
               <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4 sm:px-5">
@@ -291,15 +308,17 @@ export default function ProjectsPageClient({
         )}
       </div>
 
-      {showPanel && (
-        <div className="hidden w-[260px] shrink-0 xl:flex">
-          <FriendsPanel
-            topSlot={
-              <ProjectsActivityPanel projects={mostActiveProjects} />
-            }
-          />
-        </div>
-      )}
+      <ResponsiveRightPanel
+        desktopOpen={panelDesktopOpen}
+        overlayOpen={panelOverlayOpen}
+        onCloseOverlay={closeOverlay}
+      >
+        <FriendsPanel
+          topSlot={
+            <ProjectsActivityPanel projects={mostActiveProjects} />
+          }
+        />
+      </ResponsiveRightPanel>
     </>
   );
 }

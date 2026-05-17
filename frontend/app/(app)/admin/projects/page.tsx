@@ -118,6 +118,12 @@ export default function AdminProjectsPage() {
           <div className="mt-2 text-[13px] leading-relaxed text-text-muted">
             Please use a desktop screen to manage projects.
           </div>
+          <Link
+            href="/"
+            className="mt-5 inline-flex rounded-[7px] bg-accent-blue px-3.5 py-2 text-[12.5px] font-semibold text-white transition-opacity hover:opacity-85"
+          >
+            Back to app
+          </Link>
         </div>
       </div>
 
@@ -162,7 +168,7 @@ export default function AdminProjectsPage() {
         </aside>
 
         <main className="flex min-w-0 flex-1 flex-col bg-bg-tertiary">
-          <header className="flex h-[68px] shrink-0 items-center justify-between border-b border-border-default px-7">
+          <header className="flex min-h-[68px] shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border-default px-4 py-3 sm:px-7 sm:py-0">
             <div>
               <div className="flex items-center gap-2">
                 <span className="rounded-full bg-danger/10 px-2 py-0.5 text-[10.5px] font-semibold uppercase tracking-[0.12em] text-danger">
@@ -179,7 +185,7 @@ export default function AdminProjectsPage() {
 
             <Link
               href="/"
-              className="rounded-[7px] bg-accent-blue px-3.5 py-2 text-[12.5px] font-semibold text-white transition-opacity hover:opacity-85"
+              className="shrink-0 rounded-[7px] bg-accent-blue px-3.5 py-2 text-[12.5px] font-semibold text-white transition-opacity hover:opacity-85 max-[520px]:w-full max-[520px]:text-center"
             >
               Back to app
             </Link>

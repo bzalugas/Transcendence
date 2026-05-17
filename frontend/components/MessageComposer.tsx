@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { Theme as EmojiPickerTheme } from "emoji-picker-react";
 import {
@@ -20,7 +20,7 @@ interface MessageComposerProps {
   onChange: (value: string) => void;
   onSend: (attachmentIds: number[]) => void | Promise<void>;
   placeholder: string;
-  inputRef?: React.Ref<HTMLInputElement>;
+  inputRef?: React.Ref<HTMLTextAreaElement>;
   allowAttachments?: boolean;
 }
 
@@ -50,12 +50,21 @@ export default function MessageComposer({
   const [uploads, setUploads] = useState<UploadItem[]>([]);
   const [uploadError, setUploadError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const internalInputRef = useRef<HTMLTextAreaElement | null>(null);
 
   const uploadedAssets = uploads
     .filter((upload) => upload.status === "uploaded" && upload.asset)
     .map((upload) => upload.asset as FileAsset);
   const isUploading = uploads.some((upload) => upload.status === "uploading");
   const canSend = !isUploading && (value.trim() || (allowAttachments && uploadedAssets.length > 0));
+
+  useEffect(() => {
+    const textarea = internalInputRef.current;
+    if (!textarea) return;
+
+    textarea.style.height = "0px";
+    textarea.style.height = `${Math.min(textarea.scrollHeight, 128)}px`;
+  }, [value]);
 
   async function sendMessage() {
     if (!canSend) return;
@@ -316,17 +325,25 @@ export default function MessageComposer({
           )}
         </div>
 
-        <input
-          ref={inputRef}
+        <textarea
+          ref={(node) => {
+            internalInputRef.current = node;
+            if (typeof inputRef === "function") {
+              inputRef(node);
+            } else if (inputRef) {
+              inputRef.current = node;
+            }
+          }}
           value={value}
           onChange={(event) => onChange(event.target.value)}
           onKeyDown={(event) => {
-            if (event.key === "Enter") {
+            if (event.key === "Enter" && !event.shiftKey) {
               event.preventDefault();
               void sendMessage();
             }
           }}
-          className="min-w-0 flex-1 rounded-full border border-border-default bg-bg-hover px-4 py-2.5 text-[13.5px] text-text-tertiary outline-none focus:border-border-strong focus:text-text-primary"
+          rows={1}
+          className="max-h-32 min-h-10 min-w-0 flex-1 resize-none rounded-[20px] border border-border-default bg-bg-hover px-4 py-2.5 text-[13.5px] leading-5 text-text-tertiary outline-none focus:border-border-strong focus:text-text-primary"
           placeholder={placeholder}
         />
 

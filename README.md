@@ -344,13 +344,25 @@ Additional schema documentation (class diagram):
 
 ## Project Management
 
-To complete before evaluation:
+After sharing and organizing ideas, we settled on albestae's idea : a 42 social network. 
+We organically decided to elect him Product Owner and give him the final say about the goals and objective of the project.
+He also worked on the front side of the project and gave us the visuals to support the code we worked on.
 
-- role distribution
-- task tracking tool
-- meeting rhythm
-- communication channel
-- code review process
+As bazaluga had experience and motivation with full-stack developpment, he was chosen Technical Lead, upon which he built the docker infrastructure and presented us with frameworks to research on for the project and created a GitHub with strict rules.
+
+As Product Manager, ilavillu took the lead to manage meetings, and set up tools such as : 
+- a Trello for task tracking,
+- a Discord group chat to communicate efficiently, 
+- and a Notion to organize ourselves.
+
+Both ade-sarr and licohen were mainly developers, with ade-sarr working with sockets, for the messages, and to make the application as responsive as possible, and licohen designing the algorithms and the friends part of the website.
+Both of them and ilavillu also worked as support for the front and back when necessary, and shared ideas as much as possible.
+
+We had weekly reviews, and regular calls and checkups whenever anyone needed help, guidance, or to make sure everything was on track, updated the Trello as we worked on tasks and made sure the group knew of incoming GitHub pull requests.
+More meetings and calls took place as we approached the end of the project.
+
+When working on our own, each PR (pull request) was reviewed by two peers, who compile the project locally before validating. 
+As the project neared its end, we reduced the number of necessary reviewers to one, as we were more actively pushing updates to the project, and were working together more and more. 
 
 ## Individual Contributions
 

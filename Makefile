@@ -5,26 +5,29 @@ ENV_FILE		:= docker/.env
 BACKEND_DIR     := backend/api
 API_CONTAINER   := transcendence_api
 DB_CONTAINER    := transcendence_db
+FRONT_ENV_FILE := frontend/.env.local
 
 all: up
 
+prepare-front-env:
+	@cp $(ENV_FILE) $(FRONT_ENV_FILE)
 # --- PROD PART ---
-up:
+up: prepare-front-env
 	$(COMPOSE) -f $(COMPOSE_FILE) --env-file $(ENV_FILE) up -d --build
 
-up-d:
+up-d: prepare-front-env
 	$(COMPOSE) -f $(COMPOSE_FILE) --env-file $(ENV_FILE) up -d
 
-build:
+build: prepare-front-env
 	$(COMPOSE) -f $(COMPOSE_FILE) --env-file $(ENV_FILE) build
 
-build-one:
+build-one: prepare-front-env
 	$(COMPOSE) -f $(COMPOSE_FILE) --env-file $(ENV_FILE) build $(service)
 
-up-one:
+up-one: prepare-front-env
 	$(COMPOSE) -f $(COMPOSE_FILE) --env-file $(ENV_FILE) up -d $(service)
 
-recreate-one:
+recreate-one: prepare-front-env
 	$(COMPOSE) -f $(COMPOSE_FILE) --env-file $(ENV_FILE) up -d --build --force-recreate $(service)
 
 logs:
@@ -53,30 +56,30 @@ re: clean build up
 # --- DEV PART ---
 dev: dev-up
 
-dev-up:
+dev-up: prepare-front-env
 	$(COMPOSE) -f $(COMPOSE_FILE) -f $(COMPOSE_DEV) --env-file $(ENV_FILE) up
 
-dev-up-d:
+dev-up-d: prepare-front-env
 	$(COMPOSE) -f $(COMPOSE_FILE) -f $(COMPOSE_DEV) --env-file $(ENV_FILE) up -d
 
-db-setup:
+db-setup: prepare-front-env
 	docker exec $(API_CONTAINER) bunx prisma generate
 	docker exec $(API_CONTAINER) bunx prisma migrate deploy
 	docker exec $(API_CONTAINER) bunx prisma db seed
 
-dev-build:
+dev-build: prepare-front-env
 	$(COMPOSE) -f $(COMPOSE_FILE) -f $(COMPOSE_DEV) --env-file $(ENV_FILE) build
 
-dev-rebuild:
+dev-rebuild: prepare-front-env
 	$(COMPOSE) -f $(COMPOSE_FILE) -f $(COMPOSE_DEV) --env-file $(ENV_FILE) up -d --build 
 
-dev-build-one:
+dev-build-one: prepare-front-env
 	$(COMPOSE) -f $(COMPOSE_FILE) -f $(COMPOSE_DEV) --env-file $(ENV_FILE) build $(service)
 
-dev-up-one:
+dev-up-one: prepare-front-env
 	$(COMPOSE) -f $(COMPOSE_FILE) -f $(COMPOSE_DEV) --env-file $(ENV_FILE) up -d $(service)
 
-dev-recreate-one:
+dev-recreate-one: prepare-front-env
 	$(COMPOSE) -f $(COMPOSE_FILE) -f $(COMPOSE_DEV) --env-file $(ENV_FILE) up -d --build --force-recreate $(service)
 
 dev-logs:
